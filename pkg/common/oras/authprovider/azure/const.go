@@ -25,6 +25,7 @@ const (
 	dockerTokenLoginUsernameGUID               = "00000000-0000-0000-0000-000000000000"
 	AADResource                                = "https://containerregistry.azure.net/.default"
 	defaultACRExpiryDuration     time.Duration = 3 * time.Hour
+	defaultACREndpoint                         = "*.azurecr.io"
 )
 
 var (
