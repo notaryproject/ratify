@@ -87,6 +87,7 @@ func (r *ExecutorReconciler) updateStatus(ctx context.Context, executor *configv
 		executor.Status.Error = err.Error()
 	} else {
 		executor.Status.Succeeded = true
+		executor.Status.Error = ""
 	}
 	if statusErr := r.Status().Update(ctx, executor); statusErr != nil {
 		log := logf.FromContext(ctx)

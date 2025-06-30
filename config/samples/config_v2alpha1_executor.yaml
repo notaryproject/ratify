@@ -16,8 +16,8 @@ spec:
     type: threshold-policy
   stores:
     - parameters:
-        password: ""
-        username: ""
+        credential:
+          provider: static
       type: registry-store
   verifiers:
     - name: notation-1
@@ -44,5 +44,4 @@ spec:
               90sUs65zovUjv1wa11SqOdu12cCj/MYp+H8j2lpaLL2t0cbFJlBY6DNJgxr5qync
               cz8gbXrZmNbzC7W5QK5J7fcx6tlffOpt5cm427f9NiK2tira50HU7gC3HJkbiSTp
               Xw10iXXMZzSbQ0/Hj2BF4B40WfAkgRg=
-              -----END CERTIFICATE-----
       type: notation

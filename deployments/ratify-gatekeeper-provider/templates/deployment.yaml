@@ -13,6 +13,9 @@ spec:
     metadata:
       labels:
         {{- include "ratify.selectorLabels" . | nindent 8 }}
+        {{- if eq (index .Values.stores 0).credential.provider "azure" }}
+        azure.workload.identity/use: "true"
+        {{- end }}
     spec:
       {{- if .Values.serviceAccount.create }}
       serviceAccountName: {{ include "ratify.serviceAccountName" . }}
