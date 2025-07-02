@@ -16,41 +16,35 @@ limitations under the License.
 package registrystore
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
 	"github.com/notaryproject/ratify/v2/internal/store/factory"
+
+	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/azure"  // Register the Azure credential provider factory
+	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/static" // Register the static credential provider factory
 )
 
 const registryStoreType = "registry-store"
 
-type credential struct {
-	// Username is the username to login to the registry.
-	// If not set, password will be used as a refresh token. Optional.
-	Username string `json:"username,omitempty"`
-
-	// Password is the password to login to the registry.
-	// If username is not set, this will be used as a refresh token. Required.
-	Password string `json:"password"`
-}
-
 type options struct {
-	// PlainHTTP indicates whether to use HTTP instead of HTTPS.
-	PlainHTTP bool `json:"plain_http,omitempty"`
+	// PlainHTTP indicates whether to use HTTP instead of HTTPS. Optional.
+	PlainHTTP bool `json:"plainHttp,omitempty"`
 
 	// UserAgent is the user agent to use when making requests to the registry.
-	UserAgent string `json:"user_agent,omitempty"`
+	// Optional.
+	UserAgent string `json:"userAgent,omitempty"`
 
-	// MaxBlobBytes is the maximum size of a blob in bytes.
-	MaxBlobBytes int64 `json:"max_blob_bytes,omitempty"`
+	// MaxBlobBytes is the maximum size of a blob in bytes. Optional.
+	MaxBlobBytes int64 `json:"maxBlobBytes,omitempty"`
 
-	// MaxManifestBytes is the maximum size of a manifest in bytes.
-	MaxManifestBytes int64 `json:"max_manifest_bytes,omitempty"`
+	// MaxManifestBytes is the maximum size of a manifest in bytes. Optional.
+	MaxManifestBytes int64 `json:"maxManifestBytes,omitempty"`
 
-	// Credential is the credential to use when accessing the registry.
-	Credential credential `json:"credential,omitempty"`
+	// CredentialProvider is the credential provider configuration. Required.
+	CredentialProvider credentialprovider.Options `json:"credential"`
 }
 
 func init() {
@@ -65,37 +59,20 @@ func init() {
 			return nil, fmt.Errorf("failed to unmarshal store parameters: %w", err)
 		}
 
+		// Use the configured credential provider
+		credProvider, err := credentialprovider.NewCredentialProvider(params.CredentialProvider)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create credential provider: %w", err)
+		}
+
 		registryStoreOpts := ratify.RegistryStoreOptions{
-			PlainHTTP:        params.PlainHTTP,
-			UserAgent:        params.UserAgent,
-			MaxBlobBytes:     params.MaxBlobBytes,
-			MaxManifestBytes: params.MaxManifestBytes,
-			CredentialProvider: &defaultCredGetter{
-				username: params.Credential.Username,
-				password: params.Credential.Password,
-			},
+			PlainHTTP:          params.PlainHTTP,
+			UserAgent:          params.UserAgent,
+			MaxBlobBytes:       params.MaxBlobBytes,
+			MaxManifestBytes:   params.MaxManifestBytes,
+			CredentialProvider: credProvider,
 		}
 
 		return ratify.NewRegistryStore(registryStoreOpts), nil
 	})
-}
-
-// defaultCredGetter is a simple implementation of [ratify.RegistryCredentialGetter]
-// interface.
-type defaultCredGetter struct {
-	username string
-	password string
-}
-
-// Get returns the credentials for the registry.
-func (d *defaultCredGetter) Get(_ context.Context, _ string) (ratify.RegistryCredential, error) {
-	if d.username == "" {
-		return ratify.RegistryCredential{
-			RefreshToken: d.password,
-		}, nil
-	}
-	return ratify.RegistryCredential{
-		Username: d.username,
-		Password: d.password,
-	}, nil
 }

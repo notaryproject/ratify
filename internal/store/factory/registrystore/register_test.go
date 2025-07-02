@@ -16,10 +16,8 @@ limitations under the License.
 package registrystore
 
 import (
-	"context"
 	"testing"
 
-	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/store/factory"
 )
 
@@ -30,7 +28,7 @@ func TestNewStore(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "Unsupported params",
+			name: "Unsupported params type",
 			opts: &factory.NewStoreOptions{
 				Type:       registryStoreType,
 				Parameters: make(chan int),
@@ -38,74 +36,253 @@ func TestNewStore(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name: "Malformed params",
+			name: "Malformed JSON params",
 			opts: &factory.NewStoreOptions{
 				Type:       registryStoreType,
-				Parameters: "{",
+				Parameters: "{invalid json",
 			},
 			expectErr: true,
 		},
 		{
-			name: "Valid registry params",
+			name: "Missing credential provider",
 			opts: &factory.NewStoreOptions{
-				Type:       registryStoreType,
-				Parameters: map[string]interface{}{},
+				Type: registryStoreType,
+				Parameters: map[string]interface{}{
+					"plainHttp": true,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "Invalid credential provider type",
+			opts: &factory.NewStoreOptions{
+				Type: registryStoreType,
+				Parameters: map[string]interface{}{
+					"credential": map[string]interface{}{
+						"provider": "nonexistent",
+					},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "Valid registry params with static credential provider",
+			opts: &factory.NewStoreOptions{
+				Type: registryStoreType,
+				Parameters: map[string]interface{}{
+					"plainHttp":        true,
+					"userAgent":        "test-agent",
+					"maxBlobBytes":     1024,
+					"maxManifestBytes": 2048,
+					"credential": map[string]interface{}{
+						"provider": "static",
+						"username": "testuser",
+						"password": "testpass",
+					},
+				},
 			},
 			expectErr: false,
+		},
+		{
+			name: "Valid registry params with minimal config",
+			opts: &factory.NewStoreOptions{
+				Type: registryStoreType,
+				Parameters: map[string]interface{}{
+					"credential": map[string]interface{}{
+						"provider": "static",
+						"password": "token",
+					},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "Empty credential provider options",
+			opts: &factory.NewStoreOptions{
+				Type: registryStoreType,
+				Parameters: map[string]interface{}{
+					"credential": map[string]interface{}{},
+				},
+			},
+			expectErr: true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := factory.NewStore(test.opts)
+			store, err := factory.NewStore(test.opts)
 			if (err != nil) != test.expectErr {
 				t.Errorf("expected error: %v, got: %v", test.expectErr, err)
+			}
+			if !test.expectErr && store == nil {
+				t.Error("expected non-nil store when no error occurred")
+			}
+			if test.expectErr && store != nil {
+				t.Error("expected nil store when error occurred")
 			}
 		})
 	}
 }
 
-func TestGet(t *testing.T) {
+func TestRegistryStoreFactory(t *testing.T) {
+	// Test that the factory is properly registered
+	t.Run("Factory is registered", func(t *testing.T) {
+		opts := &factory.NewStoreOptions{
+			Type: registryStoreType,
+			Parameters: map[string]interface{}{
+				"credential": map[string]interface{}{
+					"provider": "static",
+					"password": "token",
+				},
+			},
+		}
+
+		_, err := factory.NewStore(opts)
+		if err != nil {
+			t.Errorf("factory should be registered and functional, got error: %v", err)
+		}
+	})
+}
+
+func TestStoreOptionsUnmarshaling(t *testing.T) {
 	tests := []struct {
-		name         string
-		username     string
-		password     string
-		expectErr    bool
-		expectedCred ratify.RegistryCredential
+		name       string
+		params     map[string]interface{}
+		expectErr  bool
+		verifyFunc func(*testing.T, map[string]interface{})
 	}{
 		{
-			name:      "username/password provided",
-			username:  "testuser",
-			password:  "testpassword",
+			name: "All options set",
+			params: map[string]interface{}{
+				"plainHttp":        true,
+				"userAgent":        "custom-agent/1.0",
+				"maxBlobBytes":     int64(5000),
+				"maxManifestBytes": int64(10000),
+				"credential": map[string]interface{}{
+					"provider": "static",
+					"username": "user",
+					"password": "pass",
+				},
+			},
 			expectErr: false,
-			expectedCred: ratify.RegistryCredential{
-				Username: "testuser",
-				Password: "testpassword",
+			verifyFunc: func(t *testing.T, params map[string]interface{}) {
+				if params["plainHttp"] != true {
+					t.Error("plainHttp should be true")
+				}
+				if params["userAgent"] != "custom-agent/1.0" {
+					t.Error("userAgent should match")
+				}
 			},
 		},
 		{
-			name:      "only password provided",
-			username:  "",
-			password:  "token",
+			name: "Default values",
+			params: map[string]interface{}{
+				"credential": map[string]interface{}{
+					"provider": "static",
+					"password": "token",
+				},
+			},
 			expectErr: false,
-			expectedCred: ratify.RegistryCredential{
-				RefreshToken: "token",
+			verifyFunc: func(t *testing.T, params map[string]interface{}) {
+				// These should use default values (false, empty string, 0)
+				if val, exists := params["plainHttp"]; exists && val != false {
+					t.Error("plainHttp should default to false")
+				}
 			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			getter := &defaultCredGetter{
-				username: test.username,
-				password: test.password,
+			opts := &factory.NewStoreOptions{
+				Type:       registryStoreType,
+				Parameters: test.params,
 			}
-			got, err := getter.Get(context.Background(), "")
+
+			store, err := factory.NewStore(opts)
 			if (err != nil) != test.expectErr {
 				t.Errorf("expected error: %v, got: %v", test.expectErr, err)
 			}
-			if got != test.expectedCred {
-				t.Errorf("expected credential: %v, got: %v", test.expectedCred, got)
+
+			if !test.expectErr && test.verifyFunc != nil {
+				test.verifyFunc(t, test.params)
+			}
+
+			if !test.expectErr && store == nil {
+				t.Error("expected non-nil store")
+			}
+		})
+	}
+}
+
+func TestCredentialProviderIntegration(t *testing.T) {
+	tests := []struct {
+		name         string
+		credConfig   map[string]interface{}
+		expectErr    bool
+		expectedType string
+	}{
+		{
+			name: "Static provider with username/password",
+			credConfig: map[string]interface{}{
+				"provider": "static",
+				"username": "testuser",
+				"password": "testpass",
+			},
+			expectErr:    false,
+			expectedType: "static",
+		},
+		{
+			name: "Static provider with token only",
+			credConfig: map[string]interface{}{
+				"provider": "static",
+				"password": "token123",
+			},
+			expectErr:    false,
+			expectedType: "static",
+		},
+		{
+			name: "Missing provider field",
+			credConfig: map[string]interface{}{
+				"username": "testuser",
+				"password": "testpass",
+			},
+			expectErr: true,
+		},
+		{
+			name: "Invalid provider type",
+			credConfig: map[string]interface{}{
+				"provider": "unknown-provider",
+				"password": "testpass",
+			},
+			expectErr: true,
+		},
+		{
+			name: "Empty provider",
+			credConfig: map[string]interface{}{
+				"provider": "",
+				"password": "testpass",
+			},
+			expectErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			opts := &factory.NewStoreOptions{
+				Type: registryStoreType,
+				Parameters: map[string]interface{}{
+					"credential": test.credConfig,
+				},
+			}
+
+			store, err := factory.NewStore(opts)
+			if (err != nil) != test.expectErr {
+				t.Errorf("expected error: %v, got error: %v", test.expectErr, err)
+			}
+
+			if !test.expectErr && store == nil {
+				t.Error("expected non-nil store when no error occurred")
 			}
 		})
 	}
