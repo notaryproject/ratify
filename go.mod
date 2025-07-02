@@ -32,7 +32,7 @@ require (
 	github.com/notaryproject/notation-go v1.3.2
 	github.com/notaryproject/ratify-go v0.0.0-20250529051304-210d266b68c0
 	github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a
-	github.com/onsi/ginkgo/v2 v2.23.3
+	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/open-policy-agent/cert-controller v0.13.0
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20241101234656-e78c8abd754a
@@ -108,7 +108,7 @@ require (
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-github/v55 v55.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
+	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect
@@ -132,6 +132,7 @@ require (
 	github.com/yashtewari/glob-intersection v0.2.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.step.sm/crypto v0.60.0 // indirect
+	go.uber.org/automaxprocs v1.6.0 // indirect
 	golang.org/x/tools v0.34.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
