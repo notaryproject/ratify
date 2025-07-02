@@ -48,9 +48,9 @@ type IdentityProvider struct {
 type IdentityProviderOptions struct {
 	// ClientID is the Azure AD client ID (application ID) for user-assigned
 	// managed identity or service principal authentication
-	ClientID string
+	ClientID string `json:"clientID,omitempty"`
 	// TenantID is the Azure AD tenant ID where the application is registered
-	TenantID string
+	TenantID string `json:"tenantID,omitempty"`
 }
 
 func init() {

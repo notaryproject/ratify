@@ -70,7 +70,11 @@ releases:
           - "executors.config.ratify.dev"
           - "--ignore-not-found=true"
     set:
-      - name: notation.certs[0]
+      - name: notation.certs[0].cert
         value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/ratify-project/ratify/main/test/testdata/notation.crt") | quote }}
+      - name: notation.certs[0].provider
+        value: "inline"
+      - name: stores[0].credential.provider
+        value: "static"
       - name: executor.scopes[0]
         value: "ghcr.io"

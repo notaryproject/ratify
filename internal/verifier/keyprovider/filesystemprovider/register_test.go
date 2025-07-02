@@ -103,13 +103,66 @@ func TestGetCertificates(t *testing.T) {
 		t.Fatalf("expected at least one certificate, got %d", len(certs))
 	}
 
-	// Loading an invalid certificate.
+	// Loading an invalid certificate should fail during provider creation.
 	invalidCertFile := filepath.Join(tempDir, realDataPath, "invalid-cert.pem")
 	if err := os.WriteFile(invalidCertFile, []byte("invalid cert content"), 0600); err != nil {
 		t.Fatalf("failed to create invalid cert file: %v", err)
 	}
-	if _, err = provider.GetCertificates(context.Background()); err == nil {
-		t.Fatalf("expected error while loading invalid certificate, got nil")
+
+	// Create a new provider with the directory containing invalid certificate
+	optsWithInvalid := []string{tempDir}
+	_, err = keyprovider.CreateKeyProvider(fileSystemProviderName, optsWithInvalid)
+	if err == nil {
+		t.Fatalf("expected error while loading invalid certificate during provider creation, got nil")
+	}
+}
+
+func TestGetCertificatesFromCache(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a temporary certificate file.
+	certFile := filepath.Join(tempDir, "test-cert.pem")
+	certContent, err := createCert()
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+	if err := os.WriteFile(certFile, certContent, 0600); err != nil {
+		t.Fatalf("failed to create temp cert file: %v", err)
+	}
+
+	// Create provider which should load certificates during initialization
+	opts := []string{tempDir}
+	provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+	if err != nil {
+		t.Fatalf("failed to create key provider: %v", err)
+	}
+
+	// Get certificates first time
+	certs1, err := provider.GetCertificates(context.Background())
+	if err != nil {
+		t.Fatalf("failed to get certificates: %v", err)
+	}
+	if len(certs1) != 1 {
+		t.Fatalf("expected 1 certificate, got %d", len(certs1))
+	}
+
+	// Remove the certificate file to ensure we're getting from cache
+	if err := os.Remove(certFile); err != nil {
+		t.Fatalf("failed to remove cert file: %v", err)
+	}
+
+	// Get certificates second time - should still work from cache
+	certs2, err := provider.GetCertificates(context.Background())
+	if err != nil {
+		t.Fatalf("failed to get certificates from cache: %v", err)
+	}
+	if len(certs2) != 1 {
+		t.Fatalf("expected 1 cached certificate, got %d", len(certs2))
+	}
+
+	// Verify both calls return the same certificate
+	if !certs1[0].Equal(certs2[0]) {
+		t.Fatalf("cached certificate doesn't match original")
 	}
 }
 

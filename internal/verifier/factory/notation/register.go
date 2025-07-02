@@ -16,7 +16,6 @@ limitations under the License.
 package notation
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/notaryproject/ratify-verifier-go/notation"
 	"github.com/notaryproject/ratify/v2/internal/verifier/factory"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
+	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/azurekeyvault"      // Register the Azure Key Vault key provider
 	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/filesystemprovider" // Register the filesystem key provider
 	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/inlineprovider"     // Register the inline key provider
 )
@@ -113,12 +113,8 @@ func initTrustStore(opts []trustStoreOptions) (truststore.X509TrustStore, []trus
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to get key provider %s: %w", key, err)
 			}
-			certs, err := provider.GetCertificates(context.Background())
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to get certificates from provider %s: %w", key, err)
-			}
 
-			trustStore.addCertificates(storeType, trustStoreName, certs)
+			trustStore.addKeyProvider(storeType, trustStoreName, provider)
 		}
 	}
 	names := make([]truststore.Type, 0, len(types))

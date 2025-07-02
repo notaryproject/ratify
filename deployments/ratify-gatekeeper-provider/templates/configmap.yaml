@@ -1,3 +1,4 @@
+{{- if .Values.provider.disableCRDManager}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -33,9 +34,13 @@ data:
                             "certificates": [
                                 {
                                     "type": "ca",
+                                    {{- if eq (index .Values.notation.certs).provider "files" }}
                                     "files": [
                                         "/usr/local/notation/certs"
                                     ]
+                                    {{- else }}
+                                    {{- fail "Unsupported notation certificate provider for ConfigMap" }}
+                                    {{- end  }}
                                 }
                             ]
                         }
@@ -53,6 +58,7 @@ data:
                         "type": "registry-store",
                         "parameters": {
                             "credential": {
+                                "provider": "static",
                                 "username": "{{ $store.username }}",
                                 "password": "{{ $store.password }}"
                             }
@@ -76,3 +82,4 @@ data:
         ]
         
     }
+{{- end }}

@@ -10,14 +10,25 @@ executor:
 notation:
   scopes: []
   trustedIdentities: []
-  certs: []
+  certs:
+    - provider: "inline"
+      cert: "" # PEM encoded certificate, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+  # - provider: "azurekeyvault" # use "azurekeyvault" to use Azure Key Vault
+  #   vaultURL: "" # e.g. "https://my-key-vault.vault.azure.net/"
+  #   clientID: "" # optional
+  #   tenantID: "" # optional
+  #   certificates:
+  #     - name: "" # name of the certificate in Azure Key Vault
+  #       version: "" # optional, if not provided, the latest version will be used
 stores:
   - scopes: []
     credential:
-      provider: "static" # use "azure" to use Azure Workload Identity
+      provider: "static"
       username: ""
       password: ""
-      
+    # provider: "azure" # use "azure" to use Azure Workload Identity
+    # clientID: "" # optional
+    # tenantID: "" # optional
 provider:
   tls:
     crt: "" # crt used by ratify (httpserver), please provide your own crt
@@ -38,5 +49,6 @@ serviceAccount:
   create: true
   name: ratify-gatekeeper-provider-admin
   # annotations to add to the service account
-  annotations: {}
+  annotations:
+    {}
     # add azure.workload.identity/client-id if using Azure Workload Identity

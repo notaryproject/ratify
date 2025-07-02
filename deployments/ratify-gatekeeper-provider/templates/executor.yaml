@@ -43,8 +43,24 @@ spec:
         {{- end }}
         certificates:
           - type: "ca"
+            {{- if eq (index .Values.notation.certs 0).provider "inline" }}
+            inline: {{ (index .Values.notation.certs 0).cert | quote }}
+            {{- else if eq (index .Values.notation.certs 0).provider "files" }}
             files:
               - "/usr/local/notation/certs"
+            {{- else if eq (index .Values.notation.certs 0).provider "azurekeyvault" }}
+            azurekeyvault:
+              vaultURL: "{{ (index .Values.notation.certs 0).vaultURL }}"
+              clientID: "{{ (index .Values.notation.certs 0).clientID }}"
+              tenantID: "{{ (index .Values.notation.certs 0).tenantID }}"
+              certificates:
+                {{- range $cert := (index .Values.notation.certs 0).certificates }}
+                - name: "{{ $cert.name }}"
+                  version: "{{ $cert.version | default "" }}"
+                {{- end }}
+            {{- else }}
+            {{- fail (printf "Unsupported notation certificate provider: %s" (index .Values.notation.certs 0).provider) }}
+            {{- end }}
   policyEnforcer:
     type: "threshold-policy"
     parameters:

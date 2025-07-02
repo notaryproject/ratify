@@ -13,7 +13,7 @@ spec:
     metadata:
       labels:
         {{- include "ratify.selectorLabels" . | nindent 8 }}
-        {{- if eq (index .Values.stores 0).credential.provider "azure" }}
+        {{- if or (eq (index .Values.stores 0).credential.provider "azure") (eq (index .Values.notation.certs 0).provider "azurekeyvault") }}
         azure.workload.identity/use: "true"
         {{- end }}
     spec:
@@ -70,12 +70,16 @@ spec:
             - mountPath: "/usr/local/tls"
               name: tls
               readOnly: true
+            {{- if .Values.provider.disableCRDManager }}
             - mountPath: "/usr/local"
               name: ratify-config
               readOnly: true
+            {{- end }}
+            {{- if eq (index .Values.notation.certs 0).provider "files" }}
             - mountPath: "/usr/local/notation/certs"
               name: notation-certs
               readOnly: true
+            {{- end }}
             {{- if (lookup "v1" "Secret" .Release.Namespace "gatekeeper-webhook-server-cert") }}
             - mountPath: /usr/local/tls/client-ca
               name: client-ca-cert
@@ -89,12 +93,16 @@ spec:
             - name: RATIFY_NAME
               value: {{ include "ratify.fullname" . }}
       volumes:
+        {{- if .Values.provider.disableCRDManager }}
         - name: ratify-config
           configMap:
             name: {{ include "ratify.fullname" . }}-configmap
+        {{- end }}
+        {{- if eq (index .Values.notation.certs 0).provider "files" }}
         - name: notation-certs
           secret:
             secretName: {{ include "ratify.fullname" . }}-notation-certs
+        {{- end }}
         {{- if (lookup "v1" "Secret" .Release.Namespace "gatekeeper-webhook-server-cert") }}
         - name: client-ca-cert
           secret:
