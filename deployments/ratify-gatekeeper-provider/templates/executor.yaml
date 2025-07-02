@@ -17,13 +17,17 @@ spec:
   stores:
     {{- range .Values.stores }}
     - type: registry-store
+      {{- if .scopes }}
+      scopes:
+        {{- toYaml .scopes | nindent 10 }}
+      {{- end }}
       parameters:
-        {{- if .scopes }}
-        scopes:
-          {{- toYaml .scopes | nindent 10 }}
-        {{- end }}
-        username: "{{ .username }}"
-        password: "{{ .password }}"
+        credential:
+          provider: "{{ .credential.provider }}"
+          {{- if eq .credential.provider "static" }}
+          username: "{{ .credential.username }}"
+          password: "{{ .credential.password }}"
+          {{- end }}
     {{- end }}
   verifiers:
     - name: notation-1

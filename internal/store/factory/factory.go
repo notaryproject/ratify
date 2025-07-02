@@ -26,6 +26,7 @@ type NewStoreOptions struct {
 	// Type represents a specific implementation of a store. Required.
 	Type string `json:"type"`
 
+	// Scopes defines the scopes for the store. Optional.
 	Scopes []string `json:"scopes,omitempty"`
 
 	// Parameters is additional parameters for the store. Optional.

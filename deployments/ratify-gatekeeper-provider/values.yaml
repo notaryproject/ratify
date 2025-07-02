@@ -13,9 +13,11 @@ notation:
   certs: []
 stores:
   - scopes: []
-    username: ""
-    password: ""
-
+    credential:
+      provider: "static" # use "azure" to use Azure Workload Identity
+      username: ""
+      password: ""
+      
 provider:
   tls:
     crt: "" # crt used by ratify (httpserver), please provide your own crt
@@ -37,3 +39,4 @@ serviceAccount:
   name: ratify-gatekeeper-provider-admin
   # annotations to add to the service account
   annotations: {}
+    # add azure.workload.identity/client-id if using Azure Workload Identity
