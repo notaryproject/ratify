@@ -29,18 +29,18 @@ const (
 	defaultCountNum = 100000
 )
 
-type ristrettoCache struct {
-	cache *ristretto.Cache[string, any]
+type Cache[T any] struct {
+	cache *ristretto.Cache[string, T]
 	ttl   time.Duration
 }
 
-// NewRistrettoCache creates a new Ristretto cache with the specified TTL.
-func NewRistrettoCache(ttl time.Duration) (cache.Cache, error) {
+// NewCache creates a new Ristretto cache with the specified TTL.
+func NewCache[T any](ttl time.Duration) (cache.Cache[T], error) {
 	if ttl < 0 {
 		return nil, cache.ErrInvalidTTL
 	}
 
-	memoryCache, err := ristretto.NewCache(&ristretto.Config[string, any]{
+	memoryCache, err := ristretto.NewCache(&ristretto.Config[string, T]{
 		NumCounters: defaultCountNum, // number of keys to track frequency.
 		MaxCost:     defaultMaxSize,  // Max size in Megabytes.
 		BufferItems: 64,              // number of keys per Get buffer. 64 is recommended by the ristretto library.
@@ -50,24 +50,28 @@ func NewRistrettoCache(ttl time.Duration) (cache.Cache, error) {
 		return nil, err
 	}
 
-	return &ristrettoCache{
+	return &Cache[T]{
 		cache: memoryCache,
 		ttl:   ttl,
 	}, nil
 }
 
 // Get returns the value associated with the key, or an error if not found.
-func (r *ristrettoCache) Get(_ context.Context, key string) (any, error) {
+func (r *Cache[T]) Get(_ context.Context, key string) (T, error) {
 	cacheValue, found := r.cache.Get(key)
 	if found {
 		return cacheValue, nil
 	}
-	return nil, cache.ErrNotFound
+	var zero T
+	return zero, cache.ErrNotFound
 }
 
 // Set stores a value with the specified key.
-func (r *ristrettoCache) Set(_ context.Context, key string, value any) error {
-	saved := r.cache.SetWithTTL(key, value, 1, r.ttl)
+func (r *Cache[T]) Set(_ context.Context, key string, value T, ttl time.Duration) error {
+	if ttl <= 0 {
+		ttl = r.ttl // Use the cache's configured TTL if none is provided
+	}
+	saved := r.cache.SetWithTTL(key, value, 1, ttl)
 	r.cache.Wait()
 	if saved {
 		return nil
@@ -76,7 +80,7 @@ func (r *ristrettoCache) Set(_ context.Context, key string, value any) error {
 }
 
 // Delete removes the specified key/value from the cache.
-func (r *ristrettoCache) Delete(_ context.Context, key string) error {
+func (r *Cache[T]) Delete(_ context.Context, key string) error {
 	r.cache.Del(key)
 	// Note: ristretto does not return a bool for delete.
 	// Delete ops are eventually consistent and we don't want to block on them.

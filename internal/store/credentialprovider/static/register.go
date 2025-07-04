@@ -24,16 +24,15 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
 )
 
-// CredentialProvider is an implementation of [ratify.RegistryCredentialGetter]
+// Provider is an implementation of [credentialprovider.CredentialSourceProvider]
 // that provides static credentials for registry authentication.
-type CredentialProvider struct {
+type Provider struct {
 	username string
 	password string
 }
 
-// CredentialProviderOptions contains configuration options for the static
-// credential provider
-type CredentialProviderOptions struct {
+// Options contains configuration options for the static credential provider.
+type Options struct {
 	// Username is the username to login to the registry.
 	// If not set, password will be used as a refresh token. Optional.
 	Username string `json:"username,omitempty"`
@@ -57,32 +56,37 @@ func createStaticCredentialProvider(opts credentialprovider.Options) (ratify.Reg
 		return nil, fmt.Errorf("failed to marshal configuration: %w", err)
 	}
 
-	var inlineOpts CredentialProviderOptions
+	var inlineOpts Options
 	if err := json.Unmarshal(raw, &inlineOpts); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal configuration: %w", err)
 	}
 
-	// Create the inline credential provider with the configuration
-	return &CredentialProvider{
+	// Create the static credential provider with the configuration
+	staticProvider := &Provider{
 		username: inlineOpts.Username,
 		password: inlineOpts.Password,
-	}, nil
-}
-
-// Get returns the static credentials for the registry.
-// The serverAddress parameter is ignored as this provider returns the same
-// credentials for all registries.
-func (p *CredentialProvider) Get(_ context.Context, _ string) (ratify.RegistryCredential, error) {
-	if p.username == "" {
-		// If username is not set, use password as refresh token
-		return ratify.RegistryCredential{
-			RefreshToken: p.password,
-		}, nil
 	}
 
-	// Return username/password credentials
-	return ratify.RegistryCredential{
-		Username: p.username,
-		Password: p.password,
+	// Wrap with caching provider
+	return credentialprovider.NewCachedProvider(staticProvider)
+}
+
+// GetWithTTL implements credentialprovider.CredentialSourceProvider interface.
+// It returns the static credentials with TTL information.
+func (p *Provider) GetWithTTL(_ context.Context, _ string) (credentialprovider.CredentialWithTTL, error) {
+	credential := ratify.RegistryCredential{}
+
+	if p.username == "" {
+		// If username is not set, use password as refresh token
+		credential.RefreshToken = p.password
+	} else {
+		// Return username/password credentials
+		credential.Username = p.username
+		credential.Password = p.password
+	}
+
+	return credentialprovider.CredentialWithTTL{
+		Credential: credential,
+		TTL:        0,
 	}, nil
 }
