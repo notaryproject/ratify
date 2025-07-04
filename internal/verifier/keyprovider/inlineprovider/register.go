@@ -30,9 +30,9 @@ import (
 const inlineProviderName = "inline"
 
 // InlineProvider is a key provider that loads certificates from a string
-// containing PEM-encoded certificates.
+// containing PEM-encoded certificates and caches them in memory.
 type InlineProvider struct {
-	certificatesInPem string
+	certificates []*x509.Certificate
 }
 
 func init() {
@@ -45,17 +45,28 @@ func init() {
 		if err := json.Unmarshal(raw, &certificatesInPem); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal options: %w", err)
 		}
+
+		// Parse certificates during initialization and cache them in memory
+		certs, err := parseCertificatesFromPEM(certificatesInPem)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse certificates: %w", err)
+		}
+
 		return &InlineProvider{
-			certificatesInPem: certificatesInPem,
+			certificates: certs,
 		}, nil
 	})
 }
 
-// GetCertificates decodes PEM-encoded bytes into an x509.Certificate chain and
-// return it.
+// GetCertificates returns the cached x509.Certificate chain.
 func (p *InlineProvider) GetCertificates(_ context.Context) ([]*x509.Certificate, error) {
+	return p.certificates, nil
+}
+
+// parseCertificatesFromPEM decodes PEM-encoded bytes into an x509.Certificate chain.
+func parseCertificatesFromPEM(certificatesInPem string) ([]*x509.Certificate, error) {
 	var certs []*x509.Certificate
-	block, rest := pem.Decode([]byte(strings.TrimSpace(p.certificatesInPem)))
+	block, rest := pem.Decode([]byte(strings.TrimSpace(certificatesInPem)))
 	if block == nil && len(rest) > 0 {
 		return nil, errors.New("failed to decode pem block")
 	}

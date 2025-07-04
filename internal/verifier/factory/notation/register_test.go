@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/notaryproject/notation-go/verifier/truststore"
 	"github.com/notaryproject/ratify/v2/internal/verifier/factory"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 )
@@ -147,7 +148,7 @@ func TestNewVerifier(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name: "Failed to get certificates from key provider",
+			name: "Key provider that would fail on GetCertificates (lazy loading)",
 			opts: &factory.NewVerifierOptions{
 				Type: notationType,
 				Name: testName,
@@ -162,7 +163,7 @@ func TestNewVerifier(t *testing.T) {
 					},
 				},
 			},
-			expectErr: true,
+			expectErr: false, // Should not fail during initialization with lazy loading
 		},
 		{
 			name: "Valid notation options",
@@ -187,6 +188,109 @@ func TestNewVerifier(t *testing.T) {
 			_, err := factory.NewVerifier(test.opts)
 			if test.expectErr != (err != nil) {
 				t.Fatalf("Expected error: %v, got: %v", test.expectErr, err)
+			}
+		})
+	}
+}
+
+func TestGetTrustStoreType(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     any
+		expected  truststore.Type
+		expectErr bool
+		errorMsg  string
+	}{
+		{
+			name:      "Valid CA type",
+			input:     "ca",
+			expected:  truststore.TypeCA,
+			expectErr: false,
+		},
+		{
+			name:      "Valid TSA type",
+			input:     "tsa",
+			expected:  truststore.TypeTSA,
+			expectErr: false,
+		},
+		{
+			name:      "Valid SigningAuthority type",
+			input:     "signingAuthority",
+			expected:  truststore.TypeSigningAuthority,
+			expectErr: false,
+		},
+		{
+			name:      "Invalid string type",
+			input:     "invalid",
+			expected:  "",
+			expectErr: true,
+			errorMsg:  "invalid trust store type invalid",
+		},
+		{
+			name:      "Non-string type - integer",
+			input:     123,
+			expected:  "",
+			expectErr: true,
+			errorMsg:  "trust store type must be a string",
+		},
+		{
+			name:      "Non-string type - boolean",
+			input:     true,
+			expected:  "",
+			expectErr: true,
+			errorMsg:  "trust store type must be a string",
+		},
+		{
+			name:      "Non-string type - nil",
+			input:     nil,
+			expected:  "",
+			expectErr: true,
+			errorMsg:  "trust store type must be a string",
+		},
+		{
+			name:      "Non-string type - slice",
+			input:     []string{"ca"},
+			expected:  "",
+			expectErr: true,
+			errorMsg:  "trust store type must be a string",
+		},
+		{
+			name:      "Non-string type - map",
+			input:     map[string]string{"type": "ca"},
+			expected:  "",
+			expectErr: true,
+			errorMsg:  "trust store type must be a string",
+		},
+		{
+			name:      "Empty string",
+			input:     "",
+			expected:  "",
+			expectErr: true,
+			errorMsg:  "invalid trust store type ",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := getTrustStoreType(test.input)
+
+			if test.expectErr {
+				if err == nil {
+					t.Fatalf("Expected error but got none")
+				}
+				if err.Error() != test.errorMsg {
+					t.Fatalf("Expected error message '%s', got '%s'", test.errorMsg, err.Error())
+				}
+				if result != test.expected {
+					t.Fatalf("Expected result '%s', got '%s'", test.expected, result)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+				if result != test.expected {
+					t.Fatalf("Expected result '%s', got '%s'", test.expected, result)
+				}
 			}
 		})
 	}

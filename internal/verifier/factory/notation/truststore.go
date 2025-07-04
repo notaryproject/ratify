@@ -20,35 +20,45 @@ import (
 	"crypto/x509"
 
 	"github.com/notaryproject/notation-go/verifier/truststore"
+	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 	"github.com/sirupsen/logrus"
 )
 
 type trustStore struct {
-	stores map[truststore.Type]map[string][]*x509.Certificate
+	stores map[truststore.Type]map[string][]keyprovider.KeyProvider
 }
 
 func newTrustStore() *trustStore {
 	return &trustStore{
-		stores: make(map[truststore.Type]map[string][]*x509.Certificate),
+		stores: make(map[truststore.Type]map[string][]keyprovider.KeyProvider),
 	}
 }
 
 // GetCertificates implements [truststore.X509TrustStore] interface.
-func (s *trustStore) GetCertificates(_ context.Context, storeType truststore.Type, namedStore string) ([]*x509.Certificate, error) {
-	logrus.Infof("Getting certificates from trust store %s", namedStore)
+func (s *trustStore) GetCertificates(ctx context.Context, storeType truststore.Type, namedStore string) ([]*x509.Certificate, error) {
+	logrus.Debugf("Getting certificates from trust store %s", namedStore)
 	if namedStores, ok := s.stores[storeType]; ok {
-		if certs, ok := namedStores[namedStore]; ok {
-			logrus.Infof("Found %d certificates in trust store %s", len(certs), namedStore)
-			return certs, nil
+		if keyProviders, ok := namedStores[namedStore]; ok {
+			var allCerts []*x509.Certificate
+			for _, keyProvider := range keyProviders {
+				certs, err := keyProvider.GetCertificates(ctx)
+				if err != nil {
+					logrus.Errorf("Failed to get certificates from key provider: %v", err)
+					return nil, err
+				}
+				allCerts = append(allCerts, certs...)
+			}
+			logrus.Debugf("Found %d certificates in trust store %s", len(allCerts), namedStore)
+			return allCerts, nil
 		}
 	}
 	return nil, nil
 }
 
-// addCertificates adds provided certificates to the trust store.
-func (s *trustStore) addCertificates(storeType truststore.Type, namedStore string, certs []*x509.Certificate) {
+// addKeyProvider adds a key provider to the trust store.
+func (s *trustStore) addKeyProvider(storeType truststore.Type, namedStore string, keyProvider keyprovider.KeyProvider) {
 	if s.stores[storeType] == nil {
-		s.stores[storeType] = make(map[string][]*x509.Certificate)
+		s.stores[storeType] = make(map[string][]keyprovider.KeyProvider)
 	}
-	s.stores[storeType][namedStore] = append(s.stores[storeType][namedStore], certs...)
+	s.stores[storeType][namedStore] = append(s.stores[storeType][namedStore], keyProvider)
 }

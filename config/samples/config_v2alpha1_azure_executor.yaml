@@ -1,0 +1,31 @@
+apiVersion: config.ratify.dev/v2alpha1
+kind: Executor
+metadata:
+  labels:
+    app.kubernetes.io/name: crd
+    app.kubernetes.io/managed-by: kustomize
+  name: executor-azure-sample
+spec:
+  scopes:
+    - *.azurecr.io
+  policyEnforcer:
+    parameters:
+      policy:
+        rules:
+          - verifierName: notation-1
+    type: threshold-policy
+  stores:
+    - parameters:
+        credential:
+          provider: azure
+      type: registry-store
+  verifiers:
+    - name: notation-1
+      parameters:
+        certificates:
+          - type: ca
+            azurekeyvault:
+              vaultURL: "https://myvault.vault.azure.net"
+              certificates:
+                - name: "my-certificate-name"
+      type: notation

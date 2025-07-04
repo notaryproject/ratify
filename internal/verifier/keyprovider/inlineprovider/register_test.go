@@ -93,39 +93,23 @@ func TestInlineProvider_OneValidAndOneInvalidCertificate(t *testing.T) {
 	pemStr, _ := generateSelfSignedPEM(t)
 	pemStr += "\n" + invalidCert // Append an invalid certificate
 
-	provider, err := keyprovider.CreateKeyProvider("inline", pemStr)
-	if err != nil {
-		t.Fatalf("unexpected error constructing provider: %v", err)
-	}
-
-	_, err = provider.GetCertificates(context.Background())
+	_, err := keyprovider.CreateKeyProvider("inline", pemStr)
 	if err == nil {
-		t.Fatalf("unexpected error retrieving certificates: %v", err)
+		t.Fatalf("expected error constructing provider with invalid certificate")
 	}
 }
 
 func TestInlineProvider_ParseInvalidCertificate(t *testing.T) {
-	provider, err := keyprovider.CreateKeyProvider("inline", invalidCert)
-	if err != nil {
-		t.Fatalf("unexpected error constructing provider: %v", err)
-	}
-	_, err = provider.GetCertificates(context.Background())
+	_, err := keyprovider.CreateKeyProvider("inline", invalidCert)
 	if err == nil {
-		t.Fatalf("expected error when retrieving invalid certificate")
+		t.Fatalf("expected error when constructing provider with invalid certificate")
 	}
 }
 
 func TestInlineProvider_ParseEmptyCertificates(t *testing.T) {
-	provider, err := keyprovider.CreateKeyProvider("inline", "")
-	if err != nil {
-		t.Fatalf("unexpected error constructing provider: %v", err)
-	}
-	certs, err := provider.GetCertificates(context.Background())
+	_, err := keyprovider.CreateKeyProvider("inline", "")
 	if err == nil {
-		t.Fatalf("expected error when retrieving certificates: %v", err)
-	}
-	if len(certs) != 0 {
-		t.Fatalf("expected no certificates, got %d", len(certs))
+		t.Fatalf("expected error when constructing provider with empty certificates")
 	}
 }
 

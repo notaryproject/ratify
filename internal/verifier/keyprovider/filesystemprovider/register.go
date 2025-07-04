@@ -34,7 +34,8 @@ const fileSystemProviderName = "files"
 // FileSystemProvider is a key provider that loads certificates from the file
 // system.
 type FileSystemProvider struct {
-	certPaths []string
+	certPaths    []string
+	certificates []*x509.Certificate
 }
 
 func init() {
@@ -52,24 +53,29 @@ func init() {
 			return nil, fmt.Errorf("no file paths provided")
 		}
 
-		return &FileSystemProvider{certPaths: paths}, nil
+		// Load certificates during initialization
+		var allCertificates []*x509.Certificate
+		for _, certPath := range paths {
+			certificates, err := loadCertificatesFromPath(certPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load certificates from path %s: %w", certPath, err)
+			}
+			allCertificates = append(allCertificates, certificates...)
+		}
+
+		return &FileSystemProvider{
+			certPaths:    paths,
+			certificates: allCertificates,
+		}, nil
 	})
 }
 
 // FileSystemProvider implements GetCertificates of [truststore.X509TrustStore]
 // interface.
 func (f *FileSystemProvider) GetCertificates(_ context.Context) ([]*x509.Certificate, error) {
-	var certs []*x509.Certificate
-
-	for _, certPath := range f.certPaths {
-		certificates, err := loadCertificatesFromPath(certPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load certificates from path %s: %w", certPath, err)
-		}
-		certs = append(certs, certificates...)
-	}
-
-	return certs, nil
+	// Return cached certificates loaded during initialization
+	logrus.Debugf("Returning %d cached certificate(s) from file system", len(f.certificates))
+	return f.certificates, nil
 }
 
 func loadCertificatesFromPath(path string) ([]*x509.Certificate, error) {
