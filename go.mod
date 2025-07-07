@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry v0.2.3
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
 	github.com/alibabacloud-go/cr-20181201/v2 v2.5.0
-	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.11
+	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.12
 	github.com/alibabacloud-go/tea v1.2.2
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.7
 	github.com/aliyun/credentials-go v1.4.6
