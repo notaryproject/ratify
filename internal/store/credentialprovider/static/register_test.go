@@ -23,12 +23,12 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
 )
 
-func TestCreateInlineCredentialProvider(t *testing.T) {
+func TestCreateStaticCredentialProvider(t *testing.T) {
 	tests := []struct {
 		name        string
 		opts        credentialprovider.Options
 		expectError bool
-		expected    *CredentialProvider
+		expected    *Provider
 	}{
 		{
 			name: "valid options with username and password",
@@ -37,7 +37,7 @@ func TestCreateInlineCredentialProvider(t *testing.T) {
 				"password": "testpass",
 			},
 			expectError: false,
-			expected: &CredentialProvider{
+			expected: &Provider{
 				username: "testuser",
 				password: "testpass",
 			},
@@ -48,7 +48,7 @@ func TestCreateInlineCredentialProvider(t *testing.T) {
 				"password": "refresh_token_value",
 			},
 			expectError: false,
-			expected: &CredentialProvider{
+			expected: &Provider{
 				username: "",
 				password: "refresh_token_value",
 			},
@@ -57,7 +57,7 @@ func TestCreateInlineCredentialProvider(t *testing.T) {
 			name:        "empty options",
 			opts:        credentialprovider.Options{},
 			expectError: false,
-			expected: &CredentialProvider{
+			expected: &Provider{
 				username: "",
 				password: "",
 			},
@@ -70,7 +70,7 @@ func TestCreateInlineCredentialProvider(t *testing.T) {
 				"extra":    "ignored",
 			},
 			expectError: false,
-			expected: &CredentialProvider{
+			expected: &Provider{
 				username: "testuser",
 				password: "testpass",
 			},
@@ -111,34 +111,34 @@ func TestCreateInlineCredentialProvider(t *testing.T) {
 				return
 			}
 
-			inlineProvider, ok := provider.(*CredentialProvider)
+			StaticProvider, ok := provider.(*Provider)
 			if !ok {
-				t.Errorf("expected *InlineCredentialProvider, got %T", provider)
+				t.Errorf("expected *StaticCredentialProvider, got %T", provider)
 				return
 			}
 
-			if inlineProvider.username != tt.expected.username {
-				t.Errorf("expected username %q, got %q", tt.expected.username, inlineProvider.username)
+			if StaticProvider.username != tt.expected.username {
+				t.Errorf("expected username %q, got %q", tt.expected.username, StaticProvider.username)
 			}
 
-			if inlineProvider.password != tt.expected.password {
-				t.Errorf("expected password %q, got %q", tt.expected.password, inlineProvider.password)
+			if StaticProvider.password != tt.expected.password {
+				t.Errorf("expected password %q, got %q", tt.expected.password, StaticProvider.password)
 			}
 		})
 	}
 }
 
-func TestInlineCredentialProvider_Get(t *testing.T) {
+func TestStaticCredentialProvider_Get(t *testing.T) {
 	tests := []struct {
 		name        string
-		provider    *CredentialProvider
+		provider    *Provider
 		serverAddr  string
 		expected    ratify.RegistryCredential
 		expectError bool
 	}{
 		{
 			name: "username and password mode",
-			provider: &CredentialProvider{
+			provider: &Provider{
 				username: "testuser",
 				password: "testpass",
 			},
@@ -151,7 +151,7 @@ func TestInlineCredentialProvider_Get(t *testing.T) {
 		},
 		{
 			name: "refresh token mode (no username)",
-			provider: &CredentialProvider{
+			provider: &Provider{
 				username: "",
 				password: "refresh_token_value",
 			},
@@ -163,7 +163,7 @@ func TestInlineCredentialProvider_Get(t *testing.T) {
 		},
 		{
 			name: "empty credentials",
-			provider: &CredentialProvider{
+			provider: &Provider{
 				username: "",
 				password: "",
 			},
@@ -175,7 +175,7 @@ func TestInlineCredentialProvider_Get(t *testing.T) {
 		},
 		{
 			name: "server address is ignored",
-			provider: &CredentialProvider{
+			provider: &Provider{
 				username: "testuser",
 				password: "testpass",
 			},
@@ -220,15 +220,15 @@ func TestInlineCredentialProvider_Get(t *testing.T) {
 	}
 }
 
-func TestInlineCredentialProviderOptions_JSON(t *testing.T) {
+func TestStaticCredentialProviderOptions_JSON(t *testing.T) {
 	tests := []struct {
 		name     string
-		options  CredentialProviderOptions
+		options  Options
 		expected string
 	}{
 		{
 			name: "with username and password",
-			options: CredentialProviderOptions{
+			options: Options{
 				Username: "testuser",
 				Password: "testpass",
 			},
@@ -236,23 +236,23 @@ func TestInlineCredentialProviderOptions_JSON(t *testing.T) {
 		},
 		{
 			name: "with only password",
-			options: CredentialProviderOptions{
+			options: Options{
 				Password: "testpass",
 			},
 			expected: `{"password":"testpass"}`,
 		},
 		{
 			name:     "empty options",
-			options:  CredentialProviderOptions{},
+			options:  Options{},
 			expected: `{"password":""}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test JSON marshaling (used internally in createInlineCredentialProvider)
+			// Test JSON marshaling (used internally in createStaticCredentialProvider)
 			// This ensures the JSON tags work correctly
-			provider := &CredentialProvider{
+			provider := &Provider{
 				username: tt.options.Username,
 				password: tt.options.Password,
 			}
@@ -271,7 +271,7 @@ func TestInlineCredentialProviderOptions_JSON(t *testing.T) {
 func TestInit(t *testing.T) {
 	// Test that the init function registers the provider factory
 	// We can't directly test the registration, but we can verify that
-	// the createInlineCredentialProvider function exists and works
+	// the createStaticCredentialProvider function exists and works
 	opts := credentialprovider.Options{
 		"username": "test",
 		"password": "pass",
@@ -279,21 +279,21 @@ func TestInit(t *testing.T) {
 
 	provider, err := createStaticCredentialProvider(opts)
 	if err != nil {
-		t.Errorf("createInlineCredentialProvider failed: %v", err)
+		t.Errorf("createStaticCredentialProvider failed: %v", err)
 	}
 
 	if provider == nil {
-		t.Error("createInlineCredentialProvider returned nil provider")
+		t.Error("createStaticCredentialProvider returned nil provider")
 	}
 
 	// Verify it's the correct type
-	if _, ok := provider.(*CredentialProvider); !ok {
-		t.Errorf("expected *InlineCredentialProvider, got %T", provider)
+	if _, ok := provider.(*Provider); !ok {
+		t.Errorf("expected *StaticCredentialProvider, got %T", provider)
 	}
 }
 
 // Benchmark tests to ensure performance
-func BenchmarkCreateInlineCredentialProvider(b *testing.B) {
+func BenchmarkCreateStaticCredentialProvider(b *testing.B) {
 	opts := credentialprovider.Options{
 		"username": "testuser",
 		"password": "testpass",
@@ -308,8 +308,8 @@ func BenchmarkCreateInlineCredentialProvider(b *testing.B) {
 	}
 }
 
-func BenchmarkInlineCredentialProvider_Get(b *testing.B) {
-	provider := &CredentialProvider{
+func BenchmarkStaticCredentialProvider_Get(b *testing.B) {
+	provider := &Provider{
 		username: "testuser",
 		password: "testpass",
 	}

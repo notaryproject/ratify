@@ -24,16 +24,16 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
 )
 
-// CredentialProvider is an implementation of [ratify.RegistryCredentialGetter]
+// Provider is an implementation of [ratify.RegistryCredentialGetter]
 // that provides static credentials for registry authentication.
-type CredentialProvider struct {
+type Provider struct {
 	username string
 	password string
 }
 
-// CredentialProviderOptions contains configuration options for the static
+// Options contains configuration options for the static
 // credential provider
-type CredentialProviderOptions struct {
+type Options struct {
 	// Username is the username to login to the registry.
 	// If not set, password will be used as a refresh token. Optional.
 	Username string `json:"username,omitempty"`
@@ -57,22 +57,22 @@ func createStaticCredentialProvider(opts credentialprovider.Options) (ratify.Reg
 		return nil, fmt.Errorf("failed to marshal configuration: %w", err)
 	}
 
-	var inlineOpts CredentialProviderOptions
-	if err := json.Unmarshal(raw, &inlineOpts); err != nil {
+	var staticOpts Options
+	if err := json.Unmarshal(raw, &staticOpts); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal configuration: %w", err)
 	}
 
 	// Create the inline credential provider with the configuration
-	return &CredentialProvider{
-		username: inlineOpts.Username,
-		password: inlineOpts.Password,
+	return &Provider{
+		username: staticOpts.Username,
+		password: staticOpts.Password,
 	}, nil
 }
 
 // Get returns the static credentials for the registry.
 // The serverAddress parameter is ignored as this provider returns the same
 // credentials for all registries.
-func (p *CredentialProvider) Get(_ context.Context, _ string) (ratify.RegistryCredential, error) {
+func (p *Provider) Get(_ context.Context, _ string) (ratify.RegistryCredential, error) {
 	if p.username == "" {
 		// If username is not set, use password as refresh token
 		return ratify.RegistryCredential{

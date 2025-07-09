@@ -49,15 +49,15 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		key := verifyKey(artifact)
 
 		// Fetch the cache value first.
-		val, err := s.cache.Get(ctx, key)
-		if err == nil && val != nil {
-			results[idx].Value = val
+		result, err := s.verifyCache.Get(ctx, key)
+		if err == nil && result != nil {
+			results[idx].Value = result
 			continue
 		}
 
 		// Cache is missed, block multiple goroutines from validating the same
 		// artifact.
-		val, err, _ = s.sfGroup.Do(key, func() (any, error) {
+		val, err, _ := s.sfGroup.Do(key, func() (any, error) {
 			executor := s.getExecutor()
 			if executor == nil {
 				return nil, errors.New("no valid executor configured")
@@ -67,7 +67,7 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 				return nil, err
 			}
 			renderedResult := convertResult(result)
-			if err = s.cache.Set(ctx, key, renderedResult); err != nil {
+			if err = s.verifyCache.Set(ctx, key, renderedResult, 0); err != nil {
 				logrus.Warnf("failed to set verify cache for image %s: %v", artifact, err)
 			}
 			return renderedResult, nil
@@ -119,15 +119,15 @@ func (s *server) resolveReference(ctx context.Context, reference string) externa
 
 	// Fetch the cache value first.
 	key := mutateKey(reference)
-	val, err := s.cache.Get(ctx, key)
-	if err == nil && val != nil {
-		item.Value = val
+	result, err := s.mutateCache.Get(ctx, key)
+	if err == nil && result != "" {
+		item.Value = result
 		return item
 	}
 
 	// Cache is missed, block multiple goroutines from resolving the same
 	// reference.
-	val, err, _ = s.sfGroup.Do(key, func() (any, error) {
+	val, err, _ := s.sfGroup.Do(key, func() (any, error) {
 		executor := s.getExecutor()
 		if executor == nil {
 			return "", errors.New("no valid executor configured")
@@ -139,7 +139,7 @@ func (s *server) resolveReference(ctx context.Context, reference string) externa
 		ref.Reference = desc.Digest.String()
 		resolvedRef := ref.String()
 
-		if err = s.cache.Set(ctx, key, resolvedRef); err != nil {
+		if err = s.mutateCache.Set(ctx, key, resolvedRef, 0); err != nil {
 			logrus.Warnf("failed to set mutate cache for image %s: %v", reference, err)
 		}
 		return resolvedRef, nil

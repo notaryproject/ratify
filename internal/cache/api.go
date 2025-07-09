@@ -18,21 +18,23 @@ package cache
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 var (
-	ErrNotFound   = errors.New("cache not found")
-	ErrInvalidTTL = errors.New("invalid TTL provided")
-	ErrAddFailed  = errors.New("failed to add key/value to cache")
+	ErrNotFound       = errors.New("cache not found")
+	ErrInvalidTTL     = errors.New("invalid TTL provided")
+	ErrAddFailed      = errors.New("failed to add key/value to cache")
+	ErrInvalidMaxSize = errors.New("invalid max size provided for cache")
 )
 
 // Cache is the main interface for a generic key-value cache.
-type Cache interface {
+type Cache[T any] interface {
 	// Get returns the value associated with the key, or an error if not found.
-	Get(ctx context.Context, key string) (any, error)
+	Get(ctx context.Context, key string) (T, error)
 
 	// Set stores a value with the specified key.
-	Set(ctx context.Context, key string, value any) error
+	Set(ctx context.Context, key string, value T, ttl time.Duration) error
 
 	// Delete removes the specified key/value from the cache.
 	Delete(ctx context.Context, key string) error

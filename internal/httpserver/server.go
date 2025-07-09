@@ -52,7 +52,8 @@ const (
 type server struct {
 	getExecutor func() *executor.ScopedExecutor
 	router      *mux.Router
-	cache       cache.Cache
+	mutateCache cache.Cache[string]
+	verifyCache cache.Cache[*result]
 	sfGroup     *singleflight.Group
 	ServerOptions
 }
@@ -94,6 +95,10 @@ type ServerOptions struct {
 	// Optional.
 	DisableMutation bool
 
+	// DisableCRDManager indicates whether to disable the CRD manager.
+	// If set to true, the server will not use the CRD manager for managing
+	// executors and will instead rely on a static configuration file.
+	// Optional.
 	DisableCRDManager bool
 
 	// CertRotatorReady is a channel that signals when the certificate rotator
@@ -131,14 +136,19 @@ func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *
 		getExecutorFunc = controller.GlobalExecutorManager.GetExecutor
 	}
 
-	cache, err := ristretto.NewRistrettoCache(defaultCacheTTL)
+	mutateCache, err := ristretto.NewCache[string](defaultCacheTTL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create cache: %w", err)
+		return nil, nil, fmt.Errorf("failed to create mutate cache: %w", err)
+	}
+	verifyCache, err := ristretto.NewCache[*result](defaultCacheTTL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create verify cache: %w", err)
 	}
 
 	server := &server{
 		router:        mux.NewRouter(),
-		cache:         cache,
+		mutateCache:   mutateCache,
+		verifyCache:   verifyCache,
 		sfGroup:       new(singleflight.Group),
 		getExecutor:   getExecutorFunc,
 		ServerOptions: *serverOpts,

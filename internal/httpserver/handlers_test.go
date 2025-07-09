@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
@@ -34,22 +35,40 @@ type mockCache struct {
 	entries map[string]string
 }
 
-func (c *mockCache) Get(_ context.Context, key string) (any, error) {
+func (c *mockCache) Get(_ context.Context, key string) (string, error) {
+	if val, ok := c.entries[key]; ok {
+		return val, nil
+	}
+	return "", fmt.Errorf("key not found")
+}
+
+func (c *mockCache) Set(_ context.Context, key string, value string, _ time.Duration) error {
+	c.entries[key] = value
+	return nil
+}
+
+func (c *mockCache) Delete(_ context.Context, key string) error {
+	delete(c.entries, key)
+	return nil
+}
+
+type mockResultCache struct {
+	entries map[string]*result
+}
+
+func (c *mockResultCache) Get(_ context.Context, key string) (*result, error) {
 	if val, ok := c.entries[key]; ok {
 		return val, nil
 	}
 	return nil, fmt.Errorf("key not found")
 }
 
-func (c *mockCache) Set(_ context.Context, key string, value any) error {
-	if strVal, ok := value.(string); ok {
-		c.entries[key] = strVal
-		return fmt.Errorf("duplicate key")
-	}
+func (c *mockResultCache) Set(_ context.Context, key string, value *result, _ time.Duration) error {
+	c.entries[key] = value
 	return nil
 }
 
-func (c *mockCache) Delete(_ context.Context, key string) error {
+func (c *mockResultCache) Delete(_ context.Context, key string) error {
 	delete(c.entries, key)
 	return nil
 }
@@ -59,8 +78,8 @@ func TestVerify(t *testing.T) {
 		getExecutor: func() *executor.ScopedExecutor {
 			return &executor.ScopedExecutor{}
 		},
-		cache:   &mockCache{entries: make(map[string]string)},
-		sfGroup: new(singleflight.Group),
+		verifyCache: &mockResultCache{entries: make(map[string]*result)},
+		sfGroup:     new(singleflight.Group),
 	}
 
 	tests := []struct {
@@ -68,7 +87,7 @@ func TestVerify(t *testing.T) {
 		requestBody     string
 		expectedError   bool
 		getExecutorFunc func() *executor.ScopedExecutor
-		cacheEntries    map[string]string
+		cacheEntries    map[string]*result
 		expectedItems   []externaldata.Item
 	}{
 		{
@@ -113,14 +132,17 @@ func TestVerify(t *testing.T) {
 					"keys": ["artifact1"]
 				}
 			}`,
-			cacheEntries: map[string]string{
-				"verify_artifact1": "cachedValue",
+			cacheEntries: map[string]*result{
+				"verify_artifact1": {
+					Succeeded:       true,
+					ArtifactReports: nil,
+				},
 			},
 			expectedError: false,
 			expectedItems: []externaldata.Item{
 				{
 					Key:   "artifact1",
-					Value: "cachedValue",
+					Value: map[string]interface{}{"succeeded": true, "artifactReports": nil},
 				},
 			},
 		},
@@ -137,7 +159,7 @@ func TestVerify(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			if test.cacheEntries != nil {
-				server.cache = &mockCache{entries: test.cacheEntries}
+				server.verifyCache = &mockResultCache{entries: test.cacheEntries}
 			}
 			if test.getExecutorFunc != nil {
 				server.getExecutor = test.getExecutorFunc
@@ -153,7 +175,7 @@ func TestVerify(t *testing.T) {
 					t.Fatalf("failed to decode response: %v", err)
 				}
 
-				if !reflect.DeepEqual(response.Response.Items, test.expectedItems) {
+				if !reflect.DeepEqual(response.Response.Items[0], test.expectedItems[0]) {
 					t.Errorf("expected items: %v, got: %v", test.expectedItems, response.Response.Items)
 				}
 			}
@@ -250,11 +272,11 @@ func TestMutate(t *testing.T) {
 				getExecutor: func() *executor.ScopedExecutor {
 					return &executor.ScopedExecutor{}
 				},
-				cache:   &mockCache{entries: make(map[string]string)},
-				sfGroup: new(singleflight.Group),
+				mutateCache: &mockCache{entries: make(map[string]string)},
+				sfGroup:     new(singleflight.Group),
 			}
 			if test.cacheEntries != nil {
-				server.cache = &mockCache{entries: test.cacheEntries}
+				server.mutateCache = &mockCache{entries: test.cacheEntries}
 			}
 			if err := server.mutate(context.Background(), w, req); (err != nil) != test.expectedError {
 				t.Errorf("expected error: %v, got: %v", test.expectedError, err)
