@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry v0.2.3
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
 	github.com/alibabacloud-go/cr-20181201/v2 v2.5.0
-	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.11
+	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.12
 	github.com/alibabacloud-go/tea v1.2.2
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.7
 	github.com/aliyun/credentials-go v1.4.6
@@ -22,6 +22,7 @@ require (
 	github.com/docker/cli v28.2.2+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/fsnotify/fsnotify v1.8.0
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/go-containerregistry v0.20.6
 	github.com/gorilla/mux v1.8.1
 	github.com/notaryproject/notation-core-go v1.3.0
@@ -104,7 +105,6 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/glog v1.2.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
