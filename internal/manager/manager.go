@@ -90,8 +90,8 @@ func setupCertRotator(certRotatorReady chan struct{}, mgr ctrl.Manager, disableM
 		})
 	}
 
-	namespace := pod.GetNamespace()
-	serviceName := pod.GetServiceName()
+	namespace := pod.Namespace()
+	serviceName := pod.ServiceName()
 
 	if err := rotator.AddRotator(mgr, &rotator.CertRotator{
 		SecretKey: types.NamespacedName{

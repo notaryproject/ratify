@@ -24,7 +24,7 @@ func TestGetNamespace(t *testing.T) {
 	// Test case 1: Environment variable "RATIFY_NAMESPACE" is not set
 	t.Run("Environment variable not set", func(t *testing.T) {
 		expected := "gatekeeper-system"
-		actual := GetNamespace()
+		actual := Namespace()
 		if actual != expected {
 			t.Errorf("Expected namespace to be %q, but got %q", expected, actual)
 		}
@@ -39,7 +39,7 @@ func TestGetNamespace(t *testing.T) {
 		}
 
 		expected := "custom-namespace"
-		actual := GetNamespace()
+		actual := Namespace()
 		if actual != expected {
 			t.Errorf("Expected namespace to be %q, but got %q", expected, actual)
 		}
@@ -62,7 +62,7 @@ func TestGetServiceName(t *testing.T) {
 		}
 
 		expected := "ratify-gatekeeper-provider"
-		actual := GetServiceName()
+		actual := ServiceName()
 		if actual != expected {
 			t.Errorf("Expected service name to be %q, but got %q", expected, actual)
 		}
@@ -77,7 +77,7 @@ func TestGetServiceName(t *testing.T) {
 		}
 
 		expected := "custom-service-name"
-		actual := GetServiceName()
+		actual := ServiceName()
 		if actual != expected {
 			t.Errorf("Expected service name to be %q, but got %q", expected, actual)
 		}
