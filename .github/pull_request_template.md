@@ -13,11 +13,13 @@ Fixes #
 
 ### Type of change
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Helm Chart Change (any edit/addition/update that is necessary for changes merged to the `main` branch)
-- [ ] This change requires a documentation update
+<!-- Please delete options that are not relevant. -->
+
+- Bug fix (non-breaking change which fixes an issue)
+- New feature (non-breaking change which adds functionality)
+- Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- Helm chart change (any edit/addition/update that is necessary for changes merged to the `main` branch)
+- This change requires a documentation update
 
 ## Testing and verification
 
