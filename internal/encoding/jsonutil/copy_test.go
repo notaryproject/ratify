@@ -82,6 +82,12 @@ func TestCopy(t *testing.T) {
 			}{},
 			wantErr: true,
 		},
+		{
+			name:    "incompatible types: channel to string",
+			data:    make(chan int),
+			want:    "",
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
