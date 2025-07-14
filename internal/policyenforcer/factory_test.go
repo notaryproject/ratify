@@ -24,14 +24,14 @@ import (
 )
 
 func TestRegister(t *testing.T) {
-	testCreate := func(opts NewOptions) (ratify.PolicyEnforcer, error) {
+	testCreate := func(_ NewOptions) (ratify.PolicyEnforcer, error) {
 		return nil, nil
 	}
 
 	tests := []struct {
 		name       string
 		policyType string
-		create     func(opts NewOptions) (ratify.PolicyEnforcer, error)
+		create     func(NewOptions) (ratify.PolicyEnforcer, error)
 		wantPanic  string
 	}{
 		{
