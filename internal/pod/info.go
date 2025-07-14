@@ -17,8 +17,8 @@ package pod
 
 import "os"
 
-// GetNamespace returns the namespace.
-func GetNamespace() string {
+// Namespace returns the namespace.
+func Namespace() string {
 	ns, found := os.LookupEnv("RATIFY_NAMESPACE")
 	if !found {
 		return "gatekeeper-system"
@@ -26,8 +26,8 @@ func GetNamespace() string {
 	return ns
 }
 
-// GetServiceName returns the service name.
-func GetServiceName() string {
+// ServiceName returns the service name.
+func ServiceName() string {
 	name, found := os.LookupEnv("RATIFY_NAME")
 	if !found {
 		return "ratify-gatekeeper-provider"
