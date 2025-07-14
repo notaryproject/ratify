@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/ratify-go"
-	ef "github.com/notaryproject/ratify/v2/internal/policyenforcer/factory"
+	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store/factory"
 	vf "github.com/notaryproject/ratify/v2/internal/verifier/factory"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -81,14 +81,14 @@ func newMockStore(_ *factory.NewStoreOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
-func createPolicyEnforcer(_ *ef.NewPolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
+func createPolicyEnforcer(_ policyenforcer.NewOptions) (ratify.PolicyEnforcer, error) {
 	return nil, errors.New("mock policy enforcer not implemented")
 }
 
 func TestNewWatcher(t *testing.T) {
 	factory.RegisterStoreFactory(mockStoreType, newMockStore)
 	vf.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
-	ef.RegisterPolicyEnforcerFactory(mockPolicyEnforcerType, createPolicyEnforcer)
+	policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
 
 	t.Run("empty config path", func(t *testing.T) {
 		watcher, err := NewWatcher("")

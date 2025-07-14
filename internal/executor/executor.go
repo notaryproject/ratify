@@ -22,7 +22,6 @@ import (
 
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
-	policyFactory "github.com/notaryproject/ratify/v2/internal/policyenforcer/factory"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	storeFactory "github.com/notaryproject/ratify/v2/internal/store/factory"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
@@ -47,7 +46,7 @@ type ScopedOptions struct {
 
 	// Policy contains the configuration options for the policy enforcer.
 	// Optional.
-	Policy *policyFactory.NewPolicyEnforcerOptions `json:"policyEnforcer,omitempty"`
+	Policy *policyenforcer.NewOptions `json:"policyEnforcer,omitempty"`
 }
 
 // Options contains the configuration options to create a scoped executor.
@@ -126,9 +125,12 @@ func newExecutor(opts *ScopedOptions) (*ratify.Executor, error) {
 		return nil, err
 	}
 
-	policy, err := policyenforcer.NewPolicyEnforcer(opts.Policy)
-	if err != nil {
-		return nil, err
+	var policy ratify.PolicyEnforcer
+	if opts.Policy != nil {
+		policy, err = policyenforcer.New(*opts.Policy)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return ratify.NewExecutor(storeMux, verifiers, policy)

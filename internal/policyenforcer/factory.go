@@ -13,16 +13,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package factory
+package policyenforcer
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/notaryproject/ratify-go"
 )
 
-// NewPolicyEnforcerOptions is the options for creating a new PolicyEnforcer.
-type NewPolicyEnforcerOptions struct {
+// NewOptions contains the options for creating a new [ratify.PolicyEnforcer].
+type NewOptions struct {
 	// Type represents a specific implementation of a policy enforcer. Required.
 	Type string `json:"type"`
 
@@ -30,34 +31,32 @@ type NewPolicyEnforcerOptions struct {
 	Parameters any `json:"parameters,omitempty"`
 }
 
-// registeredPolicyEnforcers saves the registered policy enforcer factories.
-var registeredPolicyEnforcers = make(map[string]func(*NewPolicyEnforcerOptions) (ratify.PolicyEnforcer, error))
+// registry saves the registered policy enforcer factories.
+var registry = make(map[string]func(opts NewOptions) (ratify.PolicyEnforcer, error))
 
 // RegisterPolicyEnforcer registers a policy enforcer factory to the system.
-func RegisterPolicyEnforcerFactory(policyType string, create func(*NewPolicyEnforcerOptions) (ratify.PolicyEnforcer, error)) {
+func Register(policyType string, create func(opts NewOptions) (ratify.PolicyEnforcer, error)) {
 	if policyType == "" {
 		panic("policy type cannot be empty")
 	}
 	if create == nil {
-		panic("policy factory cannot be nil")
+		panic("policy create cannot be nil")
 	}
-	if _, registered := registeredPolicyEnforcers[policyType]; registered {
+	if _, registered := registry[policyType]; registered {
 		panic("policy factory already registered")
 	}
-	registeredPolicyEnforcers[policyType] = create
+	registry[policyType] = create
 }
 
-// NewPolicyEnforcer creates a new PolicyEnforcer instance based on the provided options.
-func NewPolicyEnforcer(opts *NewPolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
-	if opts == nil {
-		return nil, nil
-	}
+// New creates a new [ratify.PolicyEnforcer] instance based on the provided
+// options.
+func New(opts NewOptions) (ratify.PolicyEnforcer, error) {
 	if opts.Type == "" {
-		return nil, fmt.Errorf("policy type is not provided in the policy options")
+		return nil, errors.New("policy type is not provided in the policy options")
 	}
-	policyFactory, ok := registeredPolicyEnforcers[opts.Type]
+	create, ok := registry[opts.Type]
 	if !ok {
 		return nil, fmt.Errorf("policy factory of type %s is not registered", opts.Type)
 	}
-	return policyFactory(opts)
+	return create(opts)
 }

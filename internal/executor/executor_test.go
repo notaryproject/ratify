@@ -21,7 +21,7 @@ import (
 
 	"github.com/notaryproject/ratify-go"
 
-	ef "github.com/notaryproject/ratify/v2/internal/policyenforcer/factory"
+	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	sf "github.com/notaryproject/ratify/v2/internal/store/factory"
 	vf "github.com/notaryproject/ratify/v2/internal/verifier/factory"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -62,7 +62,7 @@ func (m *mockPolicyEnforcer) Evaluator(_ context.Context, _ string) (ratify.Eval
 	return nil, nil
 }
 
-func createPolicyEnforcer(_ *ef.NewPolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
+func createPolicyEnforcer(_ policyenforcer.NewOptions) (ratify.PolicyEnforcer, error) {
 	return &mockPolicyEnforcer{}, nil
 }
 
@@ -89,7 +89,7 @@ func createMockVerifier(_ *vf.NewVerifierOptions) (ratify.Verifier, error) {
 func TestNewExecutor(t *testing.T) {
 	sf.RegisterStoreFactory(mockStoreType, newMockStore)
 	vf.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
-	ef.RegisterPolicyEnforcerFactory(mockPolicyEnforcerType, createPolicyEnforcer)
+	policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
 
 	tests := []struct {
 		name           string
@@ -135,7 +135,7 @@ func TestNewExecutor(t *testing.T) {
 								Scopes: []string{"testrepo"},
 							},
 						},
-						Policy: &ef.NewPolicyEnforcerOptions{
+						Policy: &policyenforcer.NewOptions{
 							Type: mockPolicyEnforcerType,
 						},
 					},
@@ -198,7 +198,7 @@ func TestNewExecutor(t *testing.T) {
 								Scopes: []string{"test"},
 							},
 						},
-						Policy: &ef.NewPolicyEnforcerOptions{},
+						Policy: &policyenforcer.NewOptions{},
 					},
 				},
 			},
@@ -223,7 +223,7 @@ func TestNewExecutor(t *testing.T) {
 								Scopes: []string{"test"},
 							},
 						},
-						Policy: &ef.NewPolicyEnforcerOptions{
+						Policy: &policyenforcer.NewOptions{
 							Type: mockPolicyEnforcerType,
 						},
 					},
