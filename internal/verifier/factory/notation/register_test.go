@@ -72,7 +72,7 @@ func TestNewVerifier(t *testing.T) {
 		{
 			name: "Unsupported params",
 			opts: &factory.NewVerifierOptions{
-				Type:       notationType,
+				Type:       verifierTypeNotation,
 				Name:       testName,
 				Parameters: make(chan int),
 			},
@@ -81,7 +81,7 @@ func TestNewVerifier(t *testing.T) {
 		{
 			name: "Malformed params",
 			opts: &factory.NewVerifierOptions{
-				Type:       notationType,
+				Type:       verifierTypeNotation,
 				Name:       testName,
 				Parameters: "{",
 			},
@@ -90,7 +90,7 @@ func TestNewVerifier(t *testing.T) {
 		{
 			name: "Missing trust store options",
 			opts: &factory.NewVerifierOptions{
-				Type:       notationType,
+				Type:       verifierTypeNotation,
 				Name:       testName,
 				Parameters: options{},
 			},
@@ -99,7 +99,7 @@ func TestNewVerifier(t *testing.T) {
 		{
 			name: "Invalid trust store type",
 			opts: &factory.NewVerifierOptions{
-				Type: notationType,
+				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
 					Certificates: []trustStoreOptions{
@@ -114,7 +114,7 @@ func TestNewVerifier(t *testing.T) {
 		{
 			name: "Duplicate trust store type",
 			opts: &factory.NewVerifierOptions{
-				Type: notationType,
+				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
 					Certificates: []trustStoreOptions{
@@ -134,7 +134,7 @@ func TestNewVerifier(t *testing.T) {
 		{
 			name: "Non-registered key provider",
 			opts: &factory.NewVerifierOptions{
-				Type: notationType,
+				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
 					Certificates: []trustStoreOptions{
@@ -150,7 +150,7 @@ func TestNewVerifier(t *testing.T) {
 		{
 			name: "Key provider that would fail on GetCertificates (lazy loading)",
 			opts: &factory.NewVerifierOptions{
-				Type: notationType,
+				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
 					Certificates: []trustStoreOptions{
@@ -168,7 +168,7 @@ func TestNewVerifier(t *testing.T) {
 		{
 			name: "Valid notation options",
 			opts: &factory.NewVerifierOptions{
-				Type: notationType,
+				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
 					Certificates: []trustStoreOptions{
@@ -185,7 +185,7 @@ func TestNewVerifier(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := factory.NewVerifier(test.opts)
+			_, err := factory.NewVerifier(test.opts, nil)
 			if test.expectErr != (err != nil) {
 				t.Fatalf("Expected error: %v, got: %v", test.expectErr, err)
 			}

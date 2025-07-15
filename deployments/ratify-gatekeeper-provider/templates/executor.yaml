@@ -15,6 +15,7 @@ spec:
     {{- fail "executor.scopes must not be empty" }}
     {{- end }}
   stores:
+    {{- $root := . -}}
     {{- range .Values.stores }}
     - type: registry-store
       {{- if .scopes }}
@@ -28,8 +29,28 @@ spec:
           username: "{{ .credential.username }}"
           password: "{{ .credential.password }}"
           {{- end }}
+        {{- if eq (include "ratify.cosignConfigured" $root) "true" }}
+        allowCosignTag: true
+        {{- end }}
     {{- end }}
   verifiers:
+    {{- if eq (include "ratify.cosignConfigured" .) "true" }}
+    - name: cosign-1
+      type: cosign
+      parameters:
+        trustPolicies:
+          - {{- if .Values.cosign.scopes }}
+            scopes:
+              {{- toYaml .Values.cosign.scopes | nindent 10 }}
+            {{- end }}
+            certificateIdentity: "{{ .Values.cosign.certificateIdentity }}"
+            certificateIdentityRegex: "{{ .Values.cosign.certificateIdentityRegex }}"
+            certificateOIDCIssuer: "{{ .Values.cosign.certificateOIDCIssuer }}"
+            certificateOIDCIssuerRegex: "{{ .Values.cosign.certificateOIDCIssuerRegex }}"
+            ignoreTLog: {{ .Values.cosign.ignoreTLog }}
+            ignoreCTLog: {{ .Values.cosign.ignoreCTLog }}
+    {{- end }}
+    {{- if eq (include "ratify.notationConfigured" .) "true" }}
     - name: notation-1
       type: notation
       parameters:
@@ -61,9 +82,16 @@ spec:
             {{- else }}
             {{- fail (printf "Unsupported notation certificate provider: %s" (index .Values.notation.certs 0).provider) }}
             {{- end }}
+    {{- end }}
   policyEnforcer:
     type: "threshold-policy"
     parameters:
       policy:
+        threshold: 1
         rules:
+          {{- if eq (include "ratify.notationConfigured" .) "true" }}
           - verifierName: "notation-1"
+          {{- end }}
+          {{- if eq (include "ratify.cosignConfigured" .) "true" }}
+          - verifierName: "cosign-1"
+          {{- end }}

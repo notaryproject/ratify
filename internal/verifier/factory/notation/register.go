@@ -31,9 +31,9 @@ import (
 )
 
 const (
-	notationType   = "notation"
-	trustStoreName = "ratify"
-	typeKey        = "type"
+	verifierTypeNotation = "notation"
+	trustStoreName       = "ratify"
+	typeKey              = "type"
 )
 
 // trustStoreOptions is a map of options for the trust stores. The value of the
@@ -59,7 +59,7 @@ type options struct {
 }
 
 func init() {
-	factory.RegisterVerifierFactory(notationType, func(opts *factory.NewVerifierOptions) (ratify.Verifier, error) {
+	factory.RegisterVerifierFactory(verifierTypeNotation, func(opts *factory.NewVerifierOptions, _ []string) (ratify.Verifier, error) {
 		raw, err := json.Marshal(opts.Parameters)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal verifier parameters: %w", err)

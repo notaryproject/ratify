@@ -36,10 +36,10 @@ type NewVerifierOptions struct {
 }
 
 // registeredVerifiers saves the registered verifier factories.
-var registeredVerifiers map[string]func(*NewVerifierOptions) (ratify.Verifier, error)
+var registeredVerifiers map[string]func(*NewVerifierOptions, []string) (ratify.Verifier, error)
 
 // RegisterVerifierFactory registers a verifier factory to the system.
-func RegisterVerifierFactory(verifierType string, create func(*NewVerifierOptions) (ratify.Verifier, error)) {
+func RegisterVerifierFactory(verifierType string, create func(*NewVerifierOptions, []string) (ratify.Verifier, error)) {
 	if verifierType == "" {
 		panic("verifier type cannot be empty. Please provide a non-empty string representing a valid verifier.")
 	}
@@ -47,7 +47,7 @@ func RegisterVerifierFactory(verifierType string, create func(*NewVerifierOption
 		panic("verifier factory cannot be nil")
 	}
 	if registeredVerifiers == nil {
-		registeredVerifiers = make(map[string]func(*NewVerifierOptions) (ratify.Verifier, error))
+		registeredVerifiers = make(map[string]func(*NewVerifierOptions, []string) (ratify.Verifier, error))
 	}
 	if _, registered := registeredVerifiers[verifierType]; registered {
 		panic(fmt.Sprintf("verifier factory named %s already registered", verifierType))
@@ -56,7 +56,7 @@ func RegisterVerifierFactory(verifierType string, create func(*NewVerifierOption
 }
 
 // NewVerifier creates a verifier instance if it belongs to a registered type.
-func NewVerifier(opts *NewVerifierOptions) (ratify.Verifier, error) {
+func NewVerifier(opts *NewVerifierOptions, globalScopes []string) (ratify.Verifier, error) {
 	if opts.Name == "" || opts.Type == "" {
 		return nil, fmt.Errorf("name or type is not provided in the verifier options")
 	}
@@ -64,5 +64,5 @@ func NewVerifier(opts *NewVerifierOptions) (ratify.Verifier, error) {
 	if !ok {
 		return nil, fmt.Errorf("verifier factory of type %s is not registered", opts.Type)
 	}
-	return verifierFactory(opts)
+	return verifierFactory(opts, globalScopes)
 }

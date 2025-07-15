@@ -47,7 +47,7 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(_ *factory.NewVerifierOptions) (ratify.Verifier, error) {
+func createMockVerifier(_ *factory.NewVerifierOptions, _ []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -91,7 +91,7 @@ func TestNewVerifiers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			verifiers, err := NewVerifiers(tt.opts)
+			verifiers, err := NewVerifiers(tt.opts, nil)
 			if tt.expectErr {
 				assert.Error(t, err)
 				assert.Nil(t, verifiers)
