@@ -23,7 +23,7 @@ import (
 
 	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
 	e "github.com/notaryproject/ratify/v2/internal/executor"
-	pf "github.com/notaryproject/ratify/v2/internal/policyenforcer/factory"
+	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	sf "github.com/notaryproject/ratify/v2/internal/store/factory"
 	vf "github.com/notaryproject/ratify/v2/internal/verifier/factory"
 )
@@ -166,11 +166,11 @@ func convertStoreOptions(stores []*configv2alpha1.StoreOptions) ([]*sf.NewStoreO
 	return storeOpts, nil
 }
 
-func convertPolicyOptions(policy *configv2alpha1.PolicyEnforcerOptions) *pf.NewPolicyEnforcerOptions {
+func convertPolicyOptions(policy *configv2alpha1.PolicyEnforcerOptions) *policyenforcer.NewOptions {
 	if policy == nil {
 		return nil
 	}
-	return &pf.NewPolicyEnforcerOptions{
+	return &policyenforcer.NewOptions{
 		Type:       policy.Type,
 		Parameters: policy.Parameters,
 	}
