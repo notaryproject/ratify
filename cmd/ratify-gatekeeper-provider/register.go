@@ -13,15 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package policyenforcer
+package main
 
+// Register policy enforcers
 import (
-	"github.com/notaryproject/ratify-go"
-	"github.com/notaryproject/ratify/v2/internal/policyenforcer/factory"
-	_ "github.com/notaryproject/ratify/v2/internal/policyenforcer/factory/thresholdpolicy" // Register the threshold policy factory
+	_ "github.com/notaryproject/ratify/v2/internal/policyenforcer/threshold"
 )
-
-// NewPolicyEnforcer creates a new PolicyEnforcer instance based on the provided options.
-func NewPolicyEnforcer(opts *factory.NewPolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
-	return factory.NewPolicyEnforcer(opts)
-}
