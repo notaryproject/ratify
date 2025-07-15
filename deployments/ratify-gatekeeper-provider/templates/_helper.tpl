@@ -35,6 +35,50 @@ false
 {{- end -}}
 
 {{/*
+Check if cosign verifier is configured based on certificate identity fields
+*/}}
+{{- define "ratify.cosignConfigured" -}}
+{{- if and (or .Values.cosign.certificateIdentity .Values.cosign.certificateIdentityRegex) (or .Values.cosign.certificateOIDCIssuer .Values.cosign.certificateOIDCIssuerRegex) -}}
+true
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}
+
+{{/*
+Check if notation verifier is configured based on certificates
+*/}}
+{{- define "ratify.notationConfigured" -}}
+{{- if .Values.notation.certs -}}
+true
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}
+
+{{/*
+Check if notation certificates are provided by files
+*/}}
+{{- define "ratify.notationCertsProvidedByFiles" -}}
+{{- if and (eq (include "ratify.notationConfigured" .) "true") (eq (index .Values.notation.certs 0).provider "files") -}}
+true
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}
+
+{{/*
+Check if AKV certificate are provided
+*/}}
+{{- define "ratify.akvCertsProvided" -}}
+{{- if and (eq (include "ratify.notationConfigured" .) "true") (eq (index .Values.notation.certs 0).provider "azurekeyvault") -}}
+true
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}
+
+{{/*
 Choose the certificate/key pair to enable TLS for HTTP server
 */}}
 {{- define "ratify.tlsSecret" -}}
@@ -116,3 +160,4 @@ Set the namespace exclusions for Assign
 - {{ .Release.Namespace | quote}}
 {{- end }}
 {{- end }}
+

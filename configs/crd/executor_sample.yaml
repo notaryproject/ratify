@@ -1,0 +1,26 @@
+apiVersion: config.ratify.dev/v2alpha1
+kind: Executor
+metadata:
+  name: ratify-gatekeeper-provider-executor-2
+spec:
+  scopes:
+    - libinbinacr.azurecr.io
+  policyEnforcer:
+    parameters:
+      policy:
+        rules:
+          - verifierName: notation-1
+    type: threshold-policy
+  stores:
+    - parameters:
+        password: ''
+        username: ''
+      type: registry-store
+  verifiers:
+    - name: notation-1
+      parameters:
+        certificates:
+          - files:
+              - /usr/local/notation/certs
+            type: ca
+      type: notation

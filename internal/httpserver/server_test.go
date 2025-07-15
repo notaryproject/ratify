@@ -46,7 +46,7 @@ const (
 	artifact1         = "test.registry.io/test/image1:v1"
 )
 
-func createMockVerifier(*factory.NewVerifierOptions) (ratify.Verifier, error) {
+func createMockVerifier(*factory.NewVerifierOptions, []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
