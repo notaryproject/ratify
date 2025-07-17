@@ -34,7 +34,7 @@ func init() {
 		parameters, ok := opts.Parameters.(map[string]any)
 		if !ok {
 			if err := jsonutil.Copy(&parameters, opts.Parameters); err != nil {
-				return nil, fmt.Errorf("failed to parse policy parameters: %w", err)
+				return nil, fmt.Errorf("failed to assert policy parameters: %w", err)
 			}
 		}
 		policy, err := parseOrNil[map[string]any](parameters, "policy")
@@ -43,7 +43,7 @@ func init() {
 		}
 		rule, err := parseRule(policy)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse policy parameters: %w", err)
+			return nil, fmt.Errorf("failed to parse policy rule: %w", err)
 		}
 		return ratify.NewThresholdPolicyEnforcer(rule)
 	})
@@ -62,16 +62,21 @@ func parseRule(raw map[string]any) (*ratify.ThresholdPolicyRule, error) {
 	if err != nil {
 		return nil, err
 	}
-	rule.Threshold, err = parseOrNil[int](raw, "threshold")
+	threshold, err := parseOrNil[float64](raw, "threshold")
 	if err != nil {
 		return nil, err
 	}
-	rawRules, err := parseOrNil[[]map[string]any](raw, "rules")
+	rule.Threshold = int(threshold)
+	rawRules, err := parseOrNil[[]any](raw, "rules")
 	if err != nil {
 		return nil, err
 	}
 	for _, rawRule := range rawRules {
-		nestedRule, err := parseRule(rawRule)
+		ruleMap, ok := rawRule.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("rule must be a map, got %T", rawRule)
+		}
+		nestedRule, err := parseRule(ruleMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse nested rule: %w", err)
 		}
@@ -92,8 +97,7 @@ func parseOrNil[T any](m map[string]any, key string) (T, error) {
 	}
 	value, ok := raw.(T)
 	if !ok {
-		var zero T
-		return zero, fmt.Errorf("option %q requires a value of type %T, got %T", key, zero, raw)
+		return value, fmt.Errorf("option %q requires a value of type %T, got %T", key, value, raw)
 	}
 	return value, nil
 }

@@ -64,8 +64,8 @@ func TestNewThresholdPolicyEnforcer(t *testing.T) {
 			name: "Valid rules",
 			parameters: map[string]any{
 				"policy": map[string]any{
-					"rules": []map[string]any{
-						{
+					"rules": []any{
+						map[string]any{
 							"verifierName": "test-verifier",
 						},
 					},
@@ -120,8 +120,14 @@ func Test_parseRule(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "rule element not a map",
+			raw:     map[string]any{"rules": []any{"not a map"}},
+			want:    nil,
+			wantErr: true,
+		},
+		{
 			name:    "nested rule error",
-			raw:     map[string]any{"rules": []map[string]any{{"verifierName": 999}}},
+			raw:     map[string]any{"rules": []any{map[string]any{"verifierName": 999}}},
 			want:    nil,
 			wantErr: true,
 		},
@@ -134,11 +140,11 @@ func Test_parseRule(t *testing.T) {
 			name: "valid full",
 			raw: map[string]any{
 				"verifierName": "root",
-				"threshold":    2,
-				"rules": []map[string]any{
-					{
+				"threshold":    2.0,
+				"rules": []any{
+					map[string]any{
 						"verifierName": "child",
-						"threshold":    1,
+						"threshold":    1.0,
 					},
 				},
 			},
@@ -179,57 +185,183 @@ func Test_parseOrNil(t *testing.T) {
 			"key": "value",
 		},
 	}
-	tests := []struct {
-		name    string
-		key     string
-		want    map[string]any
-		wantErr bool
-	}{
-		{
-			name:    "existing int",
-			key:     "int",
-			wantErr: true,
-		},
-		{
-			name:    "existing string",
-			key:     "string",
-			wantErr: true,
-		},
-		{
-			name:    "existing bool",
-			key:     "bool",
-			wantErr: true,
-		},
-		{
-			name: "existing nil",
-			key:  "nil",
-			want: nil,
-		},
-		{
-			name:    "existing slice",
-			key:     "slice",
-			wantErr: true,
-		},
-		{
-			name: "existing map",
-			key:  "map",
-			want: map[string]any{"key": "value"},
-		},
-		{
-			name: "missing key",
-			key:  "notfound",
-			want: nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseOrNil[map[string]any](data, tt.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseOrNil() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseOrNil() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+
+	t.Run("parseOrNil[map[string]any]", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			key     string
+			want    map[string]any
+			wantErr bool
+		}{
+			{
+				name:    "existing int",
+				key:     "int",
+				wantErr: true,
+			},
+			{
+				name:    "existing string",
+				key:     "string",
+				wantErr: true,
+			},
+			{
+				name:    "existing bool",
+				key:     "bool",
+				wantErr: true,
+			},
+			{
+				name: "existing nil",
+				key:  "nil",
+				want: nil,
+			},
+			{
+				name:    "existing slice",
+				key:     "slice",
+				wantErr: true,
+			},
+			{
+				name: "existing map",
+				key:  "map",
+				want: map[string]any{"key": "value"},
+			},
+			{
+				name: "missing key",
+				key:  "notfound",
+				want: nil,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := parseOrNil[map[string]any](data, tt.key)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("parseOrNil() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("parseOrNil() = %v, want %v", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("parseOrNil[string]", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			key     string
+			want    string
+			wantErr bool
+		}{
+			{
+				name:    "existing int",
+				key:     "int",
+				wantErr: true,
+			},
+			{
+				name: "existing string",
+				key:  "string",
+				want: "test",
+			},
+			{
+				name: "existing nil",
+				key:  "nil",
+				want: "",
+			},
+			{
+				name: "missing key",
+				key:  "notfound",
+				want: "",
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := parseOrNil[string](data, tt.key)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("parseOrNil() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				if got != tt.want {
+					t.Errorf("parseOrNil() = %v, want %v", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("parseOrNil[int]", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			key     string
+			want    int
+			wantErr bool
+		}{
+			{
+				name: "existing int",
+				key:  "int",
+				want: 42,
+			},
+			{
+				name:    "existing string",
+				key:     "string",
+				wantErr: true,
+			},
+			{
+				name: "existing nil",
+				key:  "nil",
+				want: 0,
+			},
+			{
+				name: "missing key",
+				key:  "notfound",
+				want: 0,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := parseOrNil[int](data, tt.key)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("parseOrNil() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				if got != tt.want {
+					t.Errorf("parseOrNil() = %v, want %v", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("parseOrNil[[]any]", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			key     string
+			want    []any
+			wantErr bool
+		}{
+			{
+				name:    "existing int",
+				key:     "int",
+				wantErr: true,
+			},
+			{
+				name: "existing slice",
+				key:  "slice",
+				want: []any{1, 2, 3},
+			},
+			{
+				name: "existing nil",
+				key:  "nil",
+				want: nil,
+			},
+			{
+				name: "missing key",
+				key:  "notfound",
+				want: nil,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := parseOrNil[[]any](data, tt.key)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("parseOrNil() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("parseOrNil() = %v, want %v", got, tt.want)
+				}
+			})
+		}
+	})
 }
