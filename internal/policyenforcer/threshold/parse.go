@@ -62,10 +62,11 @@ func parseRule(raw map[string]any) (*ratify.ThresholdPolicyRule, error) {
 	if err != nil {
 		return nil, err
 	}
-	rule.Threshold, err = parseOrNil[int](raw, "threshold")
+	threshold, err := parseOrNil[float64](raw, "threshold")
 	if err != nil {
 		return nil, err
 	}
+	rule.Threshold = int(threshold)
 	rawRules, err := parseOrNil[[]any](raw, "rules")
 	if err != nil {
 		return nil, err

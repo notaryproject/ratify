@@ -140,11 +140,11 @@ func Test_parseRule(t *testing.T) {
 			name: "valid full",
 			raw: map[string]any{
 				"verifierName": "root",
-				"threshold":    2,
+				"threshold":    2.0,
 				"rules": []any{
 					map[string]any{
 						"verifierName": "child",
-						"threshold":    1,
+						"threshold":    1.0,
 					},
 				},
 			},
