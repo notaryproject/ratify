@@ -50,7 +50,7 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(*vf.NewVerifierOptions) (ratify.Verifier, error) {
+func createMockVerifier(*vf.NewVerifierOptions, []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 

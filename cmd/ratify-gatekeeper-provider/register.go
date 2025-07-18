@@ -15,7 +15,8 @@ limitations under the License.
 
 package main
 
-// Register policy enforcers
 import (
-	_ "github.com/notaryproject/ratify/v2/internal/policyenforcer/threshold"
+	_ "github.com/notaryproject/ratify/v2/internal/policyenforcer/threshold"  // Register policy enforcers
+	_ "github.com/notaryproject/ratify/v2/internal/verifier/factory/cosign"   // Register the Cosign verifier
+	_ "github.com/notaryproject/ratify/v2/internal/verifier/factory/notation" // Register the Notation verifier
 )

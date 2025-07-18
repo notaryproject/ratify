@@ -2,6 +2,7 @@
     "executors": [
         {
             "scopes": [
+                "libinbinacr.azurecr.io",
                 "ghcr.io"
             ],
             "verifiers": [
@@ -12,8 +13,20 @@
                         "certificates": [
                             {
                                 "files": [
-                                    "${CERTIFICATE_PATH}"
+                                    "./notation.crt"
                                 ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "cosign-1",
+                    "type": "cosign",
+                    "parameters": {
+                        "trustPolicies": [
+                            {
+                                "certificateIdentity": "libinbin@microsoft.com",
+                                "certificateOIDCIssuer": "https://github.com/login/oauth"
                             }
                         ]
                     }
@@ -27,7 +40,8 @@
                             "provider": "static",
                             "username": "",
                             "password": ""
-                        }
+                        },
+                        "allowCosignTag": true
                     }
                 }
             ],
@@ -37,9 +51,13 @@
                     "policy": {
                         "rules": [
                             {
+                                "verifierName": "cosign-1"
+                            },
+                            {
                                 "verifierName": "notation-1"
                             }
-                        ]
+                        ],
+                        "threshold": 1
                     }
                 }
             }
