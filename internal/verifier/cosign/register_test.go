@@ -23,7 +23,7 @@ import (
 	"github.com/notaryproject/ratify-verifier-go/cosign"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
-	"github.com/notaryproject/ratify/v2/internal/verifier/factory"
+	"github.com/notaryproject/ratify/v2/internal/verifier"
 )
 
 const testVerifierName = "test-cosign-verifier"
@@ -31,7 +31,7 @@ const testVerifierName = "test-cosign-verifier"
 func TestNewVerifier(t *testing.T) {
 	tests := []struct {
 		name        string
-		opts        *factory.NewVerifierOptions
+		opts        *verifier.NewOptions
 		globalScope []string
 		wantErr     bool
 		errContains string
@@ -44,7 +44,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "empty verifier name",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: "",
 			},
 			wantErr:     true,
@@ -52,7 +52,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "invalid parameters json",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name:       testVerifierName,
 				Parameters: make(chan int), // unmarshallable type
 			},
@@ -61,7 +61,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "no trust policies",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{},
@@ -72,7 +72,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "nil trust policy",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{nil},
@@ -83,7 +83,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "empty scope in trust policy",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -99,7 +99,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "invalid registry scope",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -115,7 +115,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "repository scope with wildcard",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -131,7 +131,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "repository scope with tag",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -147,7 +147,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "duplicate registry scope",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -163,7 +163,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "duplicate repository scope",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -179,7 +179,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "invalid wildcard scope",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -195,7 +195,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "multiple wildcards in scope",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -211,7 +211,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "valid single registry scope",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -226,7 +226,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "valid wildcard registry scope",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -241,7 +241,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "valid repository scope",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -256,7 +256,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "multiple trust policies",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -275,7 +275,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "use global scopes when trust policy scopes empty",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -290,7 +290,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "with certificate identity options",
-			opts: &factory.NewVerifierOptions{
+			opts: &verifier.NewOptions{
 				Name: testVerifierName,
 				Parameters: map[string]interface{}{
 					"trustPolicies": []interface{}{
@@ -402,7 +402,7 @@ func TestVerifier_Verifiable(t *testing.T) {
 
 func TestVerifier_MatchVerifier(t *testing.T) {
 	// Create verifier with multiple scopes
-	opts := &factory.NewVerifierOptions{
+	opts := &verifier.NewOptions{
 		Name: testVerifierName,
 		Parameters: map[string]interface{}{
 			"trustPolicies": []interface{}{
@@ -722,7 +722,7 @@ func TestToVerifierOptions(t *testing.T) {
 func TestInit_RegistryFactoryRegistration(t *testing.T) {
 	// The init() function should register the cosign factory
 	// This test verifies that the factory is properly registered
-	_, err := factory.NewVerifier(&factory.NewVerifierOptions{
+	_, err := verifier.New(&verifier.NewOptions{
 		Name: testVerifierName,
 		Type: verifierTypeCosign,
 		Parameters: map[string]interface{}{
@@ -888,7 +888,7 @@ func TestVerifier_ScopeMatchingPrecedence(t *testing.T) {
 	// 2. Exact registry match
 	// 3. Wildcard registry match
 
-	opts := &factory.NewVerifierOptions{
+	opts := &verifier.NewOptions{
 		Name: testVerifierName,
 		Parameters: map[string]interface{}{
 			"trustPolicies": []interface{}{
@@ -993,7 +993,7 @@ func TestOptions_JsonMarshaling(t *testing.T) {
 		},
 	}
 
-	opts := &factory.NewVerifierOptions{
+	opts := &verifier.NewOptions{
 		Name:       testVerifierName,
 		Parameters: params,
 	}
@@ -1018,7 +1018,7 @@ func TestOptions_JsonMarshaling(t *testing.T) {
 // Helper functions
 
 func createTestVerifier(t *testing.T) ratify.Verifier {
-	opts := &factory.NewVerifierOptions{
+	opts := &verifier.NewOptions{
 		Name: testVerifierName,
 		Parameters: map[string]interface{}{
 			"trustPolicies": []interface{}{

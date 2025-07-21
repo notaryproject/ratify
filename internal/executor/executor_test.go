@@ -22,8 +22,8 @@ import (
 	"github.com/notaryproject/ratify-go"
 
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
-	sf "github.com/notaryproject/ratify/v2/internal/store/factory"
-	vf "github.com/notaryproject/ratify/v2/internal/verifier/factory"
+	"github.com/notaryproject/ratify/v2/internal/store"
+	"github.com/notaryproject/ratify/v2/internal/verifier"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -52,7 +52,7 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ *sf.NewStoreOptions) (ratify.Store, error) {
+func newMockStore(_ *store.NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
@@ -82,13 +82,13 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(_ *vf.NewVerifierOptions, _ []string) (ratify.Verifier, error) {
+func createMockVerifier(_ *verifier.NewOptions, _ []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
 func TestNewExecutor(t *testing.T) {
-	sf.RegisterStoreFactory(mockStoreType, newMockStore)
-	vf.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
+	store.RegisterStoreFactory(mockStoreType, newMockStore)
+	verifier.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
 	policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
 
 	tests := []struct {
@@ -123,13 +123,13 @@ func TestNewExecutor(t *testing.T) {
 				Executors: []*ScopedOptions{
 					{
 						Scopes: []string{"*"},
-						Verifiers: []*vf.NewVerifierOptions{
+						Verifiers: []*verifier.NewOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
 							},
 						},
-						Stores: []*sf.NewStoreOptions{
+						Stores: []*store.NewOptions{
 							{
 								Type:   mockStoreType,
 								Scopes: []string{"testrepo"},
@@ -150,7 +150,7 @@ func TestNewExecutor(t *testing.T) {
 				Executors: []*ScopedOptions{
 					{
 						Scopes: []string{"testrepo"},
-						Verifiers: []*vf.NewVerifierOptions{
+						Verifiers: []*verifier.NewOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
@@ -168,7 +168,7 @@ func TestNewExecutor(t *testing.T) {
 				Executors: []*ScopedOptions{
 					{
 						Scopes: []string{"testrepo"},
-						Verifiers: []*vf.NewVerifierOptions{
+						Verifiers: []*verifier.NewOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
@@ -186,13 +186,13 @@ func TestNewExecutor(t *testing.T) {
 				Executors: []*ScopedOptions{
 					{
 						Scopes: []string{"test"},
-						Verifiers: []*vf.NewVerifierOptions{
+						Verifiers: []*verifier.NewOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
 							},
 						},
-						Stores: []*sf.NewStoreOptions{
+						Stores: []*store.NewOptions{
 							{
 								Type:   mockStoreType,
 								Scopes: []string{"test"},
@@ -211,13 +211,13 @@ func TestNewExecutor(t *testing.T) {
 				Executors: []*ScopedOptions{
 					{
 						Scopes: []string{"test"},
-						Verifiers: []*vf.NewVerifierOptions{
+						Verifiers: []*verifier.NewOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
 							},
 						},
-						Stores: []*sf.NewStoreOptions{
+						Stores: []*store.NewOptions{
 							{
 								Type:   mockStoreType,
 								Scopes: []string{"test"},

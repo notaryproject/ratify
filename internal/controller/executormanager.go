@@ -24,8 +24,8 @@ import (
 	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
 	e "github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
-	sf "github.com/notaryproject/ratify/v2/internal/store/factory"
-	vf "github.com/notaryproject/ratify/v2/internal/verifier/factory"
+	"github.com/notaryproject/ratify/v2/internal/store"
+	"github.com/notaryproject/ratify/v2/internal/verifier"
 )
 
 // executorManager manages the lifecycle of executor instances across different
@@ -133,14 +133,14 @@ func convertOptions(opts *configv2alpha1.Executor) (*e.ScopedOptions, error) {
 	return scopedOpts, nil
 }
 
-func convertVerifierOptions(verifiers []*configv2alpha1.VerifierOptions) ([]*vf.NewVerifierOptions, error) {
+func convertVerifierOptions(verifiers []*configv2alpha1.VerifierOptions) ([]*verifier.NewOptions, error) {
 	if verifiers == nil {
 		return nil, fmt.Errorf("verifiers cannot be nil")
 	}
 
-	verifierOpts := make([]*vf.NewVerifierOptions, len(verifiers))
+	verifierOpts := make([]*verifier.NewOptions, len(verifiers))
 	for i, v := range verifiers {
-		opts := &vf.NewVerifierOptions{
+		opts := &verifier.NewOptions{
 			Name:       v.Name,
 			Type:       v.Type,
 			Parameters: v.Parameters,
@@ -150,14 +150,14 @@ func convertVerifierOptions(verifiers []*configv2alpha1.VerifierOptions) ([]*vf.
 	return verifierOpts, nil
 }
 
-func convertStoreOptions(stores []*configv2alpha1.StoreOptions) ([]*sf.NewStoreOptions, error) {
+func convertStoreOptions(stores []*configv2alpha1.StoreOptions) ([]*store.NewOptions, error) {
 	if stores == nil {
 		return nil, fmt.Errorf("stores cannot be nil")
 	}
 
-	storeOpts := make([]*sf.NewStoreOptions, len(stores))
+	storeOpts := make([]*store.NewOptions, len(stores))
 	for i, s := range stores {
-		opts := &sf.NewStoreOptions{
+		opts := &store.NewOptions{
 			Type:       s.Type,
 			Parameters: s.Parameters,
 		}

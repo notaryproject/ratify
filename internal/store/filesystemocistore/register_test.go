@@ -18,18 +18,18 @@ package filesystemocistore
 import (
 	"testing"
 
-	"github.com/notaryproject/ratify/v2/internal/store/factory"
+	"github.com/notaryproject/ratify/v2/internal/store"
 )
 
 func TestNewStore(t *testing.T) {
 	tests := []struct {
 		name      string
-		opts      *factory.NewStoreOptions
+		opts      *store.NewOptions
 		expectErr bool
 	}{
 		{
 			name: "Nil params",
-			opts: &factory.NewStoreOptions{
+			opts: &store.NewOptions{
 				Type:       filesystemOCIStoreType,
 				Parameters: nil,
 			},
@@ -37,7 +37,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Unsupported params",
-			opts: &factory.NewStoreOptions{
+			opts: &store.NewOptions{
 				Type:       filesystemOCIStoreType,
 				Parameters: make(chan int),
 			},
@@ -45,7 +45,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Malformed params",
-			opts: &factory.NewStoreOptions{
+			opts: &store.NewOptions{
 				Type:       filesystemOCIStoreType,
 				Parameters: "{",
 			},
@@ -53,7 +53,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Missing path params",
-			opts: &factory.NewStoreOptions{
+			opts: &store.NewOptions{
 				Type:       filesystemOCIStoreType,
 				Parameters: map[string]interface{}{},
 			},
@@ -61,7 +61,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Empty Path value",
-			opts: &factory.NewStoreOptions{
+			opts: &store.NewOptions{
 				Type: filesystemOCIStoreType,
 				Parameters: map[string]interface{}{
 					"path": "",
@@ -71,7 +71,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Nonexistent path",
-			opts: &factory.NewStoreOptions{
+			opts: &store.NewOptions{
 				Type: filesystemOCIStoreType,
 				Parameters: map[string]interface{}{
 					"path": "/nonexistent/path",
@@ -83,7 +83,7 @@ func TestNewStore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := factory.NewStore(tt.opts)
+			_, err := store.New([]*store.NewOptions{tt.opts}, nil)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("NewStore() error = %v, expectErr %v", err, tt.expectErr)
 				return
