@@ -23,11 +23,8 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify-verifier-go/notation"
-	"github.com/notaryproject/ratify/v2/internal/verifier/factory"
+	"github.com/notaryproject/ratify/v2/internal/verifier"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
-	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/azurekeyvault"      // Register the Azure Key Vault key provider
-	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/filesystemprovider" // Register the filesystem key provider
-	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/inlineprovider"     // Register the inline key provider
 )
 
 const (
@@ -59,7 +56,7 @@ type options struct {
 }
 
 func init() {
-	factory.RegisterVerifierFactory(verifierTypeNotation, func(opts *factory.NewVerifierOptions, _ []string) (ratify.Verifier, error) {
+	verifier.RegisterVerifierFactory(verifierTypeNotation, func(opts *verifier.NewOptions, _ []string) (ratify.Verifier, error) {
 		raw, err := json.Marshal(opts.Parameters)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal verifier parameters: %w", err)

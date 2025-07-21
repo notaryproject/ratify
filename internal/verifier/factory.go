@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package factory
+package verifier
 
 import (
 	"fmt"
@@ -21,8 +21,8 @@ import (
 	"github.com/notaryproject/ratify-go"
 )
 
-// NewVerifierOptions holds the options to create a verifier.
-type NewVerifierOptions struct {
+// NewOptions holds the options to create a [ratify.Verifier].
+type NewOptions struct {
 	// Name is the unique identifier of a verifier instance. Required.
 	Name string `json:"name"`
 
@@ -36,10 +36,10 @@ type NewVerifierOptions struct {
 }
 
 // registeredVerifiers saves the registered verifier factories.
-var registeredVerifiers map[string]func(*NewVerifierOptions, []string) (ratify.Verifier, error)
+var registeredVerifiers map[string]func(*NewOptions, []string) (ratify.Verifier, error)
 
 // RegisterVerifierFactory registers a verifier factory to the system.
-func RegisterVerifierFactory(verifierType string, create func(*NewVerifierOptions, []string) (ratify.Verifier, error)) {
+func RegisterVerifierFactory(verifierType string, create func(*NewOptions, []string) (ratify.Verifier, error)) {
 	if verifierType == "" {
 		panic("verifier type cannot be empty. Please provide a non-empty string representing a valid verifier.")
 	}
@@ -47,7 +47,7 @@ func RegisterVerifierFactory(verifierType string, create func(*NewVerifierOption
 		panic("verifier factory cannot be nil")
 	}
 	if registeredVerifiers == nil {
-		registeredVerifiers = make(map[string]func(*NewVerifierOptions, []string) (ratify.Verifier, error))
+		registeredVerifiers = make(map[string]func(*NewOptions, []string) (ratify.Verifier, error))
 	}
 	if _, registered := registeredVerifiers[verifierType]; registered {
 		panic(fmt.Sprintf("verifier factory named %s already registered", verifierType))
@@ -55,14 +55,31 @@ func RegisterVerifierFactory(verifierType string, create func(*NewVerifierOption
 	registeredVerifiers[verifierType] = create
 }
 
-// NewVerifier creates a verifier instance if it belongs to a registered type.
-func NewVerifier(opts *NewVerifierOptions, globalScopes []string) (ratify.Verifier, error) {
+// New creates a [ratify.Verifier] instance if it belongs to a registered type.
+func New(opts *NewOptions, globalScopes []string) (ratify.Verifier, error) {
 	if opts.Name == "" || opts.Type == "" {
 		return nil, fmt.Errorf("name or type is not provided in the verifier options")
 	}
-	verifierFactory, ok := registeredVerifiers[opts.Type]
+	create, ok := registeredVerifiers[opts.Type]
 	if !ok {
 		return nil, fmt.Errorf("verifier factory of type %s is not registered", opts.Type)
 	}
-	return verifierFactory(opts, globalScopes)
+	return create(opts, globalScopes)
+}
+
+// NewVerifiers creates a slice of [ratify.Verifier] instances based on the
+// provided options.
+func NewVerifiers(opts []*NewOptions, globalScopes []string) ([]ratify.Verifier, error) {
+	if len(opts) == 0 {
+		return nil, fmt.Errorf("no verifier options provided")
+	}
+	verifiers := make([]ratify.Verifier, len(opts))
+	for idx, opt := range opts {
+		verifier, err := New(opt, globalScopes)
+		if err != nil {
+			return nil, err
+		}
+		verifiers[idx] = verifier
+	}
+	return verifiers, nil
 }

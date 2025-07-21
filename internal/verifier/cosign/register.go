@@ -27,7 +27,7 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/verify"
 	"oras.land/oras-go/v2/registry"
 
-	"github.com/notaryproject/ratify/v2/internal/verifier/factory"
+	"github.com/notaryproject/ratify/v2/internal/verifier"
 )
 
 const (
@@ -98,12 +98,12 @@ type Options struct {
 }
 
 func init() {
-	factory.RegisterVerifierFactory(verifierTypeCosign, NewVerifier)
+	verifier.RegisterVerifierFactory(verifierTypeCosign, NewVerifier)
 }
 
 // NewVerifier creates a new scoped Cosign verifier instance based on the
 // provided options.
-func NewVerifier(opts *factory.NewVerifierOptions, globalScopes []string) (ratify.Verifier, error) {
+func NewVerifier(opts *verifier.NewOptions, globalScopes []string) (ratify.Verifier, error) {
 	if opts == nil {
 		return nil, fmt.Errorf("verifier options cannot be nil")
 	}

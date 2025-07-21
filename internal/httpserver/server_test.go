@@ -34,8 +34,8 @@ import (
 
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/executor"
-	storeFactory "github.com/notaryproject/ratify/v2/internal/store/factory"
-	"github.com/notaryproject/ratify/v2/internal/verifier/factory"
+	"github.com/notaryproject/ratify/v2/internal/store"
+	"github.com/notaryproject/ratify/v2/internal/verifier"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -46,7 +46,7 @@ const (
 	artifact1         = "test.registry.io/test/image1:v1"
 )
 
-func createMockVerifier(*factory.NewVerifierOptions, []string) (ratify.Verifier, error) {
+func createMockVerifier(*verifier.NewOptions, []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -79,13 +79,13 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ *storeFactory.NewStoreOptions) (ratify.Store, error) {
+func newMockStore(_ *store.NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
 func init() {
-	factory.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
-	storeFactory.RegisterStoreFactory(mockStoreType, newMockStore)
+	verifier.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
+	store.RegisterStoreFactory(mockStoreType, newMockStore)
 }
 
 func TestStartServer(t *testing.T) {
@@ -145,13 +145,13 @@ func TestStartServer_NoTLS(t *testing.T) {
 		Executors: []*executor.ScopedOptions{
 			{
 				Scopes: []string{registryPattern},
-				Verifiers: []*factory.NewVerifierOptions{
+				Verifiers: []*verifier.NewOptions{
 					{
 						Name: mockVerifierName,
 						Type: mockVerifierType,
 					},
 				},
-				Stores: []*storeFactory.NewStoreOptions{
+				Stores: []*store.NewOptions{
 					{
 						Type: mockStoreType,
 					},
@@ -195,13 +195,13 @@ func TestStartServer_TLSEnabled(t *testing.T) {
 		Executors: []*executor.ScopedOptions{
 			{
 				Scopes: []string{registryPattern},
-				Verifiers: []*factory.NewVerifierOptions{
+				Verifiers: []*verifier.NewOptions{
 					{
 						Name: mockVerifierName,
 						Type: mockVerifierType,
 					},
 				},
-				Stores: []*storeFactory.NewStoreOptions{
+				Stores: []*store.NewOptions{
 					{
 						Type: mockStoreType,
 					},
@@ -252,13 +252,13 @@ func TestStartServer_InvalidTLS(t *testing.T) {
 		Executors: []*executor.ScopedOptions{
 			{
 				Scopes: []string{registryPattern},
-				Verifiers: []*factory.NewVerifierOptions{
+				Verifiers: []*verifier.NewOptions{
 					{
 						Name: mockVerifierName,
 						Type: mockVerifierType,
 					},
 				},
-				Stores: []*storeFactory.NewStoreOptions{
+				Stores: []*store.NewOptions{
 					{
 						Type: mockStoreType,
 					},
