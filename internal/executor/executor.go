@@ -23,9 +23,7 @@ import (
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
-	storeFactory "github.com/notaryproject/ratify/v2/internal/store/factory"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
-	"github.com/notaryproject/ratify/v2/internal/verifier/factory"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"oras.land/oras-go/v2/registry"
@@ -39,10 +37,10 @@ type ScopedOptions struct {
 	Scopes []string `json:"scopes"`
 
 	// Verifiers contains the configuration options for the verifiers. Required.
-	Verifiers []*factory.NewVerifierOptions `json:"verifiers"`
+	Verifiers []*verifier.NewOptions `json:"verifiers"`
 
 	// Stores contains the configuration options for the stores. Required.
-	Stores []*storeFactory.NewStoreOptions `json:"stores"`
+	Stores []*store.NewOptions `json:"stores"`
 
 	// Policy contains the configuration options for the policy enforcer.
 	// Optional.
@@ -120,7 +118,7 @@ func newExecutor(opts *ScopedOptions) (*ratify.Executor, error) {
 		return nil, err
 	}
 
-	storeMux, err := store.NewStore(opts.Stores, opts.Scopes)
+	storeMux, err := store.New(opts.Stores, opts.Scopes)
 	if err != nil {
 		return nil, err
 	}

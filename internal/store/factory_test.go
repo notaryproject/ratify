@@ -13,12 +13,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package factory
+package store
 
 import (
+	"context"
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 const (
@@ -26,7 +28,7 @@ const (
 	testName = "test-name"
 )
 
-func createStore(_ *NewStoreOptions) (ratify.Store, error) {
+func createStore(_ *NewOptions) (ratify.Store, error) {
 	return nil, nil
 }
 
@@ -73,14 +75,14 @@ func TestRegisterStoreFactory(t *testing.T) {
 
 func TestNewStore(t *testing.T) {
 	t.Run("Empty store options", func(t *testing.T) {
-		_, err := NewStore(&NewStoreOptions{})
+		_, err := newStore(&NewOptions{})
 		if err == nil {
 			t.Errorf("Expected error when creating a store with empty options, but got nil")
 		}
 	})
 
 	t.Run("Unregistered store type", func(t *testing.T) {
-		_, err := NewStore(&NewStoreOptions{Type: "unregistered"})
+		_, err := newStore(&NewOptions{Type: "unregistered"})
 		if err == nil {
 			t.Errorf("Expected error when creating a store with unregistered type, but got nil")
 		}
@@ -90,9 +92,88 @@ func TestNewStore(t *testing.T) {
 		RegisterStoreFactory(testType, createStore)
 		defer delete(registeredStores, testType)
 
-		_, err := NewStore(&NewStoreOptions{Type: testType})
+		_, err := newStore(&NewOptions{Type: testType})
 		if err != nil {
 			t.Errorf("Did not expect error when creating a store with valid options, but got: %v", err)
 		}
 	})
+}
+
+type mockStore struct{}
+
+func (m *mockStore) Resolve(_ context.Context, _ string) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, nil
+}
+
+func (m *mockStore) ListReferrers(_ context.Context, _ string, _ []string, _ func(referrers []ocispec.Descriptor) error) error {
+	return nil
+}
+
+func (m *mockStore) FetchBlob(_ context.Context, _ string, _ ocispec.Descriptor) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descriptor) ([]byte, error) {
+	return nil, nil
+}
+
+func newMockStore(_ *NewOptions) (ratify.Store, error) {
+	return &mockStore{}, nil
+}
+
+func TestNew(t *testing.T) {
+	RegisterStoreFactory("mock-store", newMockStore)
+	tests := []struct {
+		name          string
+		opts          []*NewOptions
+		globalScopes  []string
+		expectedError bool
+	}{
+		{
+			name:          "empty store options",
+			opts:          []*NewOptions{},
+			expectedError: true,
+		},
+		{
+			name: "unregistered store options",
+			opts: []*NewOptions{
+				{
+					Type:       "mock",
+					Parameters: map[string]any{},
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "valid store options",
+			opts: []*NewOptions{
+				{
+					Type:       "mock-store",
+					Parameters: map[string]any{},
+				},
+			},
+			globalScopes:  []string{"example.com"},
+			expectedError: false,
+		},
+		{
+			name: "invalid store scope",
+			opts: []*NewOptions{
+				{
+					Type:       "mock-store",
+					Parameters: map[string]any{},
+				},
+			},
+			globalScopes:  []string{"*"},
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := New(tt.opts, tt.globalScopes)
+			if (err != nil) != tt.expectedError {
+				t.Errorf("NewStore() error = %v, expectedError %v", err, tt.expectedError)
+			}
+		})
+	}
 }

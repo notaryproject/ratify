@@ -16,7 +16,23 @@ limitations under the License.
 package main
 
 import (
-	_ "github.com/notaryproject/ratify/v2/internal/policyenforcer/threshold"  // Register policy enforcers
-	_ "github.com/notaryproject/ratify/v2/internal/verifier/factory/cosign"   // Register the Cosign verifier
-	_ "github.com/notaryproject/ratify/v2/internal/verifier/factory/notation" // Register the Notation verifier
+	// Register policy enforcers
+	_ "github.com/notaryproject/ratify/v2/internal/policyenforcer/threshold" // Register threshold policy enforcer
+
+	// Register stores
+	_ "github.com/notaryproject/ratify/v2/internal/store/filesystemocistore" // Register the filesystem OCI store
+	_ "github.com/notaryproject/ratify/v2/internal/store/registrystore"      // Register the registry store
+
+	// Register credential providers
+	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/azure"  // Register the Azure credential provider factory
+	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/static" // Register the static credential provider factory
+
+	// Register verifiers
+	_ "github.com/notaryproject/ratify/v2/internal/verifier/cosign"   // Register the Cosign verifier
+	_ "github.com/notaryproject/ratify/v2/internal/verifier/notation" // Register the Notation verifier
+
+	// Register key providers
+	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/azurekeyvault"      // Register the Azure Key Vault key provider
+	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/filesystemprovider" // Register the filesystem key provider
+	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/inlineprovider"     // Register the inline key provider
 )

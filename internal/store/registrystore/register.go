@@ -20,11 +20,8 @@ import (
 	"fmt"
 
 	"github.com/notaryproject/ratify-go"
+	factory "github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
-	"github.com/notaryproject/ratify/v2/internal/store/factory"
-
-	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/azure"  // Register the Azure credential provider factory
-	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/static" // Register the static credential provider factory
 )
 
 const registryStoreType = "registry-store"
@@ -53,7 +50,7 @@ type options struct {
 
 func init() {
 	// Register the registry store factory.
-	factory.RegisterStoreFactory(registryStoreType, func(opts *factory.NewStoreOptions) (ratify.Store, error) {
+	factory.RegisterStoreFactory(registryStoreType, func(opts *factory.NewOptions) (ratify.Store, error) {
 		raw, err := json.Marshal(opts.Parameters)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal store parameters: %w", err)
