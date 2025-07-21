@@ -20,18 +20,17 @@ import (
 
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/verifier/factory"
-	_ "github.com/notaryproject/ratify/v2/internal/verifier/factory/notation" // Register the Notation verifier factory
 )
 
 // NewVerifiers creates a slice of ratify.Verifier instances based on the
 // provided options.
-func NewVerifiers(opts []*factory.NewVerifierOptions) ([]ratify.Verifier, error) {
+func NewVerifiers(opts []*factory.NewVerifierOptions, globalScopes []string) ([]ratify.Verifier, error) {
 	if len(opts) == 0 {
 		return nil, fmt.Errorf("no verifier options provided")
 	}
 	verifiers := make([]ratify.Verifier, len(opts))
 	for idx, opt := range opts {
-		verifier, err := factory.NewVerifier(opt)
+		verifier, err := factory.NewVerifier(opt, globalScopes)
 		if err != nil {
 			return nil, err
 		}

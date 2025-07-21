@@ -11,8 +11,8 @@ notation:
   scopes: []
   trustedIdentities: []
   certs:
-    - provider: "inline"
-      cert: "" # PEM encoded certificate, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+  # - provider: "inline"
+  #   cert: "" # PEM encoded certificate, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
   # - provider: "azurekeyvault" # use "azurekeyvault" to use Azure Key Vault
   #   vaultURL: "" # e.g. "https://my-key-vault.vault.azure.net/"
   #   clientID: "" # optional
@@ -20,6 +20,15 @@ notation:
   #   certificates:
   #     - name: "" # name of the certificate in Azure Key Vault
   #       version: "" # optional, if not provided, the latest version will be used
+cosign:
+  scopes: []
+  certificateIdentity: ""
+  certificateIdentityRegex: ""
+  certificateOIDCIssuer: ""
+  certificateOIDCIssuerRegex: ""
+  ignoreTLog: false
+  ignoreCTLog: false
+
 stores:
   - scopes: []
     credential:

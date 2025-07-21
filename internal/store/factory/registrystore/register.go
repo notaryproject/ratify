@@ -45,6 +45,10 @@ type options struct {
 
 	// CredentialProvider is the credential provider configuration. Required.
 	CredentialProvider credentialprovider.Options `json:"credential"`
+
+	// AllowCosignTag enables fetching cosign signatures with
+	// the tag format when listing referrers.
+	AllowCosignTag bool `json:"allowCosignTag,omitempty"`
 }
 
 func init() {
@@ -70,6 +74,7 @@ func init() {
 			UserAgent:          params.UserAgent,
 			MaxBlobBytes:       params.MaxBlobBytes,
 			MaxManifestBytes:   params.MaxManifestBytes,
+			AllowCosignTag:     params.AllowCosignTag,
 			CredentialProvider: credProvider,
 		}
 

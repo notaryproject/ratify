@@ -115,7 +115,7 @@ func NewScopedExecutor(opts *Options) (*ScopedExecutor, error) {
 // newExecutor creates a new [ratify.Executor] instance based on the provided
 // options.
 func newExecutor(opts *ScopedOptions) (*ratify.Executor, error) {
-	verifiers, err := verifier.NewVerifiers(opts.Verifiers)
+	verifiers, err := verifier.NewVerifiers(opts.Verifiers, opts.Scopes)
 	if err != nil {
 		return nil, err
 	}
