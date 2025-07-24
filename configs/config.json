@@ -17,6 +17,18 @@
                             }
                         ]
                     }
+                },
+                {
+                    "name": "cosign-1",
+                    "type": "cosign",
+                    "parameters": {
+                        "trustPolicies": [
+                            {
+                                "certificateIdentity": "test@example.com",
+                                "certificateOIDCIssuer": "https://github.com/login/oauth"
+                            }
+                        ]
+                    }
                 }
             ],
             "stores": [
@@ -27,7 +39,8 @@
                             "provider": "static",
                             "username": "",
                             "password": ""
-                        }
+                        },
+                        "allowCosignTag": true
                     }
                 }
             ],
@@ -37,9 +50,13 @@
                     "policy": {
                         "rules": [
                             {
+                                "verifierName": "cosign-1"
+                            },
+                            {
                                 "verifierName": "notation-1"
                             }
-                        ]
+                        ],
+                        "threshold": 1
                     }
                 }
             }

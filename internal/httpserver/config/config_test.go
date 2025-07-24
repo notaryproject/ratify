@@ -25,8 +25,8 @@ import (
 
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
-	"github.com/notaryproject/ratify/v2/internal/store/factory"
-	vf "github.com/notaryproject/ratify/v2/internal/verifier/factory"
+	"github.com/notaryproject/ratify/v2/internal/store"
+	"github.com/notaryproject/ratify/v2/internal/verifier"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 )
@@ -55,7 +55,7 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(_ *vf.NewVerifierOptions) (ratify.Verifier, error) {
+func createMockVerifier(_ *verifier.NewOptions, _ []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -77,7 +77,7 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ *factory.NewStoreOptions) (ratify.Store, error) {
+func newMockStore(_ *store.NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
@@ -86,8 +86,8 @@ func createPolicyEnforcer(_ policyenforcer.NewOptions) (ratify.PolicyEnforcer, e
 }
 
 func TestNewWatcher(t *testing.T) {
-	factory.RegisterStoreFactory(mockStoreType, newMockStore)
-	vf.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
+	store.RegisterStoreFactory(mockStoreType, newMockStore)
+	verifier.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
 	policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
 
 	t.Run("empty config path", func(t *testing.T) {

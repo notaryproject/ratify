@@ -1,7 +1,0 @@
-apiVersion: v2
-name: ratify
-description: A Helm chart for Ratify
-version: 1.15.0
-appVersion: v1.4.0
-home: https://github.com/notaryproject/ratify
-icon: https://raw.githubusercontent.com/notaryproject/ratify/main/assets/logo.svg

@@ -23,8 +23,8 @@ import (
 	"github.com/notaryproject/ratify-go"
 	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
 	e "github.com/notaryproject/ratify/v2/internal/executor"
-	sf "github.com/notaryproject/ratify/v2/internal/store/factory"
-	vf "github.com/notaryproject/ratify/v2/internal/verifier/factory"
+	"github.com/notaryproject/ratify/v2/internal/store"
+	"github.com/notaryproject/ratify/v2/internal/verifier"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -50,7 +50,7 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(*vf.NewVerifierOptions) (ratify.Verifier, error) {
+func createMockVerifier(*verifier.NewOptions, []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -72,14 +72,14 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ *sf.NewStoreOptions) (ratify.Store, error) {
+func newMockStore(_ *store.NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
 func init() {
 	// Register mock verifier and store factories for testing
-	vf.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
-	sf.RegisterStoreFactory(mockStoreType, newMockStore)
+	verifier.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
+	store.RegisterStoreFactory(mockStoreType, newMockStore)
 }
 
 // helper returns a minimal, but valid, Executor CRD object that satisfies

@@ -11,8 +11,8 @@ notation:
   scopes: []
   trustedIdentities: []
   certs:
-    - provider: "inline"
-      cert: "" # PEM encoded certificate, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+  # - provider: "inline"
+  #   cert: "" # PEM encoded certificate, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
   # - provider: "azurekeyvault" # use "azurekeyvault" to use Azure Key Vault
   #   vaultURL: "" # e.g. "https://my-key-vault.vault.azure.net/"
   #   clientID: "" # optional
@@ -20,8 +20,20 @@ notation:
   #   certificates:
   #     - name: "" # name of the certificate in Azure Key Vault
   #       version: "" # optional, if not provided, the latest version will be used
+cosign:
+  scopes: []
+  certificateIdentity: ""
+  certificateIdentityRegex: ""
+  certificateOIDCIssuer: ""
+  certificateOIDCIssuerRegex: ""
+  ignoreTLog: false
+  ignoreCTLog: false
+
 stores:
   - scopes: []
+    caBase64: "" # base64 encoded CA certificate, used for TLS verification, e.g. "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="
+    caPem: "" # PEM encoded CA certificate, used for TLS verification, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+    # if both caBase64 and caPem are provided, caPem will be used
     credential:
       provider: "static"
       username: ""
