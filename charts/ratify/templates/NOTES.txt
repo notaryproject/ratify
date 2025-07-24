@@ -1,6 +1,0 @@
-{{- if not (or .Values.notation.enabled .Values.cosign.enabled .Values.sbom.enabled .Values.vulnerabilityreport.enabled) }}
-***********************************************************
-WARNING: All verifiers are disabled.
-It's recommended that at least one is enabled for proper functionality.
-***********************************************************
-{{- end }}

@@ -31,6 +31,9 @@ cosign:
 
 stores:
   - scopes: []
+    caBase64: "" # base64 encoded CA certificate, used for TLS verification, e.g. "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="
+    caPem: "" # PEM encoded CA certificate, used for TLS verification, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+    # if both caBase64 and caPem are provided, caPem will be used
     credential:
       provider: "static"
       username: ""
