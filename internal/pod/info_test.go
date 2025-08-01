@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestGetNamespace(t *testing.T) {
+func TestNamespace(t *testing.T) {
 	// Test case 1: Environment variable "RATIFY_NAMESPACE" is not set
 	t.Run("Environment variable not set", func(t *testing.T) {
 		expected := "gatekeeper-system"
@@ -52,7 +52,7 @@ func TestGetNamespace(t *testing.T) {
 	})
 }
 
-func TestGetServiceName(t *testing.T) {
+func TestServiceName(t *testing.T) {
 	// Test case 1: Environment variable "RATIFY_NAME" is not set
 	t.Run("Environment variable not set", func(t *testing.T) {
 		// Clear any existing value of the environment variable
