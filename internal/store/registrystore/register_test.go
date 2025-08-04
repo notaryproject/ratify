@@ -86,12 +86,12 @@ func generateTestCertificateBase64() (string, error) {
 func TestNewStore(t *testing.T) {
 	tests := []struct {
 		name      string
-		opts      *store.NewOptions
+		opts      store.NewOptions
 		expectErr bool
 	}{
 		{
 			name: "Unsupported params type",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: make(chan int),
 			},
@@ -99,7 +99,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Malformed JSON params",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: "{invalid json",
 			},
@@ -107,7 +107,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Missing credential provider",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type: registryStoreType,
 				Parameters: map[string]interface{}{
 					"plainHttp": true,
@@ -117,7 +117,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Invalid credential provider type",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type: registryStoreType,
 				Parameters: map[string]interface{}{
 					"credential": map[string]interface{}{
@@ -129,7 +129,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Valid registry params with static credential provider",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type: registryStoreType,
 				Parameters: map[string]interface{}{
 					"plainHttp":        true,
@@ -147,7 +147,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Valid registry params with minimal config",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type: registryStoreType,
 				Parameters: map[string]interface{}{
 					"credential": map[string]interface{}{
@@ -160,7 +160,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Empty credential provider options",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type: registryStoreType,
 				Parameters: map[string]interface{}{
 					"credential": map[string]interface{}{},
@@ -172,7 +172,7 @@ func TestNewStore(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, err := store.New([]*store.NewOptions{test.opts}, nil)
+			store, err := store.New([]store.NewOptions{test.opts}, nil)
 			if (err != nil) != test.expectErr {
 				t.Errorf("expected error: %v, got: %v", test.expectErr, err)
 			}
@@ -189,7 +189,7 @@ func TestNewStore(t *testing.T) {
 func TestRegistryStoreFactory(t *testing.T) {
 	// Test that the factory is properly registered
 	t.Run("Factory is registered", func(t *testing.T) {
-		opts := &store.NewOptions{
+		opts := store.NewOptions{
 			Type: registryStoreType,
 			Parameters: map[string]interface{}{
 				"credential": map[string]interface{}{
@@ -199,7 +199,7 @@ func TestRegistryStoreFactory(t *testing.T) {
 			},
 		}
 
-		_, err := store.New([]*store.NewOptions{opts}, nil)
+		_, err := store.New([]store.NewOptions{opts}, nil)
 		if err != nil {
 			t.Errorf("factory should be registered and functional, got error: %v", err)
 		}
@@ -256,12 +256,12 @@ func TestStoreOptionsUnmarshaling(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts := &store.NewOptions{
+			opts := store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: test.params,
 			}
 
-			store, err := store.New([]*store.NewOptions{opts}, nil)
+			store, err := store.New([]store.NewOptions{opts}, nil)
 			if (err != nil) != test.expectErr {
 				t.Errorf("expected error: %v, got: %v", test.expectErr, err)
 			}
@@ -331,14 +331,14 @@ func TestCredentialProviderIntegration(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts := &store.NewOptions{
+			opts := store.NewOptions{
 				Type: registryStoreType,
 				Parameters: map[string]interface{}{
 					"credential": test.credConfig,
 				},
 			}
 
-			store, err := store.New([]*store.NewOptions{opts}, nil)
+			store, err := store.New([]store.NewOptions{opts}, nil)
 			if (err != nil) != test.expectErr {
 				t.Errorf("expected error: %v, got error: %v", test.expectErr, err)
 			}
@@ -546,12 +546,12 @@ func TestOptionsUnmarshal(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts := &store.NewOptions{
+			opts := store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: test.params,
 			}
 
-			store, err := store.New([]*store.NewOptions{opts}, nil)
+			store, err := store.New([]store.NewOptions{opts}, nil)
 			if (err != nil) != test.expectErr {
 				t.Errorf("expected error: %v, got: %v", test.expectErr, err)
 			}
@@ -609,12 +609,12 @@ func TestParameterTypes(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts := &store.NewOptions{
+			opts := store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: test.params,
 			}
 
-			_, err := store.New([]*store.NewOptions{opts}, nil)
+			_, err := store.New([]store.NewOptions{opts}, nil)
 			if (err != nil) != test.expectErr {
 				t.Errorf("expected error: %v, got: %v", test.expectErr, err)
 			}
@@ -700,12 +700,12 @@ func TestFactoryRegistration(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts := &store.NewOptions{
+			opts := store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: test.params,
 			}
 
-			store, err := store.New([]*store.NewOptions{opts}, nil)
+			store, err := store.New([]store.NewOptions{opts}, nil)
 			if test.expectErr {
 				if err == nil {
 					t.Errorf("expected error but got none")

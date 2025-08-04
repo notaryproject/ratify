@@ -46,7 +46,7 @@ const (
 	artifact1         = "test.registry.io/test/image1:v1"
 )
 
-func createMockVerifier(*verifier.NewOptions, []string) (ratify.Verifier, error) {
+func createMockVerifier(verifier.NewOptions, []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -79,13 +79,13 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ *store.NewOptions) (ratify.Store, error) {
+func newMockStore(_ store.NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
 func init() {
-	verifier.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
-	store.RegisterStoreFactory(mockStoreType, newMockStore)
+	verifier.Register(mockVerifierType, createMockVerifier)
+	store.Register(mockStoreType, newMockStore)
 }
 
 func TestStartServer(t *testing.T) {
@@ -142,16 +142,16 @@ func TestStartServer_NoTLS(t *testing.T) {
 	tempDir := t.TempDir()
 
 	executorOpts := &executor.Options{
-		Executors: []*executor.ScopedOptions{
+		Executors: []executor.ScopedOptions{
 			{
 				Scopes: []string{registryPattern},
-				Verifiers: []*verifier.NewOptions{
+				Verifiers: []verifier.NewOptions{
 					{
 						Name: mockVerifierName,
 						Type: mockVerifierType,
 					},
 				},
-				Stores: []*store.NewOptions{
+				Stores: []store.NewOptions{
 					{
 						Type: mockStoreType,
 					},
@@ -192,16 +192,16 @@ func TestStartServer_TLSEnabled(t *testing.T) {
 	tempDir := t.TempDir()
 
 	executorOpts := &executor.Options{
-		Executors: []*executor.ScopedOptions{
+		Executors: []executor.ScopedOptions{
 			{
 				Scopes: []string{registryPattern},
-				Verifiers: []*verifier.NewOptions{
+				Verifiers: []verifier.NewOptions{
 					{
 						Name: mockVerifierName,
 						Type: mockVerifierType,
 					},
 				},
-				Stores: []*store.NewOptions{
+				Stores: []store.NewOptions{
 					{
 						Type: mockStoreType,
 					},
@@ -249,16 +249,16 @@ func TestStartServer_InvalidTLS(t *testing.T) {
 	tempDir := t.TempDir()
 
 	executorOpts := &executor.Options{
-		Executors: []*executor.ScopedOptions{
+		Executors: []executor.ScopedOptions{
 			{
 				Scopes: []string{registryPattern},
-				Verifiers: []*verifier.NewOptions{
+				Verifiers: []verifier.NewOptions{
 					{
 						Name: mockVerifierName,
 						Type: mockVerifierType,
 					},
 				},
-				Stores: []*store.NewOptions{
+				Stores: []store.NewOptions{
 					{
 						Type: mockStoreType,
 					},

@@ -37,14 +37,14 @@ type ScopedOptions struct {
 	Scopes []string `json:"scopes"`
 
 	// Verifiers contains the configuration options for the verifiers. Required.
-	Verifiers []*verifier.NewOptions `json:"verifiers"`
+	Verifiers []verifier.NewOptions `json:"verifiers"`
 
 	// Stores contains the configuration options for the stores. Required.
-	Stores []*store.NewOptions `json:"stores"`
+	Stores []store.NewOptions `json:"stores"`
 
 	// Policy contains the configuration options for the policy enforcer.
 	// Optional.
-	Policy *policyenforcer.NewOptions `json:"policyEnforcer,omitempty"`
+	Policy policyenforcer.NewOptions `json:"policyEnforcer,omitempty"`
 }
 
 // Options contains the configuration options to create a scoped executor.
@@ -53,7 +53,7 @@ type Options struct {
 	// Each scope can have its own set of verifiers, stores, and policy
 	// enforcer. At least one executor must be provided.
 	// Required.
-	Executors []*ScopedOptions `json:"executors"`
+	Executors []ScopedOptions `json:"executors"`
 }
 
 // ScopedExecutor manages multiple ratify.Executor instances, each associated
@@ -83,8 +83,8 @@ type ScopedExecutor struct {
 // NewScopedExecutor creates a new ScopedExecutor instance based on the provided
 // options. It initializes the executor for each scope defined in the options.
 // If no executors are provided, it returns an error.
-func NewScopedExecutor(opts *Options) (*ScopedExecutor, error) {
-	if opts == nil || len(opts.Executors) == 0 {
+func NewScopedExecutor(opts Options) (*ScopedExecutor, error) {
+	if len(opts.Executors) == 0 {
 		return nil, fmt.Errorf("at least 1 executor should be provided")
 	}
 	scopedExecutor := &ScopedExecutor{
@@ -112,7 +112,7 @@ func NewScopedExecutor(opts *Options) (*ScopedExecutor, error) {
 
 // newExecutor creates a new [ratify.Executor] instance based on the provided
 // options.
-func newExecutor(opts *ScopedOptions) (*ratify.Executor, error) {
+func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 	verifiers, err := verifier.NewVerifiers(opts.Verifiers, opts.Scopes)
 	if err != nil {
 		return nil, err
@@ -124,8 +124,8 @@ func newExecutor(opts *ScopedOptions) (*ratify.Executor, error) {
 	}
 
 	var policy ratify.PolicyEnforcer
-	if opts.Policy != nil {
-		policy, err = policyenforcer.New(*opts.Policy)
+	if opts.Policy != (policyenforcer.NewOptions{}) {
+		policy, err = policyenforcer.New(opts.Policy)
 		if err != nil {
 			return nil, err
 		}

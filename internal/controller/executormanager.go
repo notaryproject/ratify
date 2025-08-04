@@ -32,7 +32,7 @@ import (
 // namespaces and names.
 type executorManager struct {
 	mutex    sync.Mutex
-	opts     map[string]*e.ScopedOptions
+	opts     map[string]e.ScopedOptions
 	executor atomic.Pointer[e.ScopedExecutor]
 }
 
@@ -42,7 +42,7 @@ var GlobalExecutorManager executorManager
 
 func init() {
 	GlobalExecutorManager = executorManager{
-		opts: make(map[string]*e.ScopedOptions),
+		opts: make(map[string]e.ScopedOptions),
 	}
 }
 
@@ -88,14 +88,11 @@ func (m *executorManager) deleteExecutor(namespace, name string) error {
 
 // refreshExecutor creates a new executor instance based on the current options.
 func (m *executorManager) refreshExecutor() error {
-	opts := &e.Options{
-		Executors: make([]*e.ScopedOptions, len(m.opts)),
+	opts := e.Options{
+		Executors: make([]e.ScopedOptions, len(m.opts)),
 	}
 	i := 0
 	for _, scopedOpts := range m.opts {
-		if scopedOpts == nil {
-			continue
-		}
 		opts.Executors[i] = scopedOpts
 		i++
 	}
@@ -111,20 +108,20 @@ func (m *executorManager) refreshExecutor() error {
 
 // convertOptions converts the provided configv2alpha1.Executor options into a
 // ScopedOptions.
-func convertOptions(opts *configv2alpha1.Executor) (*e.ScopedOptions, error) {
-	scopedOpts := &e.ScopedOptions{
+func convertOptions(opts *configv2alpha1.Executor) (e.ScopedOptions, error) {
+	scopedOpts := e.ScopedOptions{
 		Scopes: opts.Spec.Scopes,
 	}
 
 	verifierOpts, err := convertVerifierOptions(opts.Spec.Verifiers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert verifier options: %w", err)
+		return e.ScopedOptions{}, fmt.Errorf("failed to convert verifier options: %w", err)
 	}
 	scopedOpts.Verifiers = verifierOpts
 
 	storeOpts, err := convertStoreOptions(opts.Spec.Stores)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert store options: %w", err)
+		return e.ScopedOptions{}, fmt.Errorf("failed to convert store options: %w", err)
 	}
 	scopedOpts.Stores = storeOpts
 
@@ -133,31 +130,30 @@ func convertOptions(opts *configv2alpha1.Executor) (*e.ScopedOptions, error) {
 	return scopedOpts, nil
 }
 
-func convertVerifierOptions(verifiers []*configv2alpha1.VerifierOptions) ([]*verifier.NewOptions, error) {
+func convertVerifierOptions(verifiers []*configv2alpha1.VerifierOptions) ([]verifier.NewOptions, error) {
 	if verifiers == nil {
 		return nil, fmt.Errorf("verifiers cannot be nil")
 	}
 
-	verifierOpts := make([]*verifier.NewOptions, len(verifiers))
+	verifierOpts := make([]verifier.NewOptions, len(verifiers))
 	for i, v := range verifiers {
-		opts := &verifier.NewOptions{
+		verifierOpts[i] = verifier.NewOptions{
 			Name:       v.Name,
 			Type:       v.Type,
 			Parameters: v.Parameters,
 		}
-		verifierOpts[i] = opts
 	}
 	return verifierOpts, nil
 }
 
-func convertStoreOptions(stores []*configv2alpha1.StoreOptions) ([]*store.NewOptions, error) {
+func convertStoreOptions(stores []*configv2alpha1.StoreOptions) ([]store.NewOptions, error) {
 	if stores == nil {
 		return nil, fmt.Errorf("stores cannot be nil")
 	}
 
-	storeOpts := make([]*store.NewOptions, len(stores))
+	storeOpts := make([]store.NewOptions, len(stores))
 	for i, s := range stores {
-		opts := &store.NewOptions{
+		opts := store.NewOptions{
 			Type:       s.Type,
 			Parameters: s.Parameters,
 		}
@@ -166,11 +162,11 @@ func convertStoreOptions(stores []*configv2alpha1.StoreOptions) ([]*store.NewOpt
 	return storeOpts, nil
 }
 
-func convertPolicyOptions(policy *configv2alpha1.PolicyEnforcerOptions) *policyenforcer.NewOptions {
+func convertPolicyOptions(policy *configv2alpha1.PolicyEnforcerOptions) policyenforcer.NewOptions {
 	if policy == nil {
-		return nil
+		return policyenforcer.NewOptions{}
 	}
-	return &policyenforcer.NewOptions{
+	return policyenforcer.NewOptions{
 		Type:       policy.Type,
 		Parameters: policy.Parameters,
 	}

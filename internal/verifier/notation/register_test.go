@@ -66,12 +66,12 @@ func TestNewVerifier(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		opts      *verifier.NewOptions
+		opts      verifier.NewOptions
 		expectErr bool
 	}{
 		{
 			name: "Unsupported params",
-			opts: &verifier.NewOptions{
+			opts: verifier.NewOptions{
 				Type:       verifierTypeNotation,
 				Name:       testName,
 				Parameters: make(chan int),
@@ -80,7 +80,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "Malformed params",
-			opts: &verifier.NewOptions{
+			opts: verifier.NewOptions{
 				Type:       verifierTypeNotation,
 				Name:       testName,
 				Parameters: "{",
@@ -89,7 +89,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "Missing trust store options",
-			opts: &verifier.NewOptions{
+			opts: verifier.NewOptions{
 				Type:       verifierTypeNotation,
 				Name:       testName,
 				Parameters: options{},
@@ -98,7 +98,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "Invalid trust store type",
-			opts: &verifier.NewOptions{
+			opts: verifier.NewOptions{
 				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
@@ -113,7 +113,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "Duplicate trust store type",
-			opts: &verifier.NewOptions{
+			opts: verifier.NewOptions{
 				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
@@ -133,7 +133,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "Non-registered key provider",
-			opts: &verifier.NewOptions{
+			opts: verifier.NewOptions{
 				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
@@ -149,7 +149,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "Key provider that would fail on GetCertificates (lazy loading)",
-			opts: &verifier.NewOptions{
+			opts: verifier.NewOptions{
 				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
@@ -167,7 +167,7 @@ func TestNewVerifier(t *testing.T) {
 		},
 		{
 			name: "Valid notation options",
-			opts: &verifier.NewOptions{
+			opts: verifier.NewOptions{
 				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
