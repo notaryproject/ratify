@@ -59,11 +59,19 @@ func New(opts []NewOptions, globalScopes []string) (ratify.Store, error) {
 	if len(opts) == 0 {
 		return nil, fmt.Errorf("no store options provided")
 	}
+	// If there is more than one store option, clear the global scopes as
+	// multiple stores should not share the same global scopes.
+	if len(opts) > 1 {
+		globalScopes = []string{}
+	}
 	storeMux := ratify.NewStoreMux()
 	for _, storeOptions := range opts {
 		if len(storeOptions.Scopes) == 0 {
 			// if no scopes are provided, use the global scopes of the executor.
 			storeOptions.Scopes = globalScopes
+		}
+		if len(storeOptions.Scopes) == 0 {
+			return nil, fmt.Errorf("store options must contain at least one scope")
 		}
 		store, err := newStore(storeOptions)
 		if err != nil {

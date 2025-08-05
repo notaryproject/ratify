@@ -33,6 +33,8 @@ import (
 	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/static" // Register the static credential provider factory
 )
 
+const testScope = "example.com"
+
 // generateTestCertificate creates a test certificate for testing purposes
 func generateTestCertificate() (string, error) {
 	// Generate RSA private key
@@ -109,7 +111,7 @@ func TestNewStore(t *testing.T) {
 			name: "Missing credential provider",
 			opts: store.NewOptions{
 				Type: registryStoreType,
-				Parameters: map[string]interface{}{
+				Parameters: map[string]any{
 					"plainHttp": true,
 				},
 			},
@@ -119,8 +121,8 @@ func TestNewStore(t *testing.T) {
 			name: "Invalid credential provider type",
 			opts: store.NewOptions{
 				Type: registryStoreType,
-				Parameters: map[string]interface{}{
-					"credential": map[string]interface{}{
+				Parameters: map[string]any{
+					"credential": map[string]any{
 						"provider": "nonexistent",
 					},
 				},
@@ -131,17 +133,18 @@ func TestNewStore(t *testing.T) {
 			name: "Valid registry params with static credential provider",
 			opts: store.NewOptions{
 				Type: registryStoreType,
-				Parameters: map[string]interface{}{
+				Parameters: map[string]any{
 					"plainHttp":        true,
 					"userAgent":        "test-agent",
 					"maxBlobBytes":     1024,
 					"maxManifestBytes": 2048,
-					"credential": map[string]interface{}{
+					"credential": map[string]any{
 						"provider": "static",
 						"username": "testuser",
 						"password": "testpass",
 					},
 				},
+				Scopes: []string{testScope},
 			},
 			expectErr: false,
 		},
@@ -149,12 +152,13 @@ func TestNewStore(t *testing.T) {
 			name: "Valid registry params with minimal config",
 			opts: store.NewOptions{
 				Type: registryStoreType,
-				Parameters: map[string]interface{}{
-					"credential": map[string]interface{}{
+				Parameters: map[string]any{
+					"credential": map[string]any{
 						"provider": "static",
 						"password": "token",
 					},
 				},
+				Scopes: []string{testScope},
 			},
 			expectErr: false,
 		},
@@ -197,6 +201,7 @@ func TestRegistryStoreFactory(t *testing.T) {
 					"password": "token",
 				},
 			},
+			Scopes: []string{testScope},
 		}
 
 		_, err := store.New([]store.NewOptions{opts}, nil)
@@ -259,6 +264,7 @@ func TestStoreOptionsUnmarshaling(t *testing.T) {
 			opts := store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: test.params,
+				Scopes:     []string{testScope},
 			}
 
 			store, err := store.New([]store.NewOptions{opts}, nil)
@@ -336,6 +342,7 @@ func TestCredentialProviderIntegration(t *testing.T) {
 				Parameters: map[string]interface{}{
 					"credential": test.credConfig,
 				},
+				Scopes: []string{testScope},
 			}
 
 			store, err := store.New([]store.NewOptions{opts}, nil)
@@ -549,6 +556,7 @@ func TestOptionsUnmarshal(t *testing.T) {
 			opts := store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: test.params,
+				Scopes:     []string{testScope},
 			}
 
 			store, err := store.New([]store.NewOptions{opts}, nil)
@@ -612,6 +620,7 @@ func TestParameterTypes(t *testing.T) {
 			opts := store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: test.params,
+				Scopes:     []string{testScope},
 			}
 
 			_, err := store.New([]store.NewOptions{opts}, nil)
@@ -703,6 +712,7 @@ func TestFactoryRegistration(t *testing.T) {
 			opts := store.NewOptions{
 				Type:       registryStoreType,
 				Parameters: test.params,
+				Scopes:     []string{testScope},
 			}
 
 			store, err := store.New([]store.NewOptions{opts}, nil)
