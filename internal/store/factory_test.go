@@ -166,6 +166,21 @@ func TestNew(t *testing.T) {
 			globalScopes:  []string{"*"},
 			expectedError: true,
 		},
+		{
+			name: "multiple stores clear global scopes",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"example1.com"},
+				},
+				{
+					Type:   "mock-store",
+					Scopes: []string{"example2.com"},
+				},
+			},
+			globalScopes:  []string{"global.com"},
+			expectedError: false,
+		},
 	}
 
 	for _, tt := range tests {
