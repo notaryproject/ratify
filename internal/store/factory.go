@@ -33,29 +33,29 @@ type NewOptions struct {
 	Parameters any `json:"parameters,omitempty"`
 }
 
-// registeredStores saves the registered store factories.
-var registeredStores map[string]func(*NewOptions) (ratify.Store, error)
+// registry saves the registered store factories.
+var registry map[string]func(NewOptions) (ratify.Store, error)
 
-// RegisterStore registers a store factory to the system.
-func RegisterStoreFactory(storeType string, create func(*NewOptions) (ratify.Store, error)) {
+// Register registers a store factory to the system.
+func Register(storeType string, create func(NewOptions) (ratify.Store, error)) {
 	if storeType == "" {
 		panic("store type cannot be empty")
 	}
 	if create == nil {
-		panic("store factory cannot be nil")
+		panic("store create cannot be nil")
 	}
-	if registeredStores == nil {
-		registeredStores = make(map[string]func(*NewOptions) (ratify.Store, error))
+	if registry == nil {
+		registry = make(map[string]func(NewOptions) (ratify.Store, error))
 	}
-	if _, registered := registeredStores[storeType]; registered {
+	if _, registered := registry[storeType]; registered {
 		panic(fmt.Sprintf("store factory type %s already registered", storeType))
 	}
-	registeredStores[storeType] = create
+	registry[storeType] = create
 }
 
 // New creates a new [ratify.StoreMux] instance where each store is registered
 // for its respective scopes.
-func New(opts []*NewOptions, globalScopes []string) (ratify.Store, error) {
+func New(opts []NewOptions, globalScopes []string) (ratify.Store, error) {
 	if len(opts) == 0 {
 		return nil, fmt.Errorf("no store options provided")
 	}
@@ -81,13 +81,13 @@ func New(opts []*NewOptions, globalScopes []string) (ratify.Store, error) {
 
 // newStore creates a new [ratify.Store] instance based on the provided options
 // and will be used to register the store in the [ratify.StoreMux].
-func newStore(opts *NewOptions) (ratify.Store, error) {
+func newStore(opts NewOptions) (ratify.Store, error) {
 	if opts.Type == "" {
 		return nil, fmt.Errorf("store type is not provided in the store options")
 	}
-	storeFactory, ok := registeredStores[opts.Type]
+	create, ok := registry[opts.Type]
 	if !ok {
 		return nil, fmt.Errorf("store factory of type %s is not registered", opts.Type)
 	}
-	return storeFactory(opts)
+	return create(opts)
 }

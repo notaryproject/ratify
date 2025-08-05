@@ -52,7 +52,7 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ *store.NewOptions) (ratify.Store, error) {
+func newMockStore(_ store.NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
@@ -82,54 +82,48 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(_ *verifier.NewOptions, _ []string) (ratify.Verifier, error) {
+func createMockVerifier(_ verifier.NewOptions, _ []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
 func TestNewExecutor(t *testing.T) {
-	store.RegisterStoreFactory(mockStoreType, newMockStore)
-	verifier.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
+	store.Register(mockStoreType, newMockStore)
+	verifier.Register(mockVerifierType, createMockVerifier)
 	policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
 
 	tests := []struct {
 		name           string
-		opts           *Options
+		opts           Options
 		expectErr      bool
 		expectExecutor bool
 	}{
 		{
-			name:           "nil options",
-			opts:           nil,
-			expectErr:      true,
-			expectExecutor: false,
-		},
-		{
 			name:           "failed to create verifiers",
-			opts:           &Options{},
+			opts:           Options{},
 			expectErr:      true,
 			expectExecutor: false,
 		},
 		{
 			name: "empty global scopes",
-			opts: &Options{
-				Executors: []*ScopedOptions{{}},
+			opts: Options{
+				Executors: []ScopedOptions{{}},
 			},
 			expectErr:      true,
 			expectExecutor: false,
 		},
 		{
 			name: "invalid executor scopes",
-			opts: &Options{
-				Executors: []*ScopedOptions{
+			opts: Options{
+				Executors: []ScopedOptions{
 					{
 						Scopes: []string{"*"},
-						Verifiers: []*verifier.NewOptions{
+						Verifiers: []verifier.NewOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
 							},
 						},
-						Stores: []*store.NewOptions{
+						Stores: []store.NewOptions{
 							{
 								Type:   mockStoreType,
 								Scopes: []string{"testrepo"},
@@ -146,11 +140,11 @@ func TestNewExecutor(t *testing.T) {
 		},
 		{
 			name: "failed to create store",
-			opts: &Options{
-				Executors: []*ScopedOptions{
+			opts: Options{
+				Executors: []ScopedOptions{
 					{
 						Scopes: []string{"testrepo"},
-						Verifiers: []*verifier.NewOptions{
+						Verifiers: []verifier.NewOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
@@ -164,41 +158,25 @@ func TestNewExecutor(t *testing.T) {
 		},
 		{
 			name: "failed to create policy enforcer",
-			opts: &Options{
-				Executors: []*ScopedOptions{
-					{
-						Scopes: []string{"testrepo"},
-						Verifiers: []*verifier.NewOptions{
-							{
-								Name: mockVerifierName,
-								Type: mockVerifierType,
-							},
-						},
-					},
-				},
-			},
-			expectErr:      true,
-			expectExecutor: false,
-		},
-		{
-			name: "failed to create policy enforcer",
-			opts: &Options{
-				Executors: []*ScopedOptions{
+			opts: Options{
+				Executors: []ScopedOptions{
 					{
 						Scopes: []string{"test"},
-						Verifiers: []*verifier.NewOptions{
+						Verifiers: []verifier.NewOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
 							},
 						},
-						Stores: []*store.NewOptions{
+						Stores: []store.NewOptions{
 							{
 								Type:   mockStoreType,
 								Scopes: []string{"test"},
 							},
 						},
-						Policy: &policyenforcer.NewOptions{},
+						Policy: &policyenforcer.NewOptions{
+							Type: "invalid-policy-enforcer-type",
+						},
 					},
 				},
 			},
@@ -207,17 +185,17 @@ func TestNewExecutor(t *testing.T) {
 		},
 		{
 			name: "valid options",
-			opts: &Options{
-				Executors: []*ScopedOptions{
+			opts: Options{
+				Executors: []ScopedOptions{
 					{
 						Scopes: []string{"test"},
-						Verifiers: []*verifier.NewOptions{
+						Verifiers: []verifier.NewOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
 							},
 						},
-						Stores: []*store.NewOptions{
+						Stores: []store.NewOptions{
 							{
 								Type:   mockStoreType,
 								Scopes: []string{"test"},

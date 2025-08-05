@@ -53,7 +53,7 @@ func TestRegister(t *testing.T) {
 			name:       "duplicate registration",
 			policyType: "valid-type",
 			create:     testCreate,
-			wantPanic:  "policy factory already registered",
+			wantPanic:  "policy factory type valid-type already registered",
 		},
 	}
 	for _, tt := range tests {

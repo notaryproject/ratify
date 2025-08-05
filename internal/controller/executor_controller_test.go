@@ -79,7 +79,7 @@ var _ = Describe("Executor Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 			GlobalExecutorManager = executorManager{
-				opts: make(map[string]*e.ScopedOptions),
+				opts: make(map[string]e.ScopedOptions),
 			}
 		})
 		It("should successfully reconcile the resource", func() {

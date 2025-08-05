@@ -28,7 +28,7 @@ const (
 	testName = "test-name"
 )
 
-func createStore(_ *NewOptions) (ratify.Store, error) {
+func createStore(_ NewOptions) (ratify.Store, error) {
 	return nil, nil
 }
 
@@ -39,7 +39,7 @@ func TestRegisterStoreFactory(t *testing.T) {
 				t.Errorf("Expected panic when registering an empty type, but did not panic")
 			}
 		}()
-		RegisterStoreFactory("", createStore)
+		Register("", createStore)
 	})
 
 	t.Run("Registering a nil factory function", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestRegisterStoreFactory(t *testing.T) {
 				t.Errorf("Expected panic when registering a nil factory function, but did not panic")
 			}
 		}()
-		RegisterStoreFactory(testType, nil)
+		Register(testType, nil)
 	})
 
 	t.Run("Registering a valid factory function", func(t *testing.T) {
@@ -56,9 +56,9 @@ func TestRegisterStoreFactory(t *testing.T) {
 			if r := recover(); r != nil {
 				t.Errorf("Did not expect panic when registering a valid factory function, but got: %v", r)
 			}
-			delete(registeredStores, testType)
+			delete(registry, testType)
 		}()
-		RegisterStoreFactory(testType, createStore)
+		Register(testType, createStore)
 	})
 
 	t.Run("Registering a duplicate factory function", func(t *testing.T) {
@@ -66,33 +66,33 @@ func TestRegisterStoreFactory(t *testing.T) {
 			if r := recover(); r == nil {
 				t.Errorf("Expected panic when registering a duplicate factory function, but did not panic")
 			}
-			delete(registeredStores, testType)
+			delete(registry, testType)
 		}()
-		RegisterStoreFactory(testType, createStore)
-		RegisterStoreFactory(testType, createStore)
+		Register(testType, createStore)
+		Register(testType, createStore)
 	})
 }
 
 func TestNewStore(t *testing.T) {
 	t.Run("Empty store options", func(t *testing.T) {
-		_, err := newStore(&NewOptions{})
+		_, err := newStore(NewOptions{})
 		if err == nil {
 			t.Errorf("Expected error when creating a store with empty options, but got nil")
 		}
 	})
 
 	t.Run("Unregistered store type", func(t *testing.T) {
-		_, err := newStore(&NewOptions{Type: "unregistered"})
+		_, err := newStore(NewOptions{Type: "unregistered"})
 		if err == nil {
 			t.Errorf("Expected error when creating a store with unregistered type, but got nil")
 		}
 	})
 
 	t.Run("Valid store options", func(t *testing.T) {
-		RegisterStoreFactory(testType, createStore)
-		defer delete(registeredStores, testType)
+		Register(testType, createStore)
+		defer delete(registry, testType)
 
-		_, err := newStore(&NewOptions{Type: testType})
+		_, err := newStore(NewOptions{Type: testType})
 		if err != nil {
 			t.Errorf("Did not expect error when creating a store with valid options, but got: %v", err)
 		}
@@ -117,26 +117,26 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ *NewOptions) (ratify.Store, error) {
+func newMockStore(_ NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
 func TestNew(t *testing.T) {
-	RegisterStoreFactory("mock-store", newMockStore)
+	Register("mock-store", newMockStore)
 	tests := []struct {
 		name          string
-		opts          []*NewOptions
+		opts          []NewOptions
 		globalScopes  []string
 		expectedError bool
 	}{
 		{
 			name:          "empty store options",
-			opts:          []*NewOptions{},
+			opts:          []NewOptions{},
 			expectedError: true,
 		},
 		{
 			name: "unregistered store options",
-			opts: []*NewOptions{
+			opts: []NewOptions{
 				{
 					Type:       "mock",
 					Parameters: map[string]any{},
@@ -146,7 +146,7 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "valid store options",
-			opts: []*NewOptions{
+			opts: []NewOptions{
 				{
 					Type:       "mock-store",
 					Parameters: map[string]any{},
@@ -157,7 +157,7 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "invalid store scope",
-			opts: []*NewOptions{
+			opts: []NewOptions{
 				{
 					Type:       "mock-store",
 					Parameters: map[string]any{},

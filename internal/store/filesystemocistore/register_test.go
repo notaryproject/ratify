@@ -24,12 +24,12 @@ import (
 func TestNewStore(t *testing.T) {
 	tests := []struct {
 		name      string
-		opts      *store.NewOptions
+		opts      store.NewOptions
 		expectErr bool
 	}{
 		{
 			name: "Nil params",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type:       filesystemOCIStoreType,
 				Parameters: nil,
 			},
@@ -37,7 +37,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Unsupported params",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type:       filesystemOCIStoreType,
 				Parameters: make(chan int),
 			},
@@ -45,7 +45,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Malformed params",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type:       filesystemOCIStoreType,
 				Parameters: "{",
 			},
@@ -53,7 +53,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Missing path params",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type:       filesystemOCIStoreType,
 				Parameters: map[string]interface{}{},
 			},
@@ -61,7 +61,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Empty Path value",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type: filesystemOCIStoreType,
 				Parameters: map[string]interface{}{
 					"path": "",
@@ -71,7 +71,7 @@ func TestNewStore(t *testing.T) {
 		},
 		{
 			name: "Nonexistent path",
-			opts: &store.NewOptions{
+			opts: store.NewOptions{
 				Type: filesystemOCIStoreType,
 				Parameters: map[string]interface{}{
 					"path": "/nonexistent/path",
@@ -83,7 +83,7 @@ func TestNewStore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := store.New([]*store.NewOptions{tt.opts}, nil)
+			_, err := store.New([]store.NewOptions{tt.opts}, nil)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("NewStore() error = %v, expectErr %v", err, tt.expectErr)
 				return

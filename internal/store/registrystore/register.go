@@ -99,7 +99,7 @@ func createHTTPClient(caPem, caBase64 string) (*http.Client, error) {
 
 func init() {
 	// Register the registry store factory.
-	factory.RegisterStoreFactory(registryStoreType, func(opts *factory.NewOptions) (ratify.Store, error) {
+	factory.Register(registryStoreType, func(opts factory.NewOptions) (ratify.Store, error) {
 		raw, err := json.Marshal(opts.Parameters)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal store parameters: %w", err)

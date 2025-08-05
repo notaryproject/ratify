@@ -55,7 +55,7 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(_ *verifier.NewOptions, _ []string) (ratify.Verifier, error) {
+func createMockVerifier(_ verifier.NewOptions, _ []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -77,7 +77,7 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ *store.NewOptions) (ratify.Store, error) {
+func newMockStore(_ store.NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
@@ -86,8 +86,8 @@ func createPolicyEnforcer(_ policyenforcer.NewOptions) (ratify.PolicyEnforcer, e
 }
 
 func TestNewWatcher(t *testing.T) {
-	store.RegisterStoreFactory(mockStoreType, newMockStore)
-	verifier.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
+	store.Register(mockStoreType, newMockStore)
+	verifier.Register(mockVerifierType, createMockVerifier)
 	policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
 
 	t.Run("empty config path", func(t *testing.T) {

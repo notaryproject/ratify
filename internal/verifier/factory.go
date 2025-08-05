@@ -36,10 +36,10 @@ type NewOptions struct {
 }
 
 // registeredVerifiers saves the registered verifier factories.
-var registeredVerifiers map[string]func(*NewOptions, []string) (ratify.Verifier, error)
+var registeredVerifiers map[string]func(NewOptions, []string) (ratify.Verifier, error)
 
-// RegisterVerifierFactory registers a verifier factory to the system.
-func RegisterVerifierFactory(verifierType string, create func(*NewOptions, []string) (ratify.Verifier, error)) {
+// Register registers a verifier factory to the system.
+func Register(verifierType string, create func(NewOptions, []string) (ratify.Verifier, error)) {
 	if verifierType == "" {
 		panic("verifier type cannot be empty. Please provide a non-empty string representing a valid verifier.")
 	}
@@ -47,7 +47,7 @@ func RegisterVerifierFactory(verifierType string, create func(*NewOptions, []str
 		panic("verifier factory cannot be nil")
 	}
 	if registeredVerifiers == nil {
-		registeredVerifiers = make(map[string]func(*NewOptions, []string) (ratify.Verifier, error))
+		registeredVerifiers = make(map[string]func(NewOptions, []string) (ratify.Verifier, error))
 	}
 	if _, registered := registeredVerifiers[verifierType]; registered {
 		panic(fmt.Sprintf("verifier factory named %s already registered", verifierType))
@@ -56,7 +56,7 @@ func RegisterVerifierFactory(verifierType string, create func(*NewOptions, []str
 }
 
 // New creates a [ratify.Verifier] instance if it belongs to a registered type.
-func New(opts *NewOptions, globalScopes []string) (ratify.Verifier, error) {
+func New(opts NewOptions, globalScopes []string) (ratify.Verifier, error) {
 	if opts.Name == "" || opts.Type == "" {
 		return nil, fmt.Errorf("name or type is not provided in the verifier options")
 	}
@@ -69,7 +69,7 @@ func New(opts *NewOptions, globalScopes []string) (ratify.Verifier, error) {
 
 // NewVerifiers creates a slice of [ratify.Verifier] instances based on the
 // provided options.
-func NewVerifiers(opts []*NewOptions, globalScopes []string) ([]ratify.Verifier, error) {
+func NewVerifiers(opts []NewOptions, globalScopes []string) ([]ratify.Verifier, error) {
 	if len(opts) == 0 {
 		return nil, fmt.Errorf("no verifier options provided")
 	}

@@ -32,18 +32,21 @@ type NewOptions struct {
 }
 
 // registry saves the registered policy enforcer factories.
-var registry = make(map[string]func(opts NewOptions) (ratify.PolicyEnforcer, error))
+var registry map[string]func(NewOptions) (ratify.PolicyEnforcer, error)
 
 // RegisterPolicyEnforcer registers a policy enforcer factory to the system.
-func Register(policyType string, create func(opts NewOptions) (ratify.PolicyEnforcer, error)) {
+func Register(policyType string, create func(NewOptions) (ratify.PolicyEnforcer, error)) {
 	if policyType == "" {
 		panic("policy type cannot be empty")
 	}
 	if create == nil {
 		panic("policy create cannot be nil")
 	}
+	if registry == nil {
+		registry = make(map[string]func(NewOptions) (ratify.PolicyEnforcer, error))
+	}
 	if _, registered := registry[policyType]; registered {
-		panic("policy factory already registered")
+		panic(fmt.Sprintf("policy factory type %s already registered", policyType))
 	}
 	registry[policyType] = create
 }

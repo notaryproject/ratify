@@ -98,15 +98,12 @@ type Options struct {
 }
 
 func init() {
-	verifier.RegisterVerifierFactory(verifierTypeCosign, NewVerifier)
+	verifier.Register(verifierTypeCosign, NewVerifier)
 }
 
 // NewVerifier creates a new scoped Cosign verifier instance based on the
 // provided options.
-func NewVerifier(opts *verifier.NewOptions, globalScopes []string) (ratify.Verifier, error) {
-	if opts == nil {
-		return nil, fmt.Errorf("verifier options cannot be nil")
-	}
+func NewVerifier(opts verifier.NewOptions, globalScopes []string) (ratify.Verifier, error) {
 	if opts.Name == "" {
 		return nil, fmt.Errorf("verifier name cannot be empty")
 	}

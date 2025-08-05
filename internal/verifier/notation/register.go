@@ -56,7 +56,7 @@ type options struct {
 }
 
 func init() {
-	verifier.RegisterVerifierFactory(verifierTypeNotation, func(opts *verifier.NewOptions, _ []string) (ratify.Verifier, error) {
+	verifier.Register(verifierTypeNotation, func(opts verifier.NewOptions, _ []string) (ratify.Verifier, error) {
 		raw, err := json.Marshal(opts.Parameters)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal verifier parameters: %w", err)

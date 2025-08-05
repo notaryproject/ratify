@@ -50,7 +50,7 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(*verifier.NewOptions, []string) (ratify.Verifier, error) {
+func createMockVerifier(verifier.NewOptions, []string) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -72,14 +72,14 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ *store.NewOptions) (ratify.Store, error) {
+func newMockStore(_ store.NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
 func init() {
 	// Register mock verifier and store factories for testing
-	verifier.RegisterVerifierFactory(mockVerifierType, createMockVerifier)
-	store.RegisterStoreFactory(mockStoreType, newMockStore)
+	verifier.Register(mockVerifierType, createMockVerifier)
+	store.Register(mockStoreType, newMockStore)
 }
 
 // helper returns a minimal, but valid, Executor CRD object that satisfies
@@ -104,14 +104,14 @@ func newValidExecutor() *configv2alpha1.Executor {
 }
 
 func TestUpsertExecutor_NilOptions(t *testing.T) {
-	mgr := executorManager{opts: map[string]*e.ScopedOptions{}}
+	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
 	if err := mgr.upsertExecutor("default", "nil-exec", nil); err == nil {
 		t.Fatalf("expected error when opts is nil")
 	}
 }
 
 func TestUpsertExecutor_InsertAndCreateExecutor(t *testing.T) {
-	mgr := executorManager{opts: map[string]*e.ScopedOptions{}}
+	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
 
 	if err := mgr.upsertExecutor("default", "exec1", newValidExecutor()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -127,7 +127,7 @@ func TestUpsertExecutor_InsertAndCreateExecutor(t *testing.T) {
 }
 
 func TestUpsertExecutor_InvalidOpts(t *testing.T) {
-	mgr := executorManager{opts: map[string]*e.ScopedOptions{}}
+	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
 	executorOpts := newValidExecutor()
 	executorOpts.Spec.Verifiers = nil // Invalid because verifiers cannot be empty
 	if err := mgr.upsertExecutor("default", "invalid-exec", executorOpts); err == nil {
@@ -142,7 +142,7 @@ func TestUpsertExecutor_InvalidOpts(t *testing.T) {
 }
 
 func TestUpsertExecutor_UpdateExistingEntry(t *testing.T) {
-	mgr := executorManager{opts: map[string]*e.ScopedOptions{}}
+	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
 
 	if err := mgr.upsertExecutor("default", "exec1", newValidExecutor()); err != nil {
 		t.Fatalf("initial upsert failed: %v", err)
@@ -166,7 +166,7 @@ func TestUpsertExecutor_UpdateExistingEntry(t *testing.T) {
 }
 
 func TestDeleteExecutor_NotFound(t *testing.T) {
-	mgr := executorManager{opts: map[string]*e.ScopedOptions{}}
+	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
 
 	if err := mgr.deleteExecutor("default", "nonexistent"); err == nil {
 		t.Fatalf("expected error when deleting non-existing executor, got nil")
@@ -180,7 +180,7 @@ func TestDeleteExecutor_NotFound(t *testing.T) {
 // TestDeleteExecutor_RemoveExistingEntry ensures that deleting an existing
 // executor succeeds and updates the internal state correctly.
 func TestDeleteExecutor_RemoveExistingEntry(t *testing.T) {
-	mgr := executorManager{opts: map[string]*e.ScopedOptions{}}
+	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
 
 	// Add two executors so that after deletion at least one remains.
 	if err := mgr.upsertExecutor("default", "exec1", newValidExecutor()); err != nil {
