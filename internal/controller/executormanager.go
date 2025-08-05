@@ -162,11 +162,11 @@ func convertStoreOptions(stores []*configv2alpha1.StoreOptions) ([]store.NewOpti
 	return storeOpts, nil
 }
 
-func convertPolicyOptions(policy *configv2alpha1.PolicyEnforcerOptions) policyenforcer.NewOptions {
+func convertPolicyOptions(policy *configv2alpha1.PolicyEnforcerOptions) *policyenforcer.NewOptions {
 	if policy == nil {
-		return policyenforcer.NewOptions{}
+		return nil
 	}
-	return policyenforcer.NewOptions{
+	return &policyenforcer.NewOptions{
 		Type:       policy.Type,
 		Parameters: policy.Parameters,
 	}

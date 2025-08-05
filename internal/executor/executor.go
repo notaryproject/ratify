@@ -44,7 +44,7 @@ type ScopedOptions struct {
 
 	// Policy contains the configuration options for the policy enforcer.
 	// Optional.
-	Policy policyenforcer.NewOptions `json:"policyEnforcer,omitempty"`
+	Policy *policyenforcer.NewOptions `json:"policyEnforcer,omitempty"`
 }
 
 // Options contains the configuration options to create a scoped executor.
@@ -124,8 +124,8 @@ func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 	}
 
 	var policy ratify.PolicyEnforcer
-	if opts.Policy != (policyenforcer.NewOptions{}) {
-		policy, err = policyenforcer.New(opts.Policy)
+	if opts.Policy != nil {
+		policy, err = policyenforcer.New(*opts.Policy)
 		if err != nil {
 			return nil, err
 		}

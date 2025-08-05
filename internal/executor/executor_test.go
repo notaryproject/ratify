@@ -129,7 +129,7 @@ func TestNewExecutor(t *testing.T) {
 								Scopes: []string{"testrepo"},
 							},
 						},
-						Policy: policyenforcer.NewOptions{
+						Policy: &policyenforcer.NewOptions{
 							Type: mockPolicyEnforcerType,
 						},
 					},
@@ -174,7 +174,7 @@ func TestNewExecutor(t *testing.T) {
 								Scopes: []string{"test"},
 							},
 						},
-						Policy: policyenforcer.NewOptions{
+						Policy: &policyenforcer.NewOptions{
 							Type: "invalid-policy-enforcer-type",
 						},
 					},
@@ -201,7 +201,7 @@ func TestNewExecutor(t *testing.T) {
 								Scopes: []string{"test"},
 							},
 						},
-						Policy: policyenforcer.NewOptions{
+						Policy: &policyenforcer.NewOptions{
 							Type: mockPolicyEnforcerType,
 						},
 					},

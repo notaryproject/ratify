@@ -74,7 +74,7 @@ func (w *Watcher) loadExecutor() error {
 		return fmt.Errorf("failed to read configuration file: %w", err)
 	}
 
-	opts := executor.Options{}
+	var opts executor.Options
 	if err = json.Unmarshal(body, &opts); err != nil {
 		return fmt.Errorf("failed to unmarshal configuration: %w", err)
 	}
