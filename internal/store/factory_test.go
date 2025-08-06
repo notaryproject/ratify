@@ -17,6 +17,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
@@ -121,8 +122,13 @@ func newMockStore(_ NewOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
+func newMockStoreWithErr(_ NewOptions) (ratify.Store, error) {
+	return nil, fmt.Errorf("mock store error")
+}
+
 func TestNew(t *testing.T) {
 	Register("mock-store", newMockStore)
+	Register("mock-store-with-error", newMockStoreWithErr)
 	tests := []struct {
 		name          string
 		opts          []NewOptions
@@ -164,6 +170,32 @@ func TestNew(t *testing.T) {
 				},
 			},
 			globalScopes:  []string{"*"},
+			expectedError: true,
+		},
+		{
+			name: "multiple stores clear global scopes",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"example1.com"},
+				},
+				{
+					Type:   "mock-store",
+					Scopes: []string{"example2.com"},
+				},
+			},
+			globalScopes:  []string{"global.com"},
+			expectedError: false,
+		},
+		{
+			name: "store registration failure with bad store type",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store-with-error",
+					Scopes: []string{"*"}, // Invalid scope that causes Register to fail
+				},
+			},
+			globalScopes:  []string{},
 			expectedError: true,
 		},
 	}
