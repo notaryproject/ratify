@@ -2,7 +2,9 @@
     "executors": [
         {
             "scopes": [
-                "ghcr.io"
+                "ghcr.io",
+                "libinbinacr.azurecr.io",
+                "lbbacr.azurecr.io"
             ],
             "verifiers": [
                 {
@@ -12,7 +14,20 @@
                         "certificates": [
                             {
                                 "files": [
-                                    "${CERTIFICATE_PATH}"
+                                    "./cosign2.crt"
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "notation-2",
+                    "type": "notation",
+                    "parameters": {
+                        "certificates": [
+                            {
+                                "files": [
+                                    "./cosign.crt"
                                 ]
                             }
                         ]
@@ -24,8 +39,32 @@
                     "parameters": {
                         "trustPolicies": [
                             {
-                                "certificateIdentity": "test@example.com",
+                                "certificateIdentity": "libinbin@microsoft.com",
+                                "certificateOIDCIssuer": "https://login.microsoftonline.com"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "cosign-2",
+                    "type": "cosign",
+                    "parameters": {
+                        "trustPolicies": [
+                            {
+                                "certificateIdentity": "libinbin@microsoft.com",
                                 "certificateOIDCIssuer": "https://github.com/login/oauth"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "cosign-3",
+                    "type": "cosign",
+                    "parameters": {
+                        "trustPolicies": [
+                            {
+                                "certificateIdentity": "libinbin050215@gmail.com",
+                                "certificateOIDCIssuer": "https://accounts.google.com"
                             }
                         ]
                     }
@@ -54,12 +93,22 @@
                             },
                             {
                                 "verifierName": "notation-1"
+                            },
+                            {
+                                "verifierName": "cosign-2"
+                            },
+                            {
+                                "verifierName": "notation-2"
+                            },
+                            {
+                                "verifierName": "cosign-3"
                             }
                         ],
-                        "threshold": 1
+                        "threshold": 0
                     }
                 }
             }
         }
-    ]
+    ],
+    "maxConcurrency": 1
 }

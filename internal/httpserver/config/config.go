@@ -46,10 +46,11 @@ type Watcher struct {
 	watcher            *fsnotify.Watcher
 	executor           atomic.Pointer[executor.ScopedExecutor]
 	executorConfigPath string
+	maxConcurrency     int
 }
 
 // NewWatcher creates a new Watcher instance.
-func NewWatcher(configPath string) (*Watcher, error) {
+func NewWatcher(configPath string, maxConcurrency int) (*Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file watcher: %w", err)
@@ -58,6 +59,7 @@ func NewWatcher(configPath string) (*Watcher, error) {
 	configWatcher := &Watcher{
 		watcher:            watcher,
 		executorConfigPath: getConfigurationFile(configPath),
+		maxConcurrency:     maxConcurrency,
 	}
 	if err = configWatcher.loadExecutor(); err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
@@ -78,6 +80,7 @@ func (w *Watcher) loadExecutor() error {
 	if err = json.Unmarshal(body, &opts); err != nil {
 		return fmt.Errorf("failed to unmarshal configuration: %w", err)
 	}
+	opts.MaxConcurrency = w.maxConcurrency
 	e, err := executor.NewScopedExecutor(opts)
 	if err != nil {
 		return fmt.Errorf("failed to create executor: %w", err)

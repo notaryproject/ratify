@@ -54,6 +54,8 @@ type Options struct {
 	// enforcer. At least one executor must be provided.
 	// Required.
 	Executors []ScopedOptions `json:"executors"`
+
+	MaxConcurrency int `json:"maxConcurrency,omitempty"`
 }
 
 // ScopedExecutor manages multiple ratify.Executor instances, each associated
@@ -97,7 +99,7 @@ func NewScopedExecutor(opts Options) (*ScopedExecutor, error) {
 		if len(executorOpts.Scopes) == 0 {
 			return nil, fmt.Errorf("executor options must contain at least one scope")
 		}
-		executor, err := newExecutor(executorOpts)
+		executor, err := newExecutor(executorOpts, opts.MaxConcurrency)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create executor: %w", err)
 		}
@@ -112,7 +114,7 @@ func NewScopedExecutor(opts Options) (*ScopedExecutor, error) {
 
 // newExecutor creates a new [ratify.Executor] instance based on the provided
 // options.
-func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
+func newExecutor(opts ScopedOptions, maxConcurrency int) (*ratify.Executor, error) {
 	verifiers, err := verifier.NewVerifiers(opts.Verifiers, opts.Scopes)
 	if err != nil {
 		return nil, err
@@ -131,7 +133,7 @@ func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 		}
 	}
 
-	return ratify.NewExecutor(storeMux, verifiers, policy)
+	return ratify.NewExecutor(storeMux, verifiers, policy, maxConcurrency)
 }
 
 // ValidateArtifact routes the artifact validation request to the appropriate
