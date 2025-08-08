@@ -31,9 +31,10 @@ import (
 // executorManager manages the lifecycle of executor instances across different
 // namespaces and names.
 type executorManager struct {
-	mutex    sync.Mutex
-	opts     map[string]e.ScopedOptions
-	executor atomic.Pointer[e.ScopedExecutor]
+	mutex          sync.Mutex
+	opts           map[string]e.ScopedOptions
+	executor       atomic.Pointer[e.ScopedExecutor]
+	maxConcurrency int
 }
 
 // GlobalExecutorManager is an instance of executorManager that is used by
@@ -50,6 +51,14 @@ func init() {
 // It returns nil if no executor is set.
 func (m *executorManager) GetExecutor() *e.ScopedExecutor {
 	return m.executor.Load()
+}
+
+// SetMaxConcurrency sets the maximum concurrency for the executor manager.
+// This should be called before any executors are created.
+func (m *executorManager) SetMaxConcurrency(maxConcurrency int) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.maxConcurrency = maxConcurrency
 }
 
 // upsertExecutor updates or inserts an executor instance under the given
@@ -89,7 +98,8 @@ func (m *executorManager) deleteExecutor(namespace, name string) error {
 // refreshExecutor creates a new executor instance based on the current options.
 func (m *executorManager) refreshExecutor() error {
 	opts := e.Options{
-		Executors: make([]e.ScopedOptions, len(m.opts)),
+		Executors:      make([]e.ScopedOptions, len(m.opts)),
+		MaxConcurrency: m.maxConcurrency,
 	}
 	i := 0
 	for _, scopedOpts := range m.opts {
