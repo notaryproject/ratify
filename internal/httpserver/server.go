@@ -106,6 +106,8 @@ type ServerOptions struct {
 	// certificates.
 	// Optional.
 	CertRotatorReady chan struct{}
+
+	MaxConcurrency int
 }
 
 // StartServer initializes and starts the Ratify server with provided options
@@ -127,12 +129,14 @@ func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *
 	var err error
 
 	if serverOpts.DisableCRDManager {
-		configWatcher, err = config.NewWatcher(executorConfigPath)
+		configWatcher, err = config.NewWatcher(executorConfigPath, serverOpts.MaxConcurrency)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create config watcher: %w", err)
 		}
 		getExecutorFunc = configWatcher.GetExecutor
 	} else {
+		// Set the max concurrency for the global executor manager
+		controller.GlobalExecutorManager.SetMaxConcurrency(serverOpts.MaxConcurrency)
 		getExecutorFunc = controller.GlobalExecutorManager.GetExecutor
 	}
 

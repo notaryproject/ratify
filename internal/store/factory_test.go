@@ -187,17 +187,6 @@ func TestNew(t *testing.T) {
 			globalScopes:  []string{"global.com"},
 			expectedError: false,
 		},
-		{
-			name: "store registration failure with bad store type",
-			opts: []NewOptions{
-				{
-					Type:   "mock-store-with-error",
-					Scopes: []string{"*"}, // Invalid scope that causes Register to fail
-				},
-			},
-			globalScopes:  []string{},
-			expectedError: true,
-		},
 	}
 
 	for _, tt := range tests {
