@@ -76,6 +76,6 @@ releases:
           - "gatekeeper-system"
     set:
       - name: notationCerts[0]
-        value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/deislabs/ratify/main/test/testdata/notation.crt") | quote }}
+        value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/notaryproject/ratify/main/test/testdata/notation.crt") | quote }}
       - name: featureFlags.RATIFY_CERT_ROTATION
         value: true
