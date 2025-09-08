@@ -11,6 +11,8 @@ on:
       - main
       - dev
       - 1.0.0*
+    paths-ignore:
+      - "**.md"
   schedule:
     - cron: "30 1 * * 0"
   workflow_dispatch:

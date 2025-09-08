@@ -292,54 +292,6 @@ helm install ratify ./charts/ratify \
     --atomic
 ```
 
-### Test/debug local changes in k8s cluster using Bridge to Kubernetes
-
-Bridge to Kubernetes is an [open source project](https://github.com/Azure/Bridge-To-Kubernetes) to enable local tunneling of a kubernetes service to a user's development environment. It operates by forwarding all requests going to a specified service to the configured local instance running. This guide will focus on VSCode with the Bridge to Kubernetes extension.
-
-Prerequisites:
-- Install [Kubernetes Toosl](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools) plugin for VSCode
-- Install [Bridge to Kubernetes](https://marketplace.visualstudio.com/items?itemName=mindaro.mindaro) plugin for VSCode
-- Connect to K8s cluster
-- Namespace context set to Ratify's installation namespace (default is `gatekeeper-system`)
-
-Gatekeeper requires TLS for external data provider interactions. As such ratify must run with TLS cert and key configured on server startup. The current helm chart will automatically generate the cabundle, cert, and key if none are manually specified. For ease of use in starting the local ratify server on our development environment, we should pre generate the TLS ca bundle, cert, and key and instead provide them during helm installation. 
-
-1. Generate TLS cabundle, cert, and key. By default this will place the tls/cert folder in the $WORKSPACE_DIRECTORY
-    ```
-    make generate-certs
-    ```
-1. Rename files server.crt and server.key to tls.crt and tls.key
-1. Updated helm install command
-    ```
-    helm install ratify \
-      ./charts/ratify --atomic \
-      --namespace gatekeeper-system \
-      --set logger.level=debug \
-      --set-file notationCerts[0]=./test/testdata/notation.crt \
-      --set-file provider.tls.crt=./tls/certs/tls.crt \
-      --set-file provider.tls.key=./tls/certs/tls.key \
-      --set provider.tls.cabundle="$(cat ./tls/certs/ca.crt | base64 | tr -d '\n\r')" \
-      --set-file provider.tls.caCert=./tls/certs/ca.crt \
-      --set-file provider.tls.caKey=./tls/certs/ca.key
-    ```
-Update the `KubernetesLocalProcessConfig.yaml` with updated directory/file paths:
-- In the file, set the `<INSERT WORKLOAD IDENTITY TOKEN LOCAL PATH>` to an absolute directory accessible on local environment. This is the directory where Bridge to K8s will download the Azure Workload Identity JWT token. 
-- In the file, set the `<INSERT CLIENT CA CERT LOCAL PATH>` to an absolute directory accessible on local environment. This is the directory where Bridge to K8s will download the `client-ca-cert` volume (Gatekeeper's `ca.crt`). 
-
-Configure Bridge to Kubernetes (Comprehensive guide [here](https://learn.microsoft.com/en-us/visualstudio/bridge/bridge-to-kubernetes-vs-code))
-1. Open the `Command Palette` in VSCode `CTRL-SHIFT-P`
-2. Select `Bridge to Kubernetes: Configure`
-3. Select `Ratify` from the list as the service to redirect to
-4. Set port to be 6001
-5. Select `Serve w/ CRD manager and TLS enabled` as the launch config
-6. Select 'No' for request isolation
-
-This should automatically append a new Bridge to Kubernetes configuration to the launch.json file and add a new tasks.json file. 
-
-NOTE: If you are using a remote development environment, set the `useKubernetesServiceEnvironmentVariables` field to `true` in the tasks.json file. 
-
-Start the debug session with the generated Bridge to Kubernetes launch config selected. This will start up the local Ratify server and forward all requests from the Ratify service to the local instance. The http server logs in the debug console will show new requests being processed locally.
-
 ## Feature Areas
 ### Plugins
 

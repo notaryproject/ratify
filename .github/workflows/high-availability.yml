@@ -8,6 +8,8 @@ on:
       - main
       - dev
       - 1.0.0*
+    paths-ignore:
+      - "**.md"
   push:
     branches:
       - 1.0.0*

@@ -77,7 +77,7 @@ See details in [GitHub milestone v1.3.0](https://github.com/ratify-project/ratif
 
 ### v1.4
 
-**Status**: In process
+**Status**: Completed
 
 **Target date**: Nov 30, 2024
 
@@ -90,14 +90,70 @@ See details in [GitHub milestone v1.3.0](https://github.com/ratify-project/ratif
 
 See details in [GitHub milestone v1.4.0](https://github.com/ratify-project/ratify/issues?q=is%3Aopen+is%3Aissue+milestone%3Av1.4.0).
 
-### v2.x
-
-Status: Tentative
-
-Target date: TBD
-
+### v2.0.0-alpha.1
+**Status**: In procoess  
+**Target date**: May 15, 2025  
 **Major features**
 
+- Decouple Ratify core functionalities into a separate library([ratify-go](https://github.com/ratify-project/ratify-go)), which could be easily integrated into different projects.
+- Design new interfaces for `Verifier`, `Store`, and `PolicyEnforcer` to make them more extensible and flexible.
+- Support `notation-verifier` under [ratify-verifier-go](https://github.com/ratify-project/ratify-verifier-go) in terms of the new `Verifier` interface.
+- Support Registry Store and local OCI layout in terms of the new `Store` interface.
+- Support config based policy in terms of the new `PolicyEnforcer` interface.
+- Create new external data provider for Gatekeeper based on the new framework.
+
+#### Note
+- V2 milestones will cover a few sub-projects including libraries, CLI tools and external data provider.
+
+### v2.0.0-alpha.2
+**Status**: Tentative  
+**Target date**: June 30, 2025  
+**Major features**
+- Support authentication with remote OCI registries.
+- Support key/certificate management for verifiers.
+
+### v2.0.0-beta.1
+**Status**: Tentative  
+**Target date**: TBD  
+**Major features**
+- Support cache management, considering file system, in-memory and remote cache.
+- Improve performance of executor by supporting parallel execution of verifiers.
+
+### v2.0.0-beta.2
+**Status**: Tentative  
+**Target date**: TBD  
+**Major features**
+- Support more built-in verifiers to verify different artifact types, including SBOM verifier, vulnerability report verifier, and schema validator.
+- Support CRDs for K8s users to configure Ratify add-on natively.
+- Support multi-tenancy.
+
+
+### v2.0.0-beta.3
+**Status**: Tentative  
+**Target date**: TBD  
+**Major features**
+- Build new ratify CLI tool with the basic functionalities.
+- Support instrumentation and telemetry by exposing pod's metrics to monitoring tools.
+
+### v2.0.0-rc.x
+**Status**: Tentative  
+**Target date**: TBD  
+**Major features**
+- Support multiple cloud providers in v1, including Azure, AWS, and Alibaba.
+- Add any missing features from v1 to v2.
+- Fix any bugs or issues found in the previous versions.
+
+### v2.0.0
+**Status**: Tentative  
+**Target date**: TBD  
+**Major features**
+- Make features listed above stable and production-ready. 
+- Publish user documentation for v2.0.0.
+
+### v2.x
+**Status**: Tentative  
+**Target date**: TBD  
+**Major features**
 - Attestations support
 - Kubernetes multi-tenancy support - Verifying Common images across namespaces
 - Use Ratify at container runtime
