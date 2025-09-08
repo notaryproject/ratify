@@ -46,6 +46,12 @@ spec:
           spec:
             description: ExecutorSpec defines the desired state of Executor.
             properties:
+              concurrency:
+                description: |-
+                  Concurrency limits the maximum number of concurrent execution per
+                  validation request. If less than or equal to 0, a default (currently 3)
+                  will be used. Optional.
+                type: integer
               policyEnforcer:
                 description: |-
                   PolicyEnforcer contains the configuration options for the policy

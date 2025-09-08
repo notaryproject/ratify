@@ -7,6 +7,7 @@ replicaCount: 1
 
 executor:
   scopes: []
+  concurrency: 3
 notation:
   scopes: []
   trustedIdentities: []
