@@ -28,6 +28,7 @@ import (
 	"oras.land/oras-go/v2/registry"
 
 	"github.com/notaryproject/ratify/v2/internal/verifier"
+	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 )
 
 const (
@@ -88,6 +89,12 @@ type ScopedOptions struct {
 	// IgnoreCTLog indicates whether to ignore the certificate transparency log
 	// during verification. Optional.
 	IgnoreCTLog bool `json:"ignoreCTLog,omitempty"`
+
+	// Keys provides public keys to be used for signature verification.
+	// Optional. If not provided, keyless verification is used. If both keys and
+	// keyless options are provided, only keys are used.
+	// And only one set of key provider is allowed to be provided.
+	Keys map[string]any `json:"keys,omitempty"`
 }
 
 // Options contains the configuration options for creating a [Verifier].
@@ -289,30 +296,75 @@ func (v *Verifier) registerRegistry(scope string, verifier *cosign.Verifier) err
 // It creates identity policies for keyless verification based on the
 // certificate identity and OIDC issuer configuration.
 func toVerifierOptions(s *ScopedOptions, name string) (*cosign.VerifierOptions, error) {
+	if len(s.Keys) > 1 {
+		return nil, fmt.Errorf("only one set of key provider is allowed")
+	}
 	opts := &cosign.VerifierOptions{
-		Name:        name,
-		IgnoreTLog:  s.IgnoreTLog,
-		IgnoreCTLog: s.IgnoreCTLog,
+		Name: name,
+	}
+	if len(s.Keys) == 0 {
+		opts.IgnoreCTLog = s.IgnoreCTLog
+		opts.IgnoreTLog = s.IgnoreTLog
+
+		if s.CertificateIdentity != "" || s.CertificateIdentityRegex != "" ||
+			s.CertificateOIDCIssuer != "" || s.CertificateOIDCIssuerRegex != "" {
+			// Create certificate identity using the sigstore verify package
+			certIdentity, err := verify.NewShortCertificateIdentity(
+				s.CertificateOIDCIssuer,
+				s.CertificateOIDCIssuerRegex,
+				s.CertificateIdentity,
+				s.CertificateIdentityRegex,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create certificate identity: %w", err)
+			}
+
+			// Add the certificate identity policy
+			opts.IdentityPolicies = []verify.PolicyOption{
+				verify.WithCertificateIdentity(certIdentity),
+			}
+		}
+		return opts, nil
+	}
+	// If keys are provided, use key-based verification and ignore CTLog.
+	// And [verify.Verifier] requires timestamps from either an RFC3161
+	// timestamp authority or a log's SignedEntryTimestamp. So IgnoreTlog must
+	// be false.
+	opts.IgnoreCTLog = true
+	opts.IgnoreTLog = false
+	opts.IdentityPolicies = []verify.PolicyOption{
+		verify.WithKey(),
 	}
 
-	if s.CertificateIdentity != "" || s.CertificateIdentityRegex != "" ||
-		s.CertificateOIDCIssuer != "" || s.CertificateOIDCIssuerRegex != "" {
-		// Create certificate identity using the sigstore verify package
-		certIdentity, err := verify.NewShortCertificateIdentity(
-			s.CertificateOIDCIssuer,
-			s.CertificateOIDCIssuerRegex,
-			s.CertificateIdentity,
-			s.CertificateIdentityRegex,
-		)
+	for keyType, keyConfig := range s.Keys {
+		provider, err := keyprovider.CreateKeyProvider(keyType, keyConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create certificate identity: %w", err)
+			return nil, fmt.Errorf("failed to create key provider %s: %w", keyType, err)
 		}
+		opts.GetPublicKeys = func(ctx context.Context) ([]*cosign.PublicKeyConfig, error) {
+			providerKeys, err := provider.GetKeys(ctx)
+			if err != nil {
+				return nil, err
+			}
 
-		// Add the certificate identity policy
-		opts.IdentityPolicies = []verify.PolicyOption{
-			verify.WithCertificateIdentity(certIdentity),
+			return convertProviderKeysToCosignKeys(providerKeys), nil
 		}
 	}
 
 	return opts, nil
+}
+
+// convertProviderKeysToCosignKeys converts a slice of keyprovider.PublicKey
+// to a slice of cosign.PublicKeyConfig.
+func convertProviderKeysToCosignKeys(providerKeys []*keyprovider.PublicKey) []*cosign.PublicKeyConfig {
+	cosignKeys := make([]*cosign.PublicKeyConfig, len(providerKeys))
+	for i, providerKey := range providerKeys {
+		cosignKeys[i] = &cosign.PublicKeyConfig{
+			PublicKey:           providerKey.Key,
+			SignatureAlgorithm:  providerKey.SignatureAlgorithm,
+			ValidityPeriodStart: providerKey.ValidityPeriodStart,
+			ValidityPeriodEnd:   providerKey.ValidityPeriodEnd,
+		}
+	}
+	return cosignKeys
 }

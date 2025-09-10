@@ -34,6 +34,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type contextKey string
+
+const testKey contextKey = "key"
+
 // generateTestCert creates a valid test certificate in DER format
 func generateTestCert() ([]byte, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -714,6 +718,142 @@ func TestAzureKeyVaultProvider_GetCertificates(t *testing.T) {
 				for _, cert := range certs {
 					assert.IsType(t, &x509.Certificate{}, cert)
 				}
+			}
+		})
+	}
+}
+
+func TestAzureKeyVaultProvider_GetKeys(t *testing.T) {
+	tests := []struct {
+		name         string
+		provider     *Provider
+		expectError  bool
+		errorMessage string
+		description  string
+	}{
+		{
+			name: "GetKeys not implemented - standard provider",
+			provider: &Provider{
+				secretsClient: nil, // Not needed for this test
+				certSpecs:     []CertificateSpec{{Name: "test-cert"}},
+				cachedCerts:   nil,
+			},
+			expectError:  true,
+			errorMessage: "GetKeys not implemented in AzureKeyVault Provider",
+			description:  "should return error indicating GetKeys is not implemented",
+		},
+		{
+			name: "GetKeys not implemented - provider with cached certificates",
+			provider: func() *Provider {
+				validCertDER, _ := generateTestCert()
+				validCert, _ := x509.ParseCertificate(validCertDER)
+				return &Provider{
+					secretsClient: nil, // Not needed for this test
+					certSpecs:     []CertificateSpec{{Name: "test-cert"}},
+					cachedCerts:   []*x509.Certificate{validCert},
+				}
+			}(),
+			expectError:  true,
+			errorMessage: "GetKeys not implemented in AzureKeyVault Provider",
+			description:  "should return error even when provider has cached certificates",
+		},
+		{
+			name: "GetKeys not implemented - provider with multiple certificate specs",
+			provider: &Provider{
+				secretsClient: nil, // Not needed for this test
+				certSpecs: []CertificateSpec{
+					{Name: "test-cert-1", Version: "v1"},
+					{Name: "test-cert-2", Version: "v2"},
+				},
+				cachedCerts: nil,
+			},
+			expectError:  true,
+			errorMessage: "GetKeys not implemented in AzureKeyVault Provider",
+			description:  "should return error regardless of number of certificate specs",
+		},
+		{
+			name: "GetKeys not implemented - empty provider",
+			provider: &Provider{
+				secretsClient: nil,
+				certSpecs:     []CertificateSpec{},
+				cachedCerts:   []*x509.Certificate{},
+			},
+			expectError:  true,
+			errorMessage: "GetKeys not implemented in AzureKeyVault Provider",
+			description:  "should return error even with empty provider",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys, err := tt.provider.GetKeys(context.Background())
+
+			if tt.expectError {
+				assert.Error(t, err, tt.description)
+				assert.Contains(t, err.Error(), tt.errorMessage, tt.description)
+				assert.Nil(t, keys, "keys should be nil when error occurs")
+			} else {
+				assert.NoError(t, err, tt.description)
+				assert.NotNil(t, keys, "keys should not be nil when no error occurs")
+			}
+		})
+	}
+}
+
+func TestAzureKeyVaultProvider_GetKeys_WithContext(t *testing.T) {
+	tests := []struct {
+		name        string
+		ctx         context.Context
+		expectError bool
+		description string
+	}{
+		{
+			name:        "GetKeys with background context",
+			ctx:         context.Background(),
+			expectError: true,
+			description: "should return error with background context",
+		},
+		{
+			name:        "GetKeys with TODO context",
+			ctx:         context.TODO(),
+			expectError: true,
+			description: "should return error with TODO context",
+		},
+		{
+			name:        "GetKeys with value context",
+			ctx:         context.WithValue(context.Background(), testKey, "value"),
+			expectError: true,
+			description: "should return error with value context",
+		},
+		{
+			name: "GetKeys with cancelled context",
+			ctx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx
+			}(),
+			expectError: true,
+			description: "should return error even with cancelled context",
+		},
+	}
+
+	provider := &Provider{
+		secretsClient: nil,
+		certSpecs:     []CertificateSpec{{Name: "test-cert"}},
+		cachedCerts:   nil,
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys, err := provider.GetKeys(tt.ctx)
+
+			if tt.expectError {
+				assert.Error(t, err, tt.description)
+				assert.Contains(t, err.Error(), "GetKeys not implemented in AzureKeyVault Provider", tt.description)
+				assert.Nil(t, keys, "keys should be nil when error occurs")
+			} else {
+				assert.NoError(t, err, tt.description)
+				assert.NotNil(t, keys, "keys should not be nil when no error occurs")
 			}
 		})
 	}
