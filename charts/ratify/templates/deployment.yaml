@@ -69,9 +69,18 @@ spec:
             - "/usr/local/ratify/config.json"
             - "--enable-crd-manager"
             - --cert-dir=/usr/local/tls
+            {{- /* Collect all client CA cert paths */}}
+            {{- $caPaths := list }}
+            {{- /* Add gatekeeper CA if present */}}
             {{- if (lookup "v1" "Secret" .Release.Namespace "gatekeeper-webhook-server-cert") }}
-            - --ca-cert-file=usr/local/tls/client-ca/ca.crt
+            {{- $caPaths = append $caPaths "/usr/local/tls/client-ca/ca.crt" }}
             {{- end }}
+            {{- /* Add all custom CA certs */}}
+            {{- range $i, $cert := .Values.provider.clientAuth.caCerts }}
+            {{- $caPath := printf "/usr/local/tls/client-ca-%s/%d-%s.crt" $cert.secretName $i $cert.secretName }}
+            {{- $caPaths = append $caPaths $caPath }}
+            {{- end }}
+            - --ca-cert-files={{ join "," $caPaths }}
             - --cache-enabled={{ .Values.provider.cache.enabled }}
             - --cache-type={{ default "ristretto" .Values.provider.cache.type }}
             - --cache-name={{ default "dapr-redis" .Values.provider.cache.name }}
@@ -106,9 +115,16 @@ spec:
             - mountPath: /usr/local/tls
               name: tls
               readOnly: true
+            {{- /* Gatekeeper webhook cert mount */ -}}
             {{- if (lookup "v1" "Secret" .Release.Namespace "gatekeeper-webhook-server-cert") }}
             - mountPath: /usr/local/tls/client-ca
               name: client-ca-cert
+              readOnly: true
+            {{- end }}
+            {{- /* Mount additional client CA certs */ -}}
+            {{- range $i, $cert := .Values.provider.clientAuth.caCerts }}
+            - mountPath: /usr/local/tls/client-ca-{{ $cert.secretName }}
+              name: client-ca-cert-{{ $cert.secretName }}
               readOnly: true
             {{- end }}
           env:
@@ -181,8 +197,16 @@ spec:
               - key: ca.crt
                 path: ca.crt
         {{- end }}
+        {{- /* Mount volumes for additional client CA certs */ -}}
+        {{- range $i, $cert := .Values.provider.clientAuth.caCerts }}
+        - name: client-ca-cert-{{ $cert.secretName }}
+          secret:
+            secretName: {{ $cert.secretName }}
+            items:
+              - key: {{ $cert.secretKey }}
+                path: {{ $i }}-{{ $cert.secretName }}.crt
+        {{- end }}
       affinity:
         {{- toYaml .Values.affinity | nindent 8 }}
       tolerations:
         {{- toYaml .Values.tolerations | nindent 8 }}
-

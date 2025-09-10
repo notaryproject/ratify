@@ -38,16 +38,16 @@ type TLSCertWatcher struct {
 
 	ratifyServerCertPath string
 	ratifyServerKeyPath  string
-	clientCACertPath     string
+	clientCACertPaths    []string
 }
 
-// NewTLSCertWatcher creates a new TLSCertWatcher for ratify tls cert/key paths and client CA cert path
-func NewTLSCertWatcher(ratifyServerCertPath, ratifyServerKeyPath, clientCACertPath string) (*TLSCertWatcher, error) {
+// NewTLSCertWatcher creates a new TLSCertWatcher for ratify tls cert/key paths and client CA cert paths
+func NewTLSCertWatcher(ratifyServerCertPath, ratifyServerKeyPath string, clientCACertPaths []string) (*TLSCertWatcher, error) {
 	var err error
 	certWatcher := &TLSCertWatcher{
 		ratifyServerCertPath: ratifyServerCertPath,
 		ratifyServerKeyPath:  ratifyServerKeyPath,
-		clientCACertPath:     clientCACertPath,
+		clientCACertPaths:    clientCACertPaths,
 	}
 
 	if err = certWatcher.ReadCertificates(); err != nil {
@@ -65,8 +65,10 @@ func NewTLSCertWatcher(ratifyServerCertPath, ratifyServerKeyPath, clientCACertPa
 // Start adds the files to watcher and starts the certificate watcher routine
 func (t *TLSCertWatcher) Start() error {
 	files := map[string]struct{}{t.ratifyServerCertPath: {}, t.ratifyServerKeyPath: {}}
-	if t.clientCACertPath != "" {
-		files[t.clientCACertPath] = struct{}{}
+	for _, certPath := range t.clientCACertPaths {
+		if certPath != "" {
+			files[certPath] = struct{}{}
+		}
 	}
 
 	{
@@ -107,14 +109,20 @@ func (t *TLSCertWatcher) ReadCertificates() error {
 		return fmt.Errorf("ratify server cert or key path is empty")
 	}
 
-	if t.clientCACertPath != "" {
-		caCert, err := os.ReadFile(t.clientCACertPath)
-		if err != nil {
-			return err
+	clientCAs := x509.NewCertPool()
+	for _, certPath := range t.clientCACertPaths {
+		if certPath != "" {
+			caCert, err := os.ReadFile(certPath)
+			if err != nil {
+				return fmt.Errorf("error reading CA cert from %s: %w", certPath, err)
+			}
+			if !clientCAs.AppendCertsFromPEM(caCert) {
+				return fmt.Errorf("failed to append CA cert from %s", certPath)
+			}
 		}
+	}
 
-		clientCAs := x509.NewCertPool()
-		clientCAs.AppendCertsFromPEM(caCert)
+	if len(t.clientCACertPaths) > 0 {
 		t.Lock()
 		t.clientCACert = clientCAs
 		t.Unlock()
