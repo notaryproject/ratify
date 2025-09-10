@@ -74,7 +74,7 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-func StartServer(httpServerAddress, configFilePath, certDirectory, caCertFile string, cacheTTL time.Duration, metricsEnabled bool, metricsType string, metricsPort int, certRotatorReady chan struct{}) {
+func StartServer(httpServerAddress, configFilePath, certDirectory string, caCertFiles []string, cacheTTL time.Duration, metricsEnabled bool, metricsType string, metricsPort int, certRotatorReady chan struct{}) {
 	logrus.Info("initializing executor with config file at default config path")
 
 	cf, err := config.Load(configFilePath)
@@ -99,7 +99,7 @@ func StartServer(httpServerAddress, configFilePath, certDirectory, caCertFile st
 			Config:         &cf.ExecutorConfig,
 		}
 		return &executor
-	}, certDirectory, caCertFile, cacheTTL, metricsEnabled, metricsType, metricsPort)
+	}, certDirectory, caCertFiles, cacheTTL, metricsEnabled, metricsType, metricsPort)
 
 	if err != nil {
 		logrus.Errorf("initialize server failed with error %v, exiting..", err)
