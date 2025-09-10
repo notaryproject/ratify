@@ -14,6 +14,7 @@ spec:
     {{- else }}
     {{- fail "executor.scopes must not be empty" }}
     {{- end }}
+  concurrency: {{ .Values.executor.concurrency | default 3 }}
   stores:
     {{- $root := . -}}
     {{- range .Values.stores }}

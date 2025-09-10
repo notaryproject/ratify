@@ -16,6 +16,7 @@ data:
                     {{- if $i }}, {{ end }}"{{ $scope }}"
                 {{- end -}}
                 ],
+                "concurrency": {{ .Values.executor.concurrency | default 3 }},
                 "verifiers": [
                     {
                         "name": "notation-1",

@@ -80,6 +80,11 @@ type ExecutorSpec struct {
 	// PolicyEnforcer contains the configuration options for the policy
 	// enforcer. Optional.
 	PolicyEnforcer *PolicyEnforcerOptions `json:"policyEnforcer,omitempty"`
+
+	// Concurrency limits the maximum number of concurrent execution per
+	// validation request. If less than or equal to 0, a default (currently 3)
+	// will be used. Optional.
+	Concurrency int `json:"concurrency,omitempty"`
 }
 
 // ExecutorStatus defines the observed state of Executor.
