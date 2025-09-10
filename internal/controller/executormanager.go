@@ -126,7 +126,7 @@ func convertOptions(opts *configv2alpha1.Executor) (e.ScopedOptions, error) {
 	scopedOpts.Stores = storeOpts
 
 	scopedOpts.Policy = convertPolicyOptions(opts.Spec.PolicyEnforcer)
-
+	scopedOpts.Concurrency = opts.Spec.Concurrency
 	return scopedOpts, nil
 }
 

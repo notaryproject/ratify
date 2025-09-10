@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: executors.config.ratify.dev
 spec:
   group: config.ratify.dev
@@ -46,7 +46,16 @@ spec:
           spec:
             description: ExecutorSpec defines the desired state of Executor.
             properties:
+              concurrency:
+                description: |-
+                  Concurrency limits the maximum number of concurrent execution per
+                  validation request. If less than or equal to 0, a default (currently 3)
+                  will be used. Optional.
+                type: integer
               policyEnforcer:
+                description: |-
+                  PolicyEnforcer contains the configuration options for the policy
+                  enforcer. Optional.
                 properties:
                   parameters:
                     description: Parameters is additional parameters for the policy
@@ -62,11 +71,17 @@ spec:
                 - type
                 type: object
               scopes:
+                description: |-
+                  Scopes defines the scopes for which this executor is responsible. At
+                  least one non-empty scope must be provided. Required.
                 items:
                   type: string
                 minItems: 1
                 type: array
               stores:
+                description: |-
+                  Stores contains the configuration options for the stores. At least one
+                  store must be provided. Required.
                 items:
                   properties:
                     parameters:
@@ -85,6 +100,9 @@ spec:
                 minItems: 1
                 type: array
               verifiers:
+                description: |-
+                  Verifiers contains the configuration options for the verifiers. At least
+                  one verifier must be provided. Required.
                 items:
                   properties:
                     name:
@@ -119,10 +137,16 @@ spec:
             description: ExecutorStatus defines the observed state of Executor.
             properties:
               briefError:
+                description: Truncated error message if the message is too long.
                 type: string
               error:
+                description: Error is the error message if the executor failed to
+                  start.
                 type: string
               succeeded:
+                description: |-
+                  Succeeded indicates whether the executor has successfully started and is
+                  ready to process requests. Required.
                 type: boolean
             required:
             - succeeded
