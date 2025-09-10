@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/notaryproject/notation-go/verifier/truststore"
+	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 )
 
 const (
@@ -41,6 +42,10 @@ func (t *testKeyProvider) GetCertificates(_ context.Context) ([]*x509.Certificat
 		return nil, t.error
 	}
 	return t.certificates, nil
+}
+
+func (t *testKeyProvider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
+	return nil, nil
 }
 
 func TestTrustStore(t *testing.T) {

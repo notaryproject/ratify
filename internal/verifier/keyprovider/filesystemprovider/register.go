@@ -78,6 +78,10 @@ func (f *FileSystemProvider) GetCertificates(_ context.Context) ([]*x509.Certifi
 	return f.certificates, nil
 }
 
+func (f *FileSystemProvider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
+	return nil, fmt.Errorf("GetKeys not implemented in FileSystemProvider")
+}
+
 func loadCertificatesFromPath(path string) ([]*x509.Certificate, error) {
 	logrus.Infof("Loading certificates from path: %s", path)
 	var certificates []*x509.Certificate

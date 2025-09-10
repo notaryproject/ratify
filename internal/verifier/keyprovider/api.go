@@ -17,14 +17,39 @@ package keyprovider
 
 import (
 	"context"
+	"crypto"
 	"crypto/x509"
 	"fmt"
+	"time"
 )
+
+type PublicKey struct {
+	// Key for key-based verification. Required.
+	Key crypto.PublicKey
+
+	// SignatureAlgorithm defines the algorithm used for signature verification.
+	// Optional. If not provided, defaults to SHA256.
+	SignatureAlgorithm crypto.Hash
+
+	// ValidityPeriodStart defines the start time for the public key validity
+	// period. Optional. If not provided, the key is considered valid from the
+	// beginning of time.
+	ValidityPeriodStart time.Time
+
+	// ValidityPeriodEnd defines the end time for the public key validity period.
+	// Optional. If not provided, the key is considered valid until the end of
+	// time.
+	ValidityPeriodEnd time.Time
+}
 
 // KeyProvider defines methods to fetch crypto material for signature
 // verification.
 type KeyProvider interface {
+	// GetCertificates fetches certificates for certificate-based verification.
 	GetCertificates(ctx context.Context) ([]*x509.Certificate, error)
+
+	// GetKeys fetches public keys for key-based verification.
+	GetKeys(ctx context.Context) ([]*PublicKey, error)
 }
 
 type keyProviderFactory func(options any) (KeyProvider, error)

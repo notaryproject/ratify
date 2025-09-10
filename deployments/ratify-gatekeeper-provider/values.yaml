@@ -1,7 +1,7 @@
 image:
-  repository: "ghcr.io/notaryproject/ratify-gatekeeper-provider"
-  pullPolicy: IfNotPresent
-  tag: "dev"
+  repository: "libinbinacr.azurecr.io/ratify"
+  pullPolicy: Always
+  tag: "v2"
 
 replicaCount: 1
 
@@ -29,6 +29,9 @@ cosign:
   certificateOIDCIssuerRegex: ""
   ignoreTLog: false
   ignoreCTLog: false
+  keys:
+  # - provider: "inline"
+  #   key: "" # PEM encoded public key  e.g. "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
 
 stores:
   - scopes: []
