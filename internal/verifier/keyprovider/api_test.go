@@ -29,6 +29,10 @@ func (m *mockKeyProvider) GetCertificates(_ context.Context) ([]*x509.Certificat
 	return nil, nil
 }
 
+func (m *mockKeyProvider) GetKeys(_ context.Context) ([]*PublicKey, error) {
+	return nil, nil
+}
+
 func TestCreateKeyProvider(t *testing.T) {
 	RegisterKeyProvider(mockProvider, func(_ any) (KeyProvider, error) {
 		return &mockKeyProvider{}, nil

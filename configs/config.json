@@ -2,7 +2,8 @@
     "executors": [
         {
             "scopes": [
-                "ghcr.io"
+                "ghcr.io",
+                "ttl.sh"
             ],
             "verifiers": [
                 {
@@ -12,7 +13,7 @@
                         "certificates": [
                             {
                                 "files": [
-                                    "${CERTIFICATE_PATH}"
+                                    "./notation.crt"
                                 ]
                             }
                         ]
@@ -25,7 +26,12 @@
                         "trustPolicies": [
                             {
                                 "certificateIdentity": "test@example.com",
-                                "certificateOIDCIssuer": "https://github.com/login/oauth"
+                                "certificateOIDCIssuer": "https://github.com/login/oauth",
+                                "keys": {
+                                    "inline": {
+                                        "keys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYGmgwjg0NlqmQTS3HHScD/L7mZTE\nqbpXXAEQipDOImyY8Yapd3V4CbAa5LSq7Fpg3JebRK3R1fVzzwDK1WtwnA==\n-----END PUBLIC KEY-----"
+                                    }
+                                }
                             }
                         ]
                     }
