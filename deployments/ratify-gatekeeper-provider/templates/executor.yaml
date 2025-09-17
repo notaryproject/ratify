@@ -50,11 +50,30 @@ spec:
             certificateOIDCIssuerRegex: "{{ .Values.cosign.certificateOIDCIssuerRegex }}"
             ignoreTLog: {{ .Values.cosign.ignoreTLog }}
             ignoreCTLog: {{ .Values.cosign.ignoreCTLog }}
-            {{- if and .Values.cosign.keys .Values.cosign.keys.key }}
+            {{- if .Values.cosign.keys }}
             {{- if eq .Values.cosign.keys.provider "inline" }}
+            {{- if .Values.cosign.keys.key }}
             keys:
               inline:
                 keys: {{ .Values.cosign.keys.key | quote }}
+            {{- end }}
+            {{- else if eq .Values.cosign.keys.provider "azurekeyvault" }}
+            keys:
+              azurekeyvault:
+                vaultURL: "{{ .Values.cosign.keys.vaultURL }}"
+                {{- if .Values.cosign.keys.clientID }}
+                clientID: "{{ .Values.cosign.keys.clientID }}"
+                {{- end }}
+                {{- if .Values.cosign.keys.tenantID }}
+                tenantID: "{{ .Values.cosign.keys.tenantID }}"
+                {{- end }}
+                keys:
+                  {{- range .Values.cosign.keys.keys }}
+                  - name: "{{ .name }}"
+                    {{- if .version }}
+                    version: "{{ .version }}"
+                    {{- end }}
+                  {{- end }}
             {{- end }}
             {{- end }}
     {{- end }}
