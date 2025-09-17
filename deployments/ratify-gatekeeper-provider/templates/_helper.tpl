@@ -35,10 +35,10 @@ false
 {{- end -}}
 
 {{/*
-Check if cosign verifier is configured based on certificate identity fields
+Check if cosign verifier is configured based on certificate identity fields or keys
 */}}
 {{- define "ratify.cosignConfigured" -}}
-{{- if and (or .Values.cosign.certificateIdentity .Values.cosign.certificateIdentityRegex) (or .Values.cosign.certificateOIDCIssuer .Values.cosign.certificateOIDCIssuerRegex) -}}
+{{- if or (and (or .Values.cosign.certificateIdentity .Values.cosign.certificateIdentityRegex) (or .Values.cosign.certificateOIDCIssuer .Values.cosign.certificateOIDCIssuerRegex)) .Values.cosign.keys -}}
 true
 {{- else -}}
 false
