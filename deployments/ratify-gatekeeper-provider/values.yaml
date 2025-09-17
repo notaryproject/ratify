@@ -29,6 +29,9 @@ cosign:
   certificateOIDCIssuerRegex: ""
   ignoreTLog: false
   ignoreCTLog: false
+  keys:
+    provider: "inline"
+    key: "" # PEM encoded public key  e.g. "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
 
 stores:
   - scopes: []

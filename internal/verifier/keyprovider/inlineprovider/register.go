@@ -33,6 +33,16 @@ const inlineProviderName = "inline"
 // containing PEM-encoded certificates and caches them in memory.
 type InlineProvider struct {
 	certificates []*x509.Certificate
+	keys         []*keyprovider.PublicKey
+}
+
+// inlineOptions holds the options for the inline key provider.
+type inlineOptions struct {
+	// String containing PEM-encoded certificates. Optional.
+	Certs string `json:"certs,omitempty"`
+
+	// String containing PEM-encoded public keys. Optional.
+	Keys string `json:"keys,omitempty"`
 }
 
 func init() {
@@ -41,19 +51,38 @@ func init() {
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal options: %w", err)
 		}
-		var certificatesInPem string
-		if err := json.Unmarshal(raw, &certificatesInPem); err != nil {
+
+		// Try to unmarshal as a struct with certs field
+		var opts inlineOptions
+		if err := json.Unmarshal(raw, &opts); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal options: %w", err)
 		}
 
-		// Parse certificates during initialization and cache them in memory
-		certs, err := parseCertificatesFromPEM(certificatesInPem)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse certificates: %w", err)
+		var certs []*x509.Certificate
+		// Check if certs field exists and is not empty
+		if opts.Certs != "" {
+			// Parse certificates during initialization and cache them in memory
+			parsedCerts, err := parseCertificatesFromPEM(opts.Certs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse certificates: %w", err)
+			}
+			certs = parsedCerts
+		}
+
+		var keys []*keyprovider.PublicKey
+		// Check if keys field exists and is not empty
+		if opts.Keys != "" {
+			// Parse public keys during initialization and cache them in memory
+			parsedKeys, err := parsePublicKeysFromPEM(opts.Keys)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse public keys: %w", err)
+			}
+			keys = parsedKeys
 		}
 
 		return &InlineProvider{
 			certificates: certs,
+			keys:         keys,
 		}, nil
 	})
 }
@@ -61,6 +90,11 @@ func init() {
 // GetCertificates returns the cached x509.Certificate chain.
 func (p *InlineProvider) GetCertificates(_ context.Context) ([]*x509.Certificate, error) {
 	return p.certificates, nil
+}
+
+// GetKeys returns the cached PublicKey list.
+func (p *InlineProvider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
+	return p.keys, nil
 }
 
 // parseCertificatesFromPEM decodes PEM-encoded bytes into an x509.Certificate chain.
@@ -89,4 +123,45 @@ func parseCertificatesFromPEM(certificatesInPem string) ([]*x509.Certificate, er
 		return nil, errors.New("no certificates found in the pem block")
 	}
 	return certs, nil
+}
+
+// parsePublicKeysFromPEM decodes PEM-encoded bytes into PublicKey structs.
+func parsePublicKeysFromPEM(keysInPem string) ([]*keyprovider.PublicKey, error) {
+	var keys []*keyprovider.PublicKey
+	block, rest := pem.Decode([]byte(strings.TrimSpace(keysInPem)))
+	if block == nil && len(rest) > 0 {
+		return nil, errors.New("failed to decode pem block")
+	}
+
+	for block != nil {
+		if block.Type == "PUBLIC KEY" || block.Type == "RSA PUBLIC KEY" || block.Type == "EC PUBLIC KEY" {
+			pubKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+			if err != nil {
+				// Try parsing as RSA public key if PKIX parsing fails
+				if block.Type == "RSA PUBLIC KEY" {
+					pubKey, err = x509.ParsePKCS1PublicKey(block.Bytes)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse RSA public key: %w", err)
+					}
+				} else {
+					return nil, fmt.Errorf("failed to parse public key: %w", err)
+				}
+			}
+
+			// Convert to keyprovider.PublicKey format
+			keyProviderKey := &keyprovider.PublicKey{
+				Key: pubKey,
+			}
+			keys = append(keys, keyProviderKey)
+		}
+		block, rest = pem.Decode(rest)
+		if block == nil && len(rest) > 0 {
+			return nil, errors.New("failed to decode pem block while processing remaining data")
+		}
+	}
+
+	if len(keys) == 0 {
+		return nil, errors.New("no public keys found in the pem block")
+	}
+	return keys, nil
 }

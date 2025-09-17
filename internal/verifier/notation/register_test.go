@@ -46,6 +46,10 @@ func (m *mockKeyProvider) GetCertificates(_ context.Context) ([]*x509.Certificat
 		}}, nil
 }
 
+func (m *mockKeyProvider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
+	return nil, nil
+}
+
 func createMockKeyProvider(options any) (keyprovider.KeyProvider, error) {
 	if options == nil {
 		return &mockKeyProvider{}, nil

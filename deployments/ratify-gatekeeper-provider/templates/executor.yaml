@@ -50,6 +50,13 @@ spec:
             certificateOIDCIssuerRegex: "{{ .Values.cosign.certificateOIDCIssuerRegex }}"
             ignoreTLog: {{ .Values.cosign.ignoreTLog }}
             ignoreCTLog: {{ .Values.cosign.ignoreCTLog }}
+            {{- if and .Values.cosign.keys .Values.cosign.keys.key }}
+            {{- if eq .Values.cosign.keys.provider "inline" }}
+            keys:
+              inline:
+                keys: {{ .Values.cosign.keys.key | quote }}
+            {{- end }}
+            {{- end }}
     {{- end }}
     {{- if eq (include "ratify.notationConfigured" .) "true" }}
     - name: notation-1
