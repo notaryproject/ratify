@@ -30,10 +30,13 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 )
 
+type contextKey string
+
 const (
-	symDataPath  = "..data"
-	realDataPath = "..real-data"
-	certFileName = "cert.pem"
+	symDataPath             = "..data"
+	realDataPath            = "..real-data"
+	certFileName            = "cert.pem"
+	testKey      contextKey = "key"
 )
 
 func TestInit(t *testing.T) {
@@ -163,6 +166,145 @@ func TestGetCertificatesFromCache(t *testing.T) {
 	// Verify both calls return the same certificate
 	if !certs1[0].Equal(certs2[0]) {
 		t.Fatalf("cached certificate doesn't match original")
+	}
+}
+
+func TestGetKeys(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupProvider func(t *testing.T) keyprovider.KeyProvider
+		expectError   bool
+		errorMsg      string
+	}{
+		{
+			name: "GetKeys not implemented - provider with certificates",
+			setupProvider: func(t *testing.T) keyprovider.KeyProvider {
+				tempDir := t.TempDir()
+
+				// Create a temporary certificate file
+				certFile := filepath.Join(tempDir, "test-cert.pem")
+				certContent, err := createCert()
+				if err != nil {
+					t.Fatalf("failed to create certificate: %v", err)
+				}
+				if err := os.WriteFile(certFile, certContent, 0600); err != nil {
+					t.Fatalf("failed to create temp cert file: %v", err)
+				}
+
+				opts := []string{tempDir}
+				provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+				if err != nil {
+					t.Fatalf("failed to create key provider: %v", err)
+				}
+				return provider
+			},
+			expectError: true,
+			errorMsg:    "GetKeys not implemented in FileSystemProvider",
+		},
+		{
+			name: "GetKeys not implemented - empty provider",
+			setupProvider: func(t *testing.T) keyprovider.KeyProvider {
+				tempDir := t.TempDir()
+				opts := []string{tempDir}
+				provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+				if err != nil {
+					t.Fatalf("failed to create key provider: %v", err)
+				}
+				return provider
+			},
+			expectError: true,
+			errorMsg:    "GetKeys not implemented in FileSystemProvider",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider := tt.setupProvider(t)
+
+			keys, err := provider.GetKeys(context.Background())
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				if err.Error() != tt.errorMsg {
+					t.Fatalf("expected error message '%s', got '%s'", tt.errorMsg, err.Error())
+				}
+				if keys != nil {
+					t.Fatalf("expected nil keys when error occurs, got %v", keys)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if keys == nil {
+					t.Fatalf("expected non-nil keys slice, got nil")
+				}
+			}
+		})
+	}
+}
+
+func TestGetKeysWithContext(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a temporary certificate file
+	certFile := filepath.Join(tempDir, "test-cert.pem")
+	certContent, err := createCert()
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+	if err := os.WriteFile(certFile, certContent, 0600); err != nil {
+		t.Fatalf("failed to create temp cert file: %v", err)
+	}
+
+	opts := []string{tempDir}
+	provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+	if err != nil {
+		t.Fatalf("failed to create key provider: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+	}{
+		{
+			name: "GetKeys with background context",
+			ctx:  context.Background(),
+		},
+		{
+			name: "GetKeys with TODO context",
+			ctx:  context.TODO(),
+		},
+		{
+			name: "GetKeys with value context",
+			ctx:  context.WithValue(context.Background(), testKey, "value"),
+		},
+		{
+			name: "GetKeys with cancelled context",
+			ctx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx
+			}(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys, err := provider.GetKeys(tt.ctx)
+
+			// All contexts should return the same error since GetKeys is not implemented
+			if err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if err.Error() != "GetKeys not implemented in FileSystemProvider" {
+				t.Fatalf("expected 'GetKeys not implemented in FileSystemProvider' error, got '%s'", err.Error())
+			}
+			if keys != nil {
+				t.Fatalf("expected nil keys when error occurs, got %v", keys)
+			}
+		})
 	}
 }
 

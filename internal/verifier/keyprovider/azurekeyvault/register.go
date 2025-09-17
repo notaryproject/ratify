@@ -126,6 +126,10 @@ func (p *Provider) GetCertificates(_ context.Context) ([]*x509.Certificate, erro
 	return p.cachedCerts, nil
 }
 
+func (p *Provider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
+	return nil, fmt.Errorf("GetKeys not implemented in AzureKeyVault Provider")
+}
+
 // fetchAllCertificates fetches all certificate chains from Azure Key Vault
 // during initialization
 func (p *Provider) fetchAllCertificates(ctx context.Context) ([]*x509.Certificate, error) {

@@ -17,13 +17,18 @@ package cosign
 
 import (
 	"context"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"testing"
+	"time"
 
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify-verifier-go/cosign"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/notaryproject/ratify/v2/internal/verifier"
+	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 )
 
 const testVerifierName = "test-cosign-verifier"
@@ -302,6 +307,51 @@ func TestNewVerifier(t *testing.T) {
 				},
 			},
 			wantErr: false,
+		},
+		{
+			name: "failed to convert trust policy options",
+			opts: verifier.NewOptions{
+				Name: testVerifierName,
+				Parameters: map[string]interface{}{
+					"trustPolicies": []interface{}{
+						map[string]interface{}{
+							"name":   "test-policy",
+							"scopes": []string{"registry.example.com"},
+							"keys": map[string]interface{}{
+								"provider1": map[string]interface{}{
+									"config": "value1",
+								},
+								"provider2": map[string]interface{}{
+									"config": "value2",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "failed to convert trust policy options",
+		},
+		{
+			name: "invalid key provider configuration",
+			opts: verifier.NewOptions{
+				Name: testVerifierName,
+				Parameters: map[string]interface{}{
+					"trustPolicies": []interface{}{
+						map[string]interface{}{
+							"name":   "test-policy",
+							"scopes": []string{"registry.example.com"},
+							"keys": map[string]interface{}{
+								"invalid-provider": map[string]interface{}{
+									"invalid": "config",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "failed to convert trust policy options",
 		},
 	}
 
@@ -679,6 +729,50 @@ func TestToVerifierOptions(t *testing.T) {
 			wantErr:     true,
 			errContains: "failed to create certificate identity",
 		},
+		{
+			name:         "multiple key providers error",
+			verifierName: "test-policy",
+			input: &ScopedOptions{
+				Keys: map[string]any{
+					"inline": map[string]interface{}{
+						"keys": "test-key-1",
+					},
+					"azure": map[string]interface{}{
+						"vaultURI": "test-vault",
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "only one set of key provider is allowed",
+		},
+		{
+			name:         "key-based verification options",
+			verifierName: "test-policy",
+			input: &ScopedOptions{
+				Keys: map[string]any{
+					"inline": map[string]interface{}{
+						"keys": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END PUBLIC KEY-----",
+					},
+				},
+				IgnoreTLog:  true,  // Should be overridden to false for key-based
+				IgnoreCTLog: false, // Should be overridden to true for key-based
+			},
+			wantErr:     true, // inline provider not registered in test context
+			errContains: "failed to create key provider",
+		},
+		{
+			name:         "invalid key provider",
+			verifierName: "test-policy",
+			input: &ScopedOptions{
+				Keys: map[string]any{
+					"invalid-provider": map[string]interface{}{
+						"invalid": "config",
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "failed to create key provider",
+		},
 	}
 
 	for _, tt := range tests {
@@ -713,6 +807,57 @@ func TestToVerifierOptions(t *testing.T) {
 	}
 }
 
+func TestMatchVerifier_EdgeCases(t *testing.T) {
+	// Test additional edge cases for matchVerifier
+	verifier := &Verifier{
+		name:       testVerifierName,
+		wildcard:   make(map[string]*cosign.Verifier),
+		registry:   make(map[string]*cosign.Verifier),
+		repository: make(map[string]*cosign.Verifier),
+	}
+
+	tests := []struct {
+		name        string
+		repository  string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "repository with no subdomain for wildcard matching",
+			repository:  "example.com/repo",
+			wantErr:     true,
+			errContains: "no verifier configured for the repository",
+		},
+		{
+			name:        "repository with single character before dot",
+			repository:  "a.example.com/repo",
+			wantErr:     true,
+			errContains: "no verifier configured for the repository",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := verifier.matchVerifier(tt.repository)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("matchVerifier() expected error but got none")
+					return
+				}
+				if tt.errContains != "" && !containsError(err.Error(), tt.errContains) {
+					t.Errorf("matchVerifier() error = %v, want error containing %q", err, tt.errContains)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("matchVerifier() unexpected error = %v", err)
+			}
+		})
+	}
+}
+
 func TestInit_RegistryFactoryRegistration(t *testing.T) {
 	// The init() function should register the cosign factory
 	// This test verifies that the factory is properly registered
@@ -733,6 +878,26 @@ func TestInit_RegistryFactoryRegistration(t *testing.T) {
 		t.Errorf("Factory registration failed: %v", err)
 	}
 }
+
+func TestNewVerifier_UnmarshalError(t *testing.T) {
+	// Test unmarshal error path
+	opts := verifier.NewOptions{
+		Name: testVerifierName,
+		Parameters: map[string]interface{}{
+			"trustPolicies": "invalid-string-instead-of-array",
+		},
+	}
+
+	_, err := NewVerifier(opts, nil)
+	if err == nil {
+		t.Error("Expected error from NewVerifier with invalid parameters, but got none")
+	}
+	if !containsError(err.Error(), "failed to unmarshal verifier parameters") {
+		t.Errorf("Expected unmarshal error, got: %v", err)
+	}
+}
+
+// Helper functions
 
 func TestVerifier_RegisterRegistry_EdgeCases(t *testing.T) {
 	verifier := &Verifier{
@@ -1047,4 +1212,132 @@ func findSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestConvertProviderKeysToCosignKeys(t *testing.T) {
+	// Generate test RSA key
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate RSA key: %v", err)
+	}
+
+	startTime := time.Now()
+	endTime := startTime.Add(24 * time.Hour)
+
+	tests := []struct {
+		name         string
+		providerKeys []*keyprovider.PublicKey
+		expected     []*cosign.PublicKeyConfig
+	}{
+		{
+			name:         "empty input",
+			providerKeys: []*keyprovider.PublicKey{},
+			expected:     []*cosign.PublicKeyConfig{},
+		},
+		{
+			name: "single key with all fields",
+			providerKeys: []*keyprovider.PublicKey{
+				{
+					Key:                 &rsaKey.PublicKey,
+					SignatureAlgorithm:  crypto.SHA256,
+					ValidityPeriodStart: startTime,
+					ValidityPeriodEnd:   endTime,
+				},
+			},
+			expected: []*cosign.PublicKeyConfig{
+				{
+					PublicKey:           &rsaKey.PublicKey,
+					SignatureAlgorithm:  crypto.SHA256,
+					ValidityPeriodStart: startTime,
+					ValidityPeriodEnd:   endTime,
+				},
+			},
+		},
+		{
+			name: "single key with minimal fields",
+			providerKeys: []*keyprovider.PublicKey{
+				{
+					Key: &rsaKey.PublicKey,
+				},
+			},
+			expected: []*cosign.PublicKeyConfig{
+				{
+					PublicKey: &rsaKey.PublicKey,
+				},
+			},
+		},
+		{
+			name: "multiple keys",
+			providerKeys: []*keyprovider.PublicKey{
+				{
+					Key:                &rsaKey.PublicKey,
+					SignatureAlgorithm: crypto.SHA256,
+				},
+				{
+					Key:                 &rsaKey.PublicKey,
+					ValidityPeriodStart: startTime,
+					ValidityPeriodEnd:   endTime,
+				},
+			},
+			expected: []*cosign.PublicKeyConfig{
+				{
+					PublicKey:          &rsaKey.PublicKey,
+					SignatureAlgorithm: crypto.SHA256,
+				},
+				{
+					PublicKey:           &rsaKey.PublicKey,
+					ValidityPeriodStart: startTime,
+					ValidityPeriodEnd:   endTime,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertProviderKeysToCosignKeys(tt.providerKeys)
+
+			// Check length
+			if len(result) != len(tt.expected) {
+				t.Fatalf("expected %d keys, got %d", len(tt.expected), len(result))
+			}
+
+			// Check each key
+			for i, expectedKey := range tt.expected {
+				actualKey := result[i]
+
+				if actualKey.PublicKey != expectedKey.PublicKey {
+					t.Errorf("key %d: public key mismatch", i)
+				}
+
+				if actualKey.SignatureAlgorithm != expectedKey.SignatureAlgorithm {
+					t.Errorf("key %d: signature algorithm mismatch: expected %v, got %v",
+						i, expectedKey.SignatureAlgorithm, actualKey.SignatureAlgorithm)
+				}
+
+				// Compare validity period start
+				if !actualKey.ValidityPeriodStart.Equal(expectedKey.ValidityPeriodStart) {
+					t.Errorf("key %d: validity period start mismatch: expected %v, got %v",
+						i, expectedKey.ValidityPeriodStart, actualKey.ValidityPeriodStart)
+				}
+
+				// Compare validity period end
+				if !actualKey.ValidityPeriodEnd.Equal(expectedKey.ValidityPeriodEnd) {
+					t.Errorf("key %d: validity period end mismatch: expected %v, got %v",
+						i, expectedKey.ValidityPeriodEnd, actualKey.ValidityPeriodEnd)
+				}
+			}
+		})
+	}
+}
+
+func TestConvertProviderKeysToCosignKeys_NilInput(t *testing.T) {
+	// Test edge case with nil input
+	result := convertProviderKeysToCosignKeys(nil)
+	if result == nil {
+		t.Error("expected non-nil result for nil input")
+	}
+	if len(result) != 0 {
+		t.Errorf("expected empty slice for nil input, got length %d", len(result))
+	}
 }

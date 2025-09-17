@@ -26,8 +26,8 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/notaryproject/notation-core-go v1.3.0
 	github.com/notaryproject/notation-go v1.3.2
-	github.com/notaryproject/ratify-go v0.0.0-20250829072315-27c492341d9c
-	github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20250718091004-7f8bcc1a4e25
+	github.com/notaryproject/ratify-go v0.0.0-20250912144645-8f7f89aff329
+	github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20250912090755-582a09910433
 	github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
@@ -46,7 +46,7 @@ require (
 	go.opentelemetry.io/otel/exporters/prometheus v0.49.0
 	go.opentelemetry.io/otel/metric v1.36.0
 	go.opentelemetry.io/otel/sdk/metric v1.35.0
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.17.0
 	k8s.io/api v0.33.5
 	k8s.io/apimachinery v0.33.5
 	k8s.io/client-go v0.33.5
@@ -80,7 +80,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.7 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.10 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
@@ -112,6 +112,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250414145226-207652e42e2e // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )
 
@@ -213,7 +214,6 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.33.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
