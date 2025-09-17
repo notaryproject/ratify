@@ -45,6 +45,11 @@ type ScopedOptions struct {
 	// Policy contains the configuration options for the policy enforcer.
 	// Optional.
 	Policy *policyenforcer.NewOptions `json:"policyEnforcer,omitempty"`
+
+	// Concurrency limits the maximum number of concurrent execution per
+	// validation request. If less than or equal to 0, a default (currently 3)
+	// is used. Optional.
+	Concurrency int `json:"concurrency,omitempty"`
 }
 
 // Options contains the configuration options to create a scoped executor.
@@ -131,7 +136,12 @@ func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 		}
 	}
 
-	return ratify.NewExecutor(storeMux, verifiers, policy)
+	e, err := ratify.NewExecutor(storeMux, verifiers, policy)
+	if err != nil {
+		return nil, err
+	}
+	e.Concurrency = opts.Concurrency
+	return e, nil
 }
 
 // ValidateArtifact routes the artifact validation request to the appropriate
