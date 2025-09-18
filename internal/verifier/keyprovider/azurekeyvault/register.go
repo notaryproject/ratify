@@ -17,6 +17,7 @@ package azurekeyvault
 
 import (
 	"context"
+	"crypto"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -24,8 +25,10 @@ import (
 	"fmt"
 	"sync"
 
+	"go.step.sm/crypto/jose"
 	"golang.org/x/crypto/pkcs12"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets"
 	"github.com/notaryproject/ratify/v2/internal/cloudprovider/azure"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
@@ -45,20 +48,31 @@ type CertificateSpec struct {
 	Version string `json:"version,omitempty"`
 }
 
-// Options represents the configuration options for Azure Key Vault provider
+// KeySpec represents a key specification with name and optional version.
+type KeySpec struct {
+	Name    string `json:"name"`
+	Version string `json:"version,omitempty"`
+}
+
+// Options represents the configuration options for Azure Key Vault provider.
+// Notes: Either Certificates or Keys must be specified.
 type Options struct {
 	VaultURL     string            `json:"vaultURL"`
 	ClientID     string            `json:"clientID,omitempty"`
 	TenantID     string            `json:"tenantID,omitempty"`
-	Certificates []CertificateSpec `json:"certificates"`
+	Certificates []CertificateSpec `json:"certificates,omitempty"`
+	Keys         []KeySpec         `json:"keys,omitempty"`
 }
 
 // Provider is a key provider that fetches certificate chains from Azure Key
-// Vault secrets
+// Vault secrets and public keys from Azure Key Vault keys.
 type Provider struct {
 	secretsClient *azsecrets.Client
+	keysClient    *azkeys.Client
 	certSpecs     []CertificateSpec
+	keySpecs      []KeySpec
 	cachedCerts   []*x509.Certificate
+	cachedKeys    []*keyprovider.PublicKey
 	mu            sync.RWMutex
 }
 
@@ -78,8 +92,8 @@ func init() {
 			return nil, fmt.Errorf("vaultURL is required")
 		}
 
-		if len(opts.Certificates) == 0 {
-			return nil, fmt.Errorf("at least one certificate must be specified")
+		if len(opts.Certificates) == 0 && len(opts.Keys) == 0 {
+			return nil, fmt.Errorf("at least one certificate or key must be specified")
 		}
 
 		// Create Azure credential chain (workload identity first, then managed identity)
@@ -94,19 +108,35 @@ func init() {
 			return nil, fmt.Errorf("failed to create Azure Key Vault secrets client: %w", err)
 		}
 
-		provider := &Provider{
-			secretsClient: secretsClient,
-			certSpecs:     opts.Certificates,
+		// Create Azure Key Vault keys client for public keys
+		keysClient, err := azkeys.NewClient(opts.VaultURL, credential, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Azure Key Vault keys client: %w", err)
 		}
 
-		// Fetch and cache certificates during initialization
+		provider := &Provider{
+			secretsClient: secretsClient,
+			keysClient:    keysClient,
+			certSpecs:     opts.Certificates,
+			keySpecs:      opts.Keys,
+		}
+
+		// Fetch and cache certificates during initialization if specified
 		cachedCerts, err := provider.fetchAllCertificates(context.Background())
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch certificates during initialization: %w", err)
 		}
+
+		// Fetch and cache keys during initialization if specified
+		cachedKeys, err := provider.fetchAllKeys(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch keys during initialization: %w", err)
+		}
+
 		provider.mu.Lock()
 		defer provider.mu.Unlock()
 		provider.cachedCerts = cachedCerts
+		provider.cachedKeys = cachedKeys
 
 		return provider, nil
 	})
@@ -126,14 +156,26 @@ func (p *Provider) GetCertificates(_ context.Context) ([]*x509.Certificate, erro
 	return p.cachedCerts, nil
 }
 
+// GetKeys returns the cached public keys that were fetched during
+// initialization.
 func (p *Provider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
-	return nil, fmt.Errorf("GetKeys not implemented in AzureKeyVault Provider")
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if len(p.cachedKeys) == 0 {
+		return nil, fmt.Errorf("no cached public keys available")
+	}
+	logrus.Debugf("Returning %d cached public key(s) from Azure Key Vault", len(p.cachedKeys))
+	return p.cachedKeys, nil
 }
 
 // fetchAllCertificates fetches all certificate chains from Azure Key Vault
 // during initialization
 func (p *Provider) fetchAllCertificates(ctx context.Context) ([]*x509.Certificate, error) {
 	var allCerts []*x509.Certificate
+	if len(p.certSpecs) == 0 {
+		return allCerts, nil
+	}
 
 	for _, certSpec := range p.certSpecs {
 		logrus.Infof("Fetching certificate chain for %q from Azure Key Vault during initialization", certSpec.Name)
@@ -156,9 +198,63 @@ func (p *Provider) fetchAllCertificates(ctx context.Context) ([]*x509.Certificat
 	return allCerts, nil
 }
 
+// fetchAllKeys fetches all public keys from Azure Key Vault.
+func (p *Provider) fetchAllKeys(ctx context.Context) ([]*keyprovider.PublicKey, error) {
+	var allKeys []*keyprovider.PublicKey
+	if len(p.keySpecs) == 0 {
+		return allKeys, nil
+	}
+
+	for _, keySpec := range p.keySpecs {
+		logrus.Infof("Fetching public key for %q from Azure Key Vault during initialization", keySpec.Name)
+
+		key, err := p.fetchKey(ctx, keySpec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch public key for %q: %w", keySpec.Name, err)
+		}
+
+		if key != nil {
+			allKeys = append(allKeys, key)
+		}
+	}
+
+	if len(allKeys) == 0 {
+		return nil, fmt.Errorf("no valid public keys found in Azure Key Vault")
+	}
+
+	logrus.Infof("Successfully fetched %d public key(s) from Azure Key Vault during initialization", len(allKeys))
+	return allKeys, nil
+}
+
+// fetchKey fetches a public key from Azure Key Vault.
+func (p *Provider) fetchKey(ctx context.Context, keySpec KeySpec) (*keyprovider.PublicKey, error) {
+	// Fetch the key from Azure Key Vault
+	// If version is empty, Azure Key Vault will return the latest version
+	resp, err := p.keysClient.GetKey(ctx, keySpec.Name, keySpec.Version, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get key %q of version %q: %w", keySpec.Name, keySpec.Version, err)
+	}
+
+	if !*resp.Attributes.Enabled {
+		return nil, fmt.Errorf("key %q of version %q is disabled", keySpec.Name, keySpec.Version)
+	}
+
+	if resp.Key == nil {
+		return nil, fmt.Errorf("no key data found for key %q of version %q", keySpec.Name, keySpec.Version)
+	}
+
+	// Extract the public key from the response
+	publicKey, err := extractPublicKeyFromKeyResponse(resp.Key, keySpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract public key from key %q of version %q: %w", keySpec.Name, keySpec.Version, err)
+	}
+
+	logrus.Infof("Successfully fetched public key for '%s' (version: %s)", keySpec.Name, keySpec.Version)
+	return publicKey, nil
+}
+
 // fetchCertificateChain fetches a complete certificate chain from Azure Key
-//
-//	Vault secrets
+// Vault secrets
 func (p *Provider) fetchCertificateChain(ctx context.Context, certSpec CertificateSpec) ([]*x509.Certificate, error) {
 	// Try to get the full chain from secrets
 	chain, err := p.fetchChainFromSecrets(ctx, certSpec)
@@ -258,4 +354,61 @@ func parseCertificateInPem(pemData []byte, certSpec CertificateSpec) ([]*x509.Ce
 	}
 
 	return certs, nil
+}
+
+// extractPublicKeyFromKeyResponse extracts a public key from Azure Key Vault GetKey response
+func extractPublicKeyFromKeyResponse(key *azkeys.JSONWebKey, keySpec KeySpec) (*keyprovider.PublicKey, error) {
+	if key.Kty == nil {
+		return nil, fmt.Errorf("key type (kty) is nil for key %q of version %q", keySpec.Name, keySpec.Version)
+	}
+
+	switch *key.Kty {
+	case azkeys.KeyTypeECHSM:
+		*key.Kty = azkeys.KeyTypeEC
+	case azkeys.KeyTypeRSAHSM:
+		*key.Kty = azkeys.KeyTypeRSA
+	}
+
+	jwkJSON, err := json.Marshal(*key)
+	if err != nil {
+		return nil, fmt.Errorf("encoding the jsonWebKey: %w", err)
+	}
+
+	jwk := jose.JSONWebKey{}
+	err = jwk.UnmarshalJSON(jwkJSON)
+	if err != nil {
+		return nil, fmt.Errorf("decoding the jsonWebKey: %w", err)
+	}
+
+	// Convert JWK algorithm (JWA) to crypto.Hash for keyprovider.PublicKey.SignatureAlgorithm.
+	// Default to SHA256 when algorithm is empty or unsupported.
+	sigAlg, err := convertJWKAlgToHash(jwk.Algorithm)
+	if err != nil {
+		return nil, fmt.Errorf("converting JWK algorithm to crypto.Hash for key %q of version %q: %w", keySpec.Name, keySpec.Version, err)
+	}
+
+	return &keyprovider.PublicKey{
+		Key:                jwk.Key,
+		SignatureAlgorithm: sigAlg,
+	}, nil
+}
+
+// convertJWKAlgToHash maps common JWK/JWA signature algorithm names to crypto.Hash.
+// Returns an error for unknown algorithms (caller may choose a default).
+func convertJWKAlgToHash(alg string) (crypto.Hash, error) {
+	switch alg {
+	case "RS256", "PS256", "ES256":
+		return crypto.SHA256, nil
+	case "RS384", "PS384", "ES384":
+		return crypto.SHA384, nil
+	case "RS512", "PS512", "ES512":
+		return crypto.SHA512, nil
+	case "EdDSA":
+		// Ed25519/Ed448 do not use a pre-hash, indicate "no hash" as 0.
+		return crypto.Hash(0), nil
+	case "":
+		return 0, fmt.Errorf("empty algorithm")
+	default:
+		return 0, fmt.Errorf("unsupported algorithm: %q", alg)
+	}
 }
