@@ -195,12 +195,12 @@ func TestNewTLSCertWatcher_Expected(t *testing.T) {
 	}
 	// initialize cert watcher with empty paths
 	var cw *TLSCertWatcher
-	_, err = NewTLSCertWatcher("", "", "")
+	_, err = NewTLSCertWatcher("", "", nil)
 	if err == nil {
 		t.Errorf("Expected error, got %v", err)
 	}
 	// initialize cert watcher with valid paths
-	cw, err = NewTLSCertWatcher(certFileName, keyFileName, caFileName)
+	cw, err = NewTLSCertWatcher(certFileName, keyFileName, []string{caFileName})
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
@@ -212,8 +212,8 @@ func TestNewTLSCertWatcher_Expected(t *testing.T) {
 	if cw.ratifyServerKeyPath != keyFileName {
 		t.Errorf("Expected %s, got %s", keyFileName, cw.ratifyServerKeyPath)
 	}
-	if cw.clientCACertPath != caFileName {
-		t.Errorf("Expected %s, got %s", caFileName, cw.clientCACertPath)
+	if len(cw.clientCACertPaths) != 1 || cw.clientCACertPaths[0] != caFileName {
+		t.Errorf("Expected %s, got %v", caFileName, cw.clientCACertPaths)
 	}
 	if cw.ratifyServerCert == nil {
 		t.Errorf("Expected ratifyServerCert to be set")
@@ -255,14 +255,14 @@ func TestReadCertificates_Expected(t *testing.T) {
 
 	// test with invalid ca cert path
 	cw.ratifyServerCertPath = invalidPath
-	cw.clientCACertPath = invalidPath
+	cw.clientCACertPaths = []string{invalidPath}
 	cw.ratifyServerKeyPath = invalidPath
 	if err := cw.ReadCertificates(); err == nil {
 		t.Errorf("Expected error, got %v", err)
 	}
 
 	// test with invalid cert/key paths
-	cw.clientCACertPath = caFileName
+	cw.clientCACertPaths = []string{caFileName}
 	if err := cw.ReadCertificates(); err == nil {
 		t.Errorf("Expected error, got %v", err)
 	}
@@ -298,7 +298,7 @@ func TestCertRotation(t *testing.T) {
 
 	// set up new cert watcher
 	var cw *TLSCertWatcher
-	cw, err = NewTLSCertWatcher(certFileName, keyFileName, caFileName)
+	cw, err = NewTLSCertWatcher(certFileName, keyFileName, []string{caFileName})
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
