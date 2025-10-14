@@ -18,7 +18,6 @@ package aws
 import (
 	"context"
 	"encoding/base64"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -110,9 +109,8 @@ func TestAwsEcrBasicAuthProvider_ProvidesWithHost(t *testing.T) {
 func TestAwsEcrBasicAuthProvider_GetAuthTokenWithoutRegion(t *testing.T) {
 	authProvider := mockAuthProvider()
 
-	os.Setenv("AWS_REGION", "placeholder")
-	os.Setenv("AWS_ROLE_ARN", "placeholder")
-	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "placeholder")
+	// Note: AWS_REGION is optional now - will be derived from registry if not set
+	// This test verifies that artifacts without region information fail appropriately
 	_, err := authProvider.getEcrAuthToken(testArtifactWithoutRegion)
 	if err == nil {
 		t.Fatalf("expected error: %+v", err)

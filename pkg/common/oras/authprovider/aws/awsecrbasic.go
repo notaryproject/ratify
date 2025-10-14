@@ -24,7 +24,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/pkg/errors"
@@ -48,24 +47,19 @@ const (
 	awsSessionName         string = "ratifyEcrBasicAuth"
 )
 
-// init calls Register for AWS IRSA Basic Auth provider
+// init calls Register for AWS ECR Basic Auth provider (supports both IRSA and Pod Identity)
 func init() {
 	provider.Register(awsEcrAuthProviderName, &AwsEcrBasicProviderFactory{})
 }
 
-// Get ECR auth token from IRSA config
+// Get ECR auth token using AWS SDK default credential chain (supports IRSA, Pod Identity, etc.)
 func (d *awsEcrBasicAuthProvider) getEcrAuthToken(artifact string) (EcrAuthToken, error) {
 	region := os.Getenv("AWS_REGION")
-	roleArn := os.Getenv("AWS_ROLE_ARN")
-	tokenFilePath := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 	apiOverrideEndpoint := os.Getenv("AWS_API_OVERRIDE_ENDPOINT")
 	apiOverridePartition := os.Getenv("AWS_API_OVERRIDE_PARTITION")
 	apiOverrideRegion := os.Getenv("AWS_API_OVERRIDE_REGION")
 
-	// Verify IRSA ENV is present
-	if region == "" || roleArn == "" || tokenFilePath == "" {
-		return EcrAuthToken{}, fmt.Errorf("required environment variables not set, AWS_REGION: %s, AWS_ROLE_ARN: %s, AWS_WEB_IDENTITY_TOKEN_FILE: %s", region, roleArn, tokenFilePath)
-	}
+	logrus.Debug("AWS ECR auth using default credential chain (supports IRSA, Pod Identity, instance profiles, etc.)")
 
 	ctx := context.Background()
 	// TODO: Update to use regional endpoint
@@ -91,10 +85,7 @@ func (d *awsEcrBasicAuthProvider) getEcrAuthToken(artifact string) (EcrAuthToken
 	})
 	// TODO: Update to use regional endpoint
 	// nolint:staticcheck
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithEndpointResolverWithOptions(resolver),
-		config.WithWebIdentityRoleCredentialOptions(func(options *stscreds.WebIdentityRoleOptions) {
-			options.RoleSessionName = awsSessionName
-		}))
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithEndpointResolverWithOptions(resolver))
 
 	if err != nil {
 		return EcrAuthToken{}, fmt.Errorf("failed to load default AWS basic auth config: %w", err)
@@ -105,9 +96,19 @@ func (d *awsEcrBasicAuthProvider) getEcrAuthToken(artifact string) (EcrAuthToken
 	if err != nil {
 		return EcrAuthToken{}, fmt.Errorf("failed to get registry from image: %w", err)
 	}
-	region = awsauth.RegionFromRegistry(registry)
-	if region == "" {
+
+	// Derive region from registry if not set via environment variable
+	derivedRegion := awsauth.RegionFromRegistry(registry)
+	if derivedRegion == "" {
 		return EcrAuthToken{}, fmt.Errorf("failed to get region from image")
+	}
+
+	// Use environment variable region if set, otherwise use derived region
+	if region == "" {
+		region = derivedRegion
+		logrus.Debugf("Using region derived from registry: %s", region)
+	} else {
+		logrus.Debugf("Using region from AWS_REGION environment variable: %s", region)
 	}
 
 	logrus.Debugf("AWS ECR basic artifact=%s, registry=%s, region=%s", artifact, registry, region)
@@ -156,12 +157,12 @@ func (d *awsEcrBasicAuthProvider) Enabled(_ context.Context) bool {
 }
 
 // Provide returns the credentials for a specified artifact.
-// Uses AWS IRSA to retrieve creds from IRSA credential chain
+// Uses AWS SDK default credential chain (supports IRSA, Pod Identity, instance profiles, etc.)
 func (d *awsEcrBasicAuthProvider) Provide(ctx context.Context, artifact string) (provider.AuthConfig, error) {
 	logrus.Debugf("artifact = %s", artifact)
 
 	if !d.Enabled(ctx) {
-		return provider.AuthConfig{}, fmt.Errorf("AWS IRSA basic auth provider is not properly enabled")
+		return provider.AuthConfig{}, fmt.Errorf("AWS ECR auth provider is not properly enabled")
 	}
 
 	registry, err := provider.GetRegistryHostName(artifact)
