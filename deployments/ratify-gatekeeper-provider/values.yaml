@@ -30,8 +30,16 @@ cosign:
   ignoreTLog: false
   ignoreCTLog: false
   keys:
-    provider: "inline"
-    key: "" # PEM encoded public key  e.g. "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+    # provider: "inline"
+    # key: "" # PEM encoded public key  e.g. "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+    # or
+    # provider: "azurekeyvault" # use "azurekeyvault" to use Azure Key Vault
+    # vaultURL: "" # e.g. "https://my-key-vault.vault.azure.net/"
+    # clientID: "" # optional
+    # tenantID: "" # optional
+    # keys:
+    #   - name: "" # name of the key in Azure Key Vault
+    #     version: "" # optional, if not provided, the latest version will be used
 
 stores:
   - scopes: []
