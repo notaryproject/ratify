@@ -113,10 +113,8 @@ func StartServer(httpServerAddress, configFilePath, certDirectory string, caCert
 }
 
 func StartManager(certRotatorReady chan struct{}, probeAddr string) {
-	var metricsAddr string
 	var enableLeaderElection bool
 
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -126,8 +124,6 @@ func StartManager(certRotatorReady chan struct{}, probeAddr string) {
 	ctrl.SetLogger(logr.New(logrusSink))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "1a306109.github.com/ratify-project/ratify",
