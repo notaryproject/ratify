@@ -117,9 +117,13 @@ provider:
   tls:
     crt: "" # crt used by ratify (httpserver), please provide your own crt
     key: "" # key used by ratify (httpserver), please provide your own key
-    caCert: "" # CA crt used by ratify (httpserver), please provide your own CA crt
+    caCert: "" # CA certificate used by ratify server
     caKey: "" # CA key used by ratify (httpserver), please provide your own CA key
     cabundle: "" # base64 encoded CA bundle used for the 'caBundle' property for the ratify provider within gatekeeper
+  clientAuth:
+    caCerts: # List of additional client CA certificates for mTLS client authentication (in addition to gatekeeper-webhook-server-cert if present)
+      # - secretName: my-ca-cert-secret # Kubernetes secret containing the CA certificate
+      #   secretKey: ca.crt # Key in the secret containing the CA certificate
   timeout:
     # timeout values must match gatekeeper webhook timeouts
     validationTimeoutSeconds: 5
