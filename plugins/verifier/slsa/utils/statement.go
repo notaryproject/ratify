@@ -26,6 +26,11 @@ import (
 	"github.com/ratify-project/ratify/pkg/common/plugin/logger"
 )
 
+const (
+	maxLines      = 10000       // The max statement line to prevent infinite loop
+	limitLineSize = 1024 * 1024 // 1MB per statement line limit
+)
+
 type BundleReader struct {
 	reader   *bufio.Reader
 	verifier Verifier
@@ -76,7 +81,6 @@ func (br *BundleReader) convertLineToStatement(line string, logger *logger.Logge
 func (br *BundleReader) ReadStatement(predicateType string) (*spb.Statement, error) {
 	pluginlogger := logger.NewLogger()
 	// Read until we get a statement or end of file.
-	maxLines := 10000
 	lineCount := 0
 
 	for {
@@ -105,7 +109,7 @@ func (br *BundleReader) ReadStatement(predicateType string) (*spb.Statement, err
 			continue
 		}
 
-		if len(line) > 1024*1024 { // 1MB per line limit
+		if len(line) > limitLineSize {
 			pluginlogger.Warnf("skipping very long line (%d bytes), may cause memory issues", len(line))
 			continue
 		}

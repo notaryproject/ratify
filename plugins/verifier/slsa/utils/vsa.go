@@ -30,6 +30,7 @@ import (
 const (
 	DefaultVsaVerifierID = "https://github.com/slsa-framework/source-actions"
 	VsaPredicateType     = "https://slsa.dev/verification_summary/v1"
+	maxIterations        = 1000 // the max vsa reader iteration to prevent infinite loop
 )
 
 // Gets a VSA for the commit from git notes.
@@ -75,7 +76,6 @@ func getVsaFromReader(reader *BundleReader, vsaOpts *VerificationOptions) (*spb.
 	// https://slsa.dev/spec/draft/verifying-source#how-to-verify-slsa-a-source-revision
 
 	pluginlogger := logger.NewLogger()
-	maxIterations := 1000
 	iterationCount := 0
 
 	for {

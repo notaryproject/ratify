@@ -33,6 +33,11 @@ import (
 	"github.com/ratify-project/ratify/pkg/verifier/plugin/skel"
 )
 
+const (
+	maxBlobs    = 10               // Limit the number of referenceManifest blob, default to 10
+	maxBlobSize = 50 * 1024 * 1024 // The max blob size, default to 50MB
+)
+
 type PluginConfig struct {
 	Name                   string   `json:"name"`
 	Type                   string   `json:"type"`
@@ -109,7 +114,6 @@ func VerifyReference(args *skel.CmdArgs, subjectReference common.Reference, desc
 	}
 
 	// limit the number of blob, default to 10
-	maxBlobs := 10
 	if len(referenceManifest.Blobs) > maxBlobs {
 		pluginlogger.Warnf("found %d blobs, limiting to first %d to prevent memory issues", len(referenceManifest.Blobs), maxBlobs)
 	}
@@ -124,7 +128,7 @@ func VerifyReference(args *skel.CmdArgs, subjectReference common.Reference, desc
 		pluginlogger.Debugf("processing blob %d/%d, digest: %s, media type: %s", i+1, len(referenceManifest.Blobs), blobDesc.Digest, blobDesc.MediaType)
 
 		// check the size of blob
-		if blobDesc.Size > 50*1024*1024 { // 50MB limit
+		if blobDesc.Size > maxBlobSize { // 50MB limit
 			pluginlogger.Warnf("skipping large blob %s (size: %d bytes), may cause memory issues", blobDesc.Digest, blobDesc.Size)
 			continue
 		}
