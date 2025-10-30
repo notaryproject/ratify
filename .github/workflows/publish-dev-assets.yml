@@ -103,6 +103,7 @@ jobs:
             --build-arg build_licensechecker=true \
             --build-arg build_schemavalidator=true \
             --build-arg build_vulnerabilityreport=true \
+            --build-arg build_slsaverifier=true \
             --build-arg LDFLAGS="-X github.com/ratify-project/ratify/internal/version.Version=$(TAG)" \
             --label org.opencontainers.image.revision=${{ github.sha }} \
             -t ${{ steps.prepare.outputs.ref }}:${{ steps.prepare.outputs.version }} \

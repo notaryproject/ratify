@@ -592,6 +592,7 @@ e2e-build-local-ratify-image:
 	--build-arg build_licensechecker=true \
 	--build-arg build_schemavalidator=true \
 	--build-arg build_vulnerabilityreport=true \
+	--build-arg build_slsaverifier=true \
 	-f ./httpserver/Dockerfile \
 	-t localbuild:test .
 
