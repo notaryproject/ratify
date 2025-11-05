@@ -74,7 +74,7 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-func StartServer(httpServerAddress, configFilePath, certDirectory, caCertFile string, cacheTTL time.Duration, metricsEnabled bool, metricsType string, metricsPort int, certRotatorReady chan struct{}) {
+func StartServer(httpServerAddress, configFilePath, certDirectory string, caCertFiles []string, cacheTTL time.Duration, metricsEnabled bool, metricsType string, metricsPort int, certRotatorReady chan struct{}) {
 	logrus.Info("initializing executor with config file at default config path")
 
 	cf, err := config.Load(configFilePath)
@@ -99,7 +99,7 @@ func StartServer(httpServerAddress, configFilePath, certDirectory, caCertFile st
 			Config:         &cf.ExecutorConfig,
 		}
 		return &executor
-	}, certDirectory, caCertFile, cacheTTL, metricsEnabled, metricsType, metricsPort)
+	}, certDirectory, caCertFiles, cacheTTL, metricsEnabled, metricsType, metricsPort)
 
 	if err != nil {
 		logrus.Errorf("initialize server failed with error %v, exiting..", err)
@@ -113,10 +113,8 @@ func StartServer(httpServerAddress, configFilePath, certDirectory, caCertFile st
 }
 
 func StartManager(certRotatorReady chan struct{}, probeAddr string) {
-	var metricsAddr string
 	var enableLeaderElection bool
 
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -126,8 +124,6 @@ func StartManager(certRotatorReady chan struct{}, probeAddr string) {
 	ctrl.SetLogger(logr.New(logrusSink))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "1a306109.github.com/ratify-project/ratify",

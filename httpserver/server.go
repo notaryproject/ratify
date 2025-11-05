@@ -56,7 +56,7 @@ type Server struct {
 	GetExecutor       config.GetExecutor
 	Context           context.Context
 	CertDirectory     string
-	CaCertFile        string
+	CaCertFiles       []string
 	MutationStoreName string
 	MetricsEnabled    bool
 	MetricsType       string
@@ -85,7 +85,7 @@ func NewServer(context context.Context,
 	address string,
 	getExecutor config.GetExecutor,
 	certDir string,
-	caCertFile string,
+	caCertFiles []string,
 	cacheTTL time.Duration,
 	metricsEnabled bool,
 	metricsType string,
@@ -100,7 +100,7 @@ func NewServer(context context.Context,
 		Router:            mux.NewRouter(),
 		Context:           context,
 		CertDirectory:     certDir,
-		CaCertFile:        caCertFile,
+		CaCertFiles:       caCertFiles,
 		MutationStoreName: defaultMutationReferrerStoreName,
 		MetricsEnabled:    metricsEnabled,
 		MetricsType:       metricsType,
@@ -148,7 +148,7 @@ func (server *Server) Run(certRotatorReady chan struct{}) error {
 
 		logrus.Info(fmt.Sprintf("%s: [%s:%s] [%s:%s]", "starting server using TLS", "certFile", certFile, "keyFile", keyFile))
 
-		tlsCertWatcher, err := NewTLSCertWatcher(certFile, keyFile, server.CaCertFile)
+		tlsCertWatcher, err := NewTLSCertWatcher(certFile, keyFile, server.CaCertFiles)
 		if err != nil {
 			return err
 		}
