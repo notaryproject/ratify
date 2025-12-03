@@ -49,8 +49,8 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.38.0
 	go.step.sm/crypto v0.70.0
 	golang.org/x/sync v0.17.0
-	k8s.io/api v0.33.5
-	k8s.io/apimachinery v0.33.5
+	k8s.io/api v0.33.6
+	k8s.io/apimachinery v0.33.6
 	k8s.io/client-go v0.33.5
 	oras.land/oras-go/v2 v2.6.0
 	sigs.k8s.io/controller-runtime v0.21.0
