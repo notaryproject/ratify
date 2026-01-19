@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM golang:1.23@sha256:a5339982f2e78b38b26ebbee35139854e184a4e90e1516f9f636371e720b727b as builder
+FROM --platform=$BUILDPLATFORM golang:1.24@sha256:5056a223ebbba06c4441cda05dc0a99f77896dde04472710f02ea30c47f7be00 as builder
 
 ARG TARGETPLATFORM
 ARG TARGETOS
@@ -23,6 +23,7 @@ ARG build_sbom
 ARG build_licensechecker
 ARG build_schemavalidator
 ARG build_vulnerabilityreport
+ARG build_slsaverifier
 
 ENV CGO_ENABLED=0 \
     GOOS=${TARGETOS} \
@@ -40,6 +41,7 @@ RUN if [ "$build_sbom" = "true" ]; then go build -o /app/out/plugins/ /app/plugi
 RUN if [ "$build_licensechecker" = "true" ]; then go build -o /app/out/plugins/ /app/plugins/verifier/licensechecker; fi
 RUN if [ "$build_schemavalidator" = "true" ]; then go build -o /app/out/plugins/ /app/plugins/verifier/schemavalidator; fi
 RUN if [ "$build_vulnerabilityreport" = "true" ]; then go build -o /app/out/plugins/ /app/plugins/verifier/vulnerabilityreport; fi
+RUN if [ "$build_slsaverifier" = "true" ]; then go build -o /app/out/plugins/ /app/plugins/verifier/slsa; fi
 
 FROM gcr.io/distroless/static:nonroot@sha256:c0f429e16b13e583da7e5a6ec20dd656d325d88e6819cafe0adb0828976529dc
 LABEL org.opencontainers.image.source https://github.com/ratify-project/ratify

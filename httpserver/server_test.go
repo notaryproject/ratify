@@ -59,13 +59,13 @@ func TestNewServer_Expected(t *testing.T) {
 	testAddress := "localhost:5000"
 	testGetExecutor := testGetExecutor
 	testCertDir := "/tmp"
-	testCACertFile := "/tmp/ca.crt"
+	testCACertFiles := []string{"/tmp/ca.crt"}
 	testCacheTTL := 6 * time.Second
 	testMetricsEnabled := true
 	testMetricsType := "test-metrics"
 	testMetricsPort := 1010
 
-	server, err := NewServer(context.Background(), testAddress, testGetExecutor, testCertDir, testCACertFile, testCacheTTL, testMetricsEnabled, testMetricsType, testMetricsPort)
+	server, err := NewServer(context.Background(), testAddress, testGetExecutor, testCertDir, testCACertFiles, testCacheTTL, testMetricsEnabled, testMetricsType, testMetricsPort)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -81,8 +81,8 @@ func TestNewServer_Expected(t *testing.T) {
 	if server.CertDirectory != testCertDir {
 		t.Fatalf("unexpected cert directory: %s", server.CertDirectory)
 	}
-	if server.CaCertFile != testCACertFile {
-		t.Fatalf("unexpected ca cert file: %s", server.CaCertFile)
+	if len(server.CaCertFiles) != 1 || server.CaCertFiles[0] != testCACertFiles[0] {
+		t.Fatalf("unexpected ca cert files: %v", server.CaCertFiles)
 	}
 	if server.CacheTTL != testCacheTTL {
 		t.Fatalf("unexpected cache ttl: %v", server.CacheTTL)

@@ -18,6 +18,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ratify-project/ratify/config"
@@ -37,7 +38,7 @@ type serveCmdOptions struct {
 	configFilePath    string
 	httpServerAddress string
 	certDirectory     string
-	caCertFile        string
+	caCertFiles       string
 	enableCrdManager  bool
 	cacheEnabled      bool
 	cacheType         string
@@ -68,7 +69,7 @@ func NewCmdServe(_ ...string) *cobra.Command {
 	flags.StringVar(&opts.httpServerAddress, "http", "", "HTTP Address")
 	flags.StringVarP(&opts.configFilePath, "config", "c", "", "Config File Path")
 	flags.StringVar(&opts.certDirectory, "cert-dir", "", "Path to ratify certs")
-	flags.StringVar(&opts.caCertFile, "ca-cert-file", "", "Path to CA cert file")
+	flags.StringVar(&opts.caCertFiles, "ca-cert-files", "", "Path to CA cert files")
 	flags.BoolVar(&opts.enableCrdManager, "enable-crd-manager", false, "Start crd manager if enabled (default: false)")
 	flags.BoolVar(&opts.cacheEnabled, "cache-enabled", false, "Enable cache if enabled (default: false)")
 	flags.StringVar(&opts.cacheType, "cache-type", cache.DefaultCacheType, fmt.Sprintf("Cache type to use (default: %s)", cache.DefaultCacheType))
@@ -103,7 +104,7 @@ func serve(opts serveCmdOptions) error {
 		certRotatorReady := make(chan struct{})
 		logrus.Infof("starting crd manager")
 		go manager.StartManager(certRotatorReady, opts.healthPort)
-		manager.StartServer(opts.httpServerAddress, opts.configFilePath, opts.certDirectory, opts.caCertFile, opts.cacheTTL, opts.metricsEnabled, opts.metricsType, opts.metricsPort, certRotatorReady)
+		manager.StartServer(opts.httpServerAddress, opts.configFilePath, opts.certDirectory, strings.Split(opts.caCertFiles, ","), opts.cacheTTL, opts.metricsEnabled, opts.metricsType, opts.metricsPort, certRotatorReady)
 
 		return nil
 	}
@@ -114,7 +115,7 @@ func serve(opts serveCmdOptions) error {
 	}
 
 	if opts.httpServerAddress != "" {
-		server, err := httpserver.NewServer(context.Background(), opts.httpServerAddress, getExecutor, opts.certDirectory, opts.caCertFile, opts.cacheTTL, opts.metricsEnabled, opts.metricsType, opts.metricsPort)
+		server, err := httpserver.NewServer(context.Background(), opts.httpServerAddress, getExecutor, opts.certDirectory, strings.Split(opts.caCertFiles, ","), opts.cacheTTL, opts.metricsEnabled, opts.metricsType, opts.metricsPort)
 		if err != nil {
 			return err
 		}
