@@ -89,7 +89,7 @@ Load cache is triggerred after cert loaded from the either configurations.
 #### Download CRL
 
 
-Download is implemented by CRL `fetcher`, which can be done in parallel via start tasks in seperate go routines.
+Download is implemented by CRL `fetcher`, which can be done in parallel via start tasks in separate go routines.
 
 CRL download location (URL) can be obtained from the certificate's CRL Distribution Point (CDP) extension.
 `notation-core-go` will download all CDP URLs because each CDP URL may belong to a different scope, and we cannot distinguish them.

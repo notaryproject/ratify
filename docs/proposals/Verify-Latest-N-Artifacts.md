@@ -79,7 +79,7 @@ metadata:
   name: test-verifier
 spec:
   name: # REQUIRED: [string], the unique type of the verifier (notation, cosign)
-  artifactType: # REQUIRED: [string], comma seperated list, artifact type this verifier handles
+  artifactType: # REQUIRED: [string], comma separated list, artifact type this verifier handles
   verifyLastNArtifacts: # Optional: [int], denote the number of attached artfacts that should be verified. only the Last n will be verified. if not defined, all artifacts will be verified.
   address: # OPTIONAL: [string], Plugin path, defaults to value of env "RATIFY_CONFIG" or "~/.ratify/plugins"
   version: # OPTIONAL: [string], Version of the external plugin, defaults to 1.0.0. On ratify initialization, the specified version will be validated against the supported plugin version.
