@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
       
-FROM alpine@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412 as builder
+FROM alpine@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659 as builder
 
 ARG TARGETOS
 ARG TARGETARCH
