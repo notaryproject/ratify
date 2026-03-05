@@ -20,7 +20,7 @@ require (
 	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/dgraph-io/ristretto/v2 v2.2.0
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v28.2.2+incompatible
+	github.com/docker/cli v29.2.0+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
