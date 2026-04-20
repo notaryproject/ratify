@@ -4,11 +4,11 @@ Author: Josh Duffney (@duffney)
 
 Tracked issues in scope:
 
-- https://github.com/ratify-project/ratify/issues/1131
+- https://github.com/notaryproject/ratify/issues/1131
 
 Proposal ref:
 
-- https://github.com/ratify-project/ratify/blob/dev/docs/proposals/Automated-Certificate-and-Key-Updates.md
+- https://github.com/notaryproject/ratify/blob/dev/docs/proposals/Automated-Certificate-and-Key-Updates.md
 
 ## Problem Statement
 

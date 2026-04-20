@@ -32,7 +32,7 @@ OpenTelemetry exposes configurable providers throughout the metrics workflow:
     1. Counter: Value that accumulates over time. (e.g request count, signatures verified)
     2. Gauge: Point-in-time value of a continuous data stream (e.g speed, pressure)
     3. Histogram: Ratify-side aggregation of measurements. Bascially a complex aggregation of Counters where each bin is bounded from the min value (0) to the upper bin boundary. For example if we had bin boundaries [0, 1, 2, 3, 4, 5] and the measured value is 3.5, then the resulting histogram would be [0, 0, 0, 1, 1]. 
-- Meter: Wraps a collection of instruments related to a specific scope. In Ratify's case, we'd have a single Meter with all of our instruments. The scope would be the Ratify application (`github.com/ratify-project/ratify`)
+- Meter: Wraps a collection of instruments related to a specific scope. In Ratify's case, we'd have a single Meter with all of our instruments. The scope would be the Ratify application (`github.com/notaryproject/ratify`)
 - Exporter: The vendor-specific metric reader implementation. Each exporter is responsible for consuming the metrics published to the data stream according to their vendor specification. The first provider we would support is Prometheus.
 - View: Defines/overrides the behavior for how metrics should be collected (e.g changing the name of the instrument, changing the bin values of histogram instrument)
 - Meter Provider: Creates the Meter and binds to the specified metric Exporter. It also is resonsible for mutating the metric data stream according to the Views specified in the options.

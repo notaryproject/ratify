@@ -45,6 +45,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	configv1alpha1 "github.com/ratify-project/ratify/api/v1alpha1"
 	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
@@ -126,8 +128,8 @@ func StartManager(certRotatorReady chan struct{}, probeAddr string) {
 	ctrl.SetLogger(logr.New(logrusSink))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
+		WebhookServer:          webhook.NewServer(webhook.Options{Port: 9443}),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "1a306109.github.com/ratify-project/ratify",

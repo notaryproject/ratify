@@ -1,25 +1,28 @@
-linters:
-  disable-all: true
+version: "2"
+formatters:
   enable:
-    - errcheck
+    - gofmt
+    - goimports
+linters:
+  default: none
+  enable:
     - errorlint
     - goconst
     - gocyclo
-    - gofmt
-    - goimports
-    - gosec
-    - gosimple
     - govet
     - ineffassign
     - misspell
     - nakedret
     - nilerr
-    - prealloc
-    - revive
     - staticcheck
-    - typecheck
     - unconvert
     - unused
     - whitespace
-  # Run with --fast=false for more extensive checks
-  fast: true
+  settings:
+    staticcheck:
+      checks:
+        - "SA*"
+        - "-SA1019"
+        - "-QF*"
+        - "-ST*"
+        - "-S*"

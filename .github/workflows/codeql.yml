@@ -35,7 +35,7 @@ jobs:
       - name: setup go environment
         uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
-          go-version: "1.22"
+          go-version: "1.26"
       - name: Initialize CodeQL
         uses: github/codeql-action/init@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # tag=v3.28.0
         with:
