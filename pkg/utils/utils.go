@@ -87,7 +87,7 @@ func TrimSpaceAndToLower(input string) string {
 func ParseRequestKey(key string) (RequestKey, error) {
 	re := regexp.MustCompile(subjectPattern)
 	match := re.FindStringSubmatch(key)
-	if match == nil || len(match) < 4 {
+	if len(match) < 4 {
 		return RequestKey{}, fmt.Errorf("invalid request key: %s", key)
 	}
 	return RequestKey{

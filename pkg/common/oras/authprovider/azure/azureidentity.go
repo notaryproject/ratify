@@ -125,6 +125,7 @@ func (s *azureManagedIdentityProviderFactory) Create(authProviderConfig provider
 		clientID:                client,
 		tenantID:                tenant,
 		authClientFactory:       &defaultAuthClientFactoryImpl{},          // Concrete implementation
+		registryHostGetter:      &defaultRegistryHostGetterImpl{},         // Concrete implementation
 		getManagedIdentityToken: &defaultManagedIdentityTokenGetterImpl{}, // Concrete implementation
 		endpoints:               endpoints,
 	}, nil
