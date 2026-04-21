@@ -41,7 +41,7 @@ The notation signing action will be configured to always use the latest certific
 The verification certificate will be published in 2 different directories:
 
 * Ratify website @ `ratify.dev/.well-known/pki-validation/...`
-* Root of Ratify github repository @ `https://github.com/ratify-project/ratify/main/.well-known/pki-validation/...`
+* Root of Ratify github repository @ `https://github.com/notaryproject/ratify/main/.well-known/pki-validation/...`
 
 The verification steps in the security section of Ratify website will recommend downloading certificates from the ratify website.
 

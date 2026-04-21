@@ -4,7 +4,7 @@ Author: Binbin Li (@binbin-li)
 
 ## Background
 
-Jimmy noticed that Gatekeeper audit could trigger tons of requests to Ratify if there are many pods deployed, which might overwhelm the upstream services like remote registries. Related issue: [201](https://github.com/ratify-project/ratify/issues/201) However, as the discussion happened offline, the audit result can be cached in api server chache. And we could also configure a new CRD to batch evaluation requests in a single ED request.
+Jimmy noticed that Gatekeeper audit could trigger tons of requests to Ratify if there are many pods deployed, which might overwhelm the upstream services like remote registries. Related issue: [201](https://github.com/notaryproject/ratify/issues/201) However, as the discussion happened offline, the audit result can be cached in api server chache. And we could also configure a new CRD to batch evaluation requests in a single ED request.
 
 Since the discussion is not finished yet, we'll just focus on how to implement the cache instead of whether we need to have it.
 
@@ -88,7 +88,7 @@ Components that Ratify would change/add:
     b. A map field that maps overall/registry/repo to a TTL value.
     c. We also need to determine the default behavior/TTL value if it's not specified.
 2. A cache interface and implementation that supports adding and evicting entries automatically.
-3. As proposed by Akash in this [issue](https://github.com/ratify-project/ratify/issues/507), we can possibly add a cache lock to API cache as well.
+3. As proposed by Akash in this [issue](https://github.com/notaryproject/ratify/issues/507), we can possibly add a cache lock to API cache as well.
 4. Test on them.
 
 ### Stage 2

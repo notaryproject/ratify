@@ -4,7 +4,7 @@ Author: Akash Singhal (@akashsinghal)
 
 General Design Document for [Ratify Auth](https://hackmd.io/LFWPWM7wT_icfIPZbuax0Q#Auth-using-metadata-service-endpoint-in-k8s)
 
-Linked PR: https://github.com/ratify-project/ratify/pull/123
+Linked PR: https://github.com/notaryproject/ratify/pull/123
 
 
 ## Goals
@@ -153,7 +153,7 @@ type OrasStoreConf struct {
 }
 ```
 
-Update `Create` [method](https://github.com/ratify-project/ratify/blob/6edd4ceedc21cf704857eae56b2197e0e28f0f93/pkg/referrerstore/oras/oras.go#L68) in oras.go
+Update `Create` [method](https://github.com/notaryproject/ratify/blob/6edd4ceedc21cf704857eae56b2197e0e28f0f93/pkg/referrerstore/oras/oras.go#L68) in oras.go
 
 ```
 func (s *orasStoreFactory) Create(version string, storeConfig config.StorePluginConfig) (referrerstore.ReferrerStore, error) {
