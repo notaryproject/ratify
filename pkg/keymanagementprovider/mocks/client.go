@@ -19,6 +19,8 @@ import (
 	"context"
 	"errors"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -52,6 +54,10 @@ func (m *TestClient) Status() client.StatusWriter {
 }
 
 func (m *mockSubResourceWriter) Create(_ context.Context, _ client.Object, _ client.Object, _ ...client.SubResourceCreateOption) error {
+	return nil
+}
+
+func (m *mockSubResourceWriter) Apply(_ context.Context, _ runtime.ApplyConfiguration, _ ...client.SubResourceApplyOption) error {
 	return nil
 }
 

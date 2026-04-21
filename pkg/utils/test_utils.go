@@ -43,6 +43,10 @@ func (w MockResourceWriter) Update(_ context.Context, _ client.Object, _ ...clie
 	return nil
 }
 
+func (w MockResourceWriter) Apply(_ context.Context, _ runtime.ApplyConfiguration, _ ...client.SubResourceApplyOption) error {
+	return nil
+}
+
 func (w MockResourceWriter) Patch(_ context.Context, _ client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) error {
 	return nil
 }

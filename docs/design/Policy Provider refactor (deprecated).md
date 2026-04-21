@@ -1,7 +1,7 @@
 # Ratify Policy Provider
 Author: Akash Singhal (@akashsinghal)
 
-Prerequisite: Read through the Executor Policy design section of this [doc](https://github.com/ratify-project/ratify/tree/main/docs#executor-policy-specification) for more information on approaches to policy provider.
+Prerequisite: Read through the Executor Policy design section of this [doc](https://github.com/notaryproject/ratify/tree/main/docs#executor-policy-specification) for more information on approaches to policy provider.
 
 Currently there's no scaffolding for multiple policy providers. The default config policy provider is built in. We need to add support for a policy plugin to be specified and selected. We also need to expand the policy provider plugin 
 

@@ -13,7 +13,7 @@ The current solution has been chosen on the basis that Ratify is only meant to m
 
 However with the digest-only approach having altercations with broader software engineers NOT focused towards security, embedding digests alongside pre-existing tags in the K8s object spec during mutation as a debug-friendly and engineer friendly way forward seems feasible. As the end container orchestration framework such as `containerd` and ultimately `runc` still continue to rely on only the mutated digest to create containers, engineers on the other hand can rely on the pre-existing and untouched tag in the deployed object (Deployment, Pod, StatefulSet etc)’s image spec to know their source of truth for debugging purposes. 
 
-As discussed in the corresponding [Github issue](https://github.com/ratify-project/ratify/issues/1657),  having both tag & digest (`<image>:<tag>@<digest>`) is NOT a recommended option but retains status for backward compatibility, new options with default configuration adhering to this shall be discussed in the design section.
+As discussed in the corresponding [Github issue](https://github.com/notaryproject/ratify/issues/1657),  having both tag & digest (`<image>:<tag>@<digest>`) is NOT a recommended option but retains status for backward compatibility, new options with default configuration adhering to this shall be discussed in the design section.
 
 ## Solution Design and Configurations / Proposed Changes
 

@@ -2,9 +2,9 @@
 Author: Akash Singhal (@akashsinghal)
 
 Tracked issues in scope:
-- [Support Cosign verification with multiple keys](https://github.com/ratify-project/ratify/issues/1191)
-- [Support for Cosign verification with keys managed in KMS](https://github.com/ratify-project/ratify/issues/1190)
-- [Support Cosign verification with RSA key](https://github.com/ratify-project/ratify/issues/1189)
+- [Support Cosign verification with multiple keys](https://github.com/notaryproject/ratify/issues/1191)
+- [Support for Cosign verification with keys managed in KMS](https://github.com/notaryproject/ratify/issues/1190)
+- [Support Cosign verification with RSA key](https://github.com/notaryproject/ratify/issues/1189)
 
 Ratify currently supports keyless cosign verification which includes an optional custom Rekor server specification. Transparency log verification only occurs for keyless scenarios. Keyed verification is limited to a single public key specified as a value provided in the helm chart. The chart creates a `Secret` for the cosign key and mounts it at a well-known path in the Ratify container. Users must manually update the `Secret` to update the key. There is no support for multiple keys. There is no support for keys stored KMS. There is only support for ECDSA keys, and not RSA or ED25519. There is no support for certificates.
 

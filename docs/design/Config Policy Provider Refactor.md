@@ -13,7 +13,7 @@ We'd like to redesign the `configPolicy` provider to enhance the Ratify while ad
 
 
 # Design Considerations
-The new policy provider should cover but not limited to address these issues: [#351](https://github.com/ratify-project/ratify/issues/351), [#528](https://github.com/ratify-project/ratify/issues/528), [#448](https://github.com/ratify-project/ratify/issues/448), [35](https://github.com/ratify-project/ratify/issues/35)
+The new policy provider should cover but not limited to address these issues: [#351](https://github.com/notaryproject/ratify/issues/351), [#528](https://github.com/notaryproject/ratify/issues/528), [#448](https://github.com/notaryproject/ratify/issues/448), [35](https://github.com/notaryproject/ratify/issues/35)
 
 ## Targets
 1. Avoid introducing breaking changes to existing interfaces.
