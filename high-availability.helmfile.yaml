@@ -50,7 +50,7 @@ releases:
   - name: ratify
     namespace: gatekeeper-system
     chart: ratify/ratify
-    version: 1.15.0 # Make sure this matches Chart.yaml
+    version: 1.15.1 # Make sure this matches Chart.yaml
     wait: true
     needs:
       - dapr-system/dapr
