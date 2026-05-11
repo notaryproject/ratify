@@ -120,13 +120,25 @@ jobs:
             "${{ steps.prepare.outputs.baseref }}:${{ steps.prepare.outputs.version }}"
             "${{ steps.prepare.outputs.ref }}:${{ steps.prepare.outputs.version }}"
           )
+          MAX_ATTEMPTS=5
+          BASE_SLEEP_SECONDS=5
           for IMAGE in "${IMAGES[@]}"; do
             echo "Checking if image exists: ${IMAGE}"
-            if ! docker buildx imagetools inspect "${IMAGE}" > /dev/null 2>&1; then
-              echo "ERROR: Image ${IMAGE} not found!"
-              exit 1
-            fi
-            echo "Image ${IMAGE} found!"
+            for ATTEMPT in $(seq 1 "${MAX_ATTEMPTS}"); do
+              if docker buildx imagetools inspect "${IMAGE}" > /dev/null 2>&1; then
+                echo "Image ${IMAGE} found!"
+                break
+              fi
+
+              if [ "${ATTEMPT}" -eq "${MAX_ATTEMPTS}" ]; then
+                echo "ERROR: Image ${IMAGE} not found after ${MAX_ATTEMPTS} attempts!"
+                exit 1
+              fi
+
+              SLEEP_SECONDS=$((BASE_SLEEP_SECONDS * ATTEMPT))
+              echo "Image ${IMAGE} not available yet (attempt ${ATTEMPT}/${MAX_ATTEMPTS}); retrying in ${SLEEP_SECONDS}s..."
+              sleep "${SLEEP_SECONDS}"
+            done
           done
       - name: helm package
         run: |
