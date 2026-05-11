@@ -111,6 +111,8 @@ spec:
               name: client-ca-cert
               readOnly: true
             {{- end }}
+            - mountPath: /.ratify
+              name: ratify-cache
           env:
           {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
@@ -181,6 +183,8 @@ spec:
               - key: ca.crt
                 path: ca.crt
         {{- end }}
+        - name: ratify-cache
+          emptyDir: {}
       affinity:
         {{- toYaml .Values.affinity | nindent 8 }}
       tolerations:
