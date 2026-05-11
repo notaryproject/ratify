@@ -1,8 +1,8 @@
 module github.com/ratify-project/ratify
 
-go 1.24.8
+go 1.26.0
 
-toolchain go1.24.9
+toolchain go1.26.3
 
 // Accidentally published prior to 1.0.0 release
 retract (
@@ -60,7 +60,7 @@ require (
 	go.opentelemetry.io/otel/exporters/prometheus v0.49.0
 	go.opentelemetry.io/otel/metric v1.38.0
 	go.opentelemetry.io/otel/sdk/metric v1.38.0
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.20.0
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.10
 	k8s.io/api v0.34.1
@@ -301,14 +301,14 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.42.0
+	golang.org/x/crypto v0.51.0
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/mod v0.28.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/oauth2 v0.31.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
-	golang.org/x/term v0.36.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
