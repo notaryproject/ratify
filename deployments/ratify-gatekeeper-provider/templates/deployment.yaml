@@ -89,6 +89,8 @@ spec:
               name: client-ca-cert
               readOnly: true
             {{- end }}
+            - mountPath: /.ratify
+              name: ratify-cache
           env:
             - name: RATIFY_NAMESPACE
               valueFrom:
@@ -122,3 +124,5 @@ spec:
         - name: tls
           secret:
             secretName: {{ include "ratify.fullname" . }}-tls
+        - name: ratify-cache
+          emptyDir: {}
