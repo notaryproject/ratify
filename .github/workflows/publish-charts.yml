@@ -18,6 +18,24 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Verify container image exists
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          ORG_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
+          IMAGE="ghcr.io/${ORG_NAME}/ratify-gatekeeper-provider:${VERSION}"
+          echo "Checking if image exists: ${IMAGE}"
+          MAX_RETRIES=30
+          RETRY_INTERVAL=60
+          for i in $(seq 1 $MAX_RETRIES); do
+            if docker buildx imagetools inspect "${IMAGE}" > /dev/null 2>&1; then
+              echo "Image ${IMAGE} found!"
+              exit 0
+            fi
+            echo "Attempt ${i}/${MAX_RETRIES}: Image not found yet, retrying in ${RETRY_INTERVAL}s..."
+            sleep $RETRY_INTERVAL
+          done
+          echo "ERROR: Image ${IMAGE} not found after ${MAX_RETRIES} attempts"
+          exit 1
       - name: Publish Helm charts
         uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 # v1.7.0
         with:
