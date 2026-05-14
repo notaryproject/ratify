@@ -42,6 +42,7 @@ const (
 	PKCS12ContentType         = "application/x-pkcs12"
 	PEMContentType            = "application/x-pem-file"
 	azureKeyVaultProviderName = "azurekeyvault"
+	pemBlockTypeCertificate   = "CERTIFICATE"
 )
 
 // CertificateSpec represents a certificate specification with name and optional
@@ -343,7 +344,7 @@ func parseCertificateInPem(pemData []byte, certSpec CertificateSpec) ([]*x509.Ce
 		}
 
 		switch block.Type {
-		case "CERTIFICATE":
+		case pemBlockTypeCertificate:
 			cert, err := x509.ParseCertificate(block.Bytes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse certificate in chain for secret %q of version %q: %w", certSpec.Name, certSpec.Version, err)
