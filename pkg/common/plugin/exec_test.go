@@ -107,3 +107,29 @@ func TestParsePluginOutput_InvalidJson(t *testing.T) {
 		t.Fatalf("unexpected json, expected empty, got '%s'", json)
 	}
 }
+
+// TestParsePluginOutput_StdOutMixedJsonAndLogs verifies parsePluginOutput
+// extracts the JSON object from stdout and returns the surrounding non-JSON
+// lines as messages.
+func TestParsePluginOutput_StdOutMixedJsonAndLogs(t *testing.T) {
+	stdOut := bytes.NewBufferString("INFO: starting plugin\n{\"key\":\"value\"}\nDEBUG: done\n")
+	stdErr := bytes.NewBufferString("")
+
+	expectedJSON := []byte(`{"key":"value"}`)
+
+	json, messages := parsePluginOutput(stdOut, stdErr)
+
+	if !bytes.Equal(expectedJSON, json) {
+		t.Fatalf("unexpected json, expected '%s', got '%s'", expectedJSON, json)
+	}
+
+	if len(messages) != 2 {
+		t.Fatalf("unexpected messages, expected 2, got %d: %v", len(messages), messages)
+	}
+	if messages[0] != "INFO: starting plugin" {
+		t.Errorf("messages[0] = %q, want %q", messages[0], "INFO: starting plugin")
+	}
+	if messages[1] != "DEBUG: done" {
+		t.Errorf("messages[1] = %q, want %q", messages[1], "DEBUG: done")
+	}
+}
