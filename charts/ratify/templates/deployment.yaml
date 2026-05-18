@@ -60,27 +60,20 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           command:
-            - "/app/ratify"
+            - "/app/ratify-gatekeeper-provider"
           args:
-            - "serve"
-            - "--http"
+            - "-address"
             - ":6001"
-            - "-c"
+            - "-config"
             - "/usr/local/ratify/config.json"
-            - "--enable-crd-manager"
-            - --cert-dir=/usr/local/tls
+            - "-cert-file"
+            - "/usr/local/tls/tls.crt"
+            - "-key-file"
+            - "/usr/local/tls/tls.key"
             {{- if (lookup "v1" "Secret" .Release.Namespace "gatekeeper-webhook-server-cert") }}
-            - --ca-cert-file=usr/local/tls/client-ca/ca.crt
+            - "-gatekeeper-ca-cert-file"
+            - "/usr/local/tls/client-ca/ca.crt"
             {{- end }}
-            - --cache-enabled={{ .Values.provider.cache.enabled }}
-            - --cache-type={{ default "ristretto" .Values.provider.cache.type }}
-            - --cache-name={{ default "dapr-redis" .Values.provider.cache.name }}
-            - --cache-size={{ .Values.provider.cache.cacheSizeMb }}
-            - --cache-ttl={{ .Values.provider.cache.ttl }}
-            - --metrics-enabled={{ .Values.instrumentation.metricsEnabled }}
-            - --metrics-type={{ .Values.instrumentation.metricsType }}
-            - --metrics-port={{ .Values.instrumentation.metricsPort }}
-            - --health-port=:{{ .Values.healthPort }}
           ports:
             - containerPort: 6001
             {{- if .Values.instrumentation.metricsEnabled }}
