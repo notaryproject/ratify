@@ -22,6 +22,11 @@ import (
 
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/store/factory"
+	provider "github.com/ratify-project/ratify/pkg/common/oras/authprovider"
+	// Register built-in auth providers so they are available via
+	// CreateAuthProviderFromConfig. The blank imports trigger each
+	// package's init() which calls provider.Register().
+	_ "github.com/ratify-project/ratify/pkg/common/oras/authprovider/azure"
 )
 
 const registryStoreType = "registry-store"
@@ -50,7 +55,14 @@ type options struct {
 	MaxManifestBytes int64 `json:"max_manifest_bytes,omitempty"`
 
 	// Credential is the credential to use when accessing the registry.
+	// Takes precedence over AuthProvider if both are specified.
 	Credential credential `json:"credential,omitempty"`
+
+	// AuthProvider configures a named auth provider (e.g.
+	// "azureWorkloadIdentity", "azureManagedIdentity", "dockerConfig")
+	// to obtain registry credentials dynamically.
+	// Ignored if Credential is set.
+	AuthProvider provider.AuthProviderConfig `json:"authProvider,omitempty"`
 }
 
 func init() {
@@ -65,15 +77,29 @@ func init() {
 			return nil, fmt.Errorf("failed to unmarshal store parameters: %w", err)
 		}
 
-		registryStoreOpts := ratify.RegistryStoreOptions{
-			PlainHTTP:        params.PlainHTTP,
-			UserAgent:        params.UserAgent,
-			MaxBlobBytes:     params.MaxBlobBytes,
-			MaxManifestBytes: params.MaxManifestBytes,
-			CredentialProvider: &defaultCredGetter{
+		var credProvider ratify.RegistryCredentialGetter
+
+		// Static credential takes precedence.
+		if params.Credential.Password != "" {
+			credProvider = &defaultCredGetter{
 				username: params.Credential.Username,
 				password: params.Credential.Password,
-			},
+			}
+		} else if params.AuthProvider != nil {
+			// Use the named auth provider (azureWorkloadIdentity, etc.)
+			ap, err := provider.CreateAuthProviderFromConfig(params.AuthProvider)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create auth provider: %w", err)
+			}
+			credProvider = &authProviderAdapter{provider: ap}
+		}
+
+		registryStoreOpts := ratify.RegistryStoreOptions{
+			PlainHTTP:          params.PlainHTTP,
+			UserAgent:          params.UserAgent,
+			MaxBlobBytes:       params.MaxBlobBytes,
+			MaxManifestBytes:   params.MaxManifestBytes,
+			CredentialProvider: credProvider,
 		}
 
 		return ratify.NewRegistryStore(registryStoreOpts), nil
@@ -97,5 +123,34 @@ func (d *defaultCredGetter) Get(_ context.Context, _ string) (ratify.RegistryCre
 	return ratify.RegistryCredential{
 		Username: d.username,
 		Password: d.password,
+	}, nil
+}
+
+// authProviderAdapter adapts a v1 [provider.AuthProvider] to the v2
+// [ratify.RegistryCredentialGetter] interface, bridging the existing Azure
+// Workload Identity, Managed Identity, k8s Secrets, and other auth provider
+// implementations into the v2 registry store.
+type authProviderAdapter struct {
+	provider provider.AuthProvider
+}
+
+// Get obtains credentials from the underlying auth provider for the given
+// server address.
+func (a *authProviderAdapter) Get(ctx context.Context, serverAddress string) (ratify.RegistryCredential, error) {
+	authConfig, err := a.provider.Provide(ctx, serverAddress)
+	if err != nil {
+		return ratify.RegistryCredential{}, err
+	}
+
+	// Map v1 AuthConfig fields to v2 RegistryCredential.
+	// IdentityToken maps to RefreshToken (OAuth2 refresh/identity token).
+	if authConfig.IdentityToken != "" {
+		return ratify.RegistryCredential{
+			RefreshToken: authConfig.IdentityToken,
+		}, nil
+	}
+	return ratify.RegistryCredential{
+		Username: authConfig.Username,
+		Password: authConfig.Password,
 	}, nil
 }
