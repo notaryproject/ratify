@@ -37,7 +37,7 @@ jobs:
       - name: Set up Go 1.24
         uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
-          go-version: "1.24"
+          go-version: "1.26"
       - name: Az CLI login
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:

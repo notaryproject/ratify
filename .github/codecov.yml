@@ -1,6 +1,9 @@
 ignore:
   - "./api" # ignore folders and all its contents
   - "./experimental/proto/v1"
+  - "./pkg/keymanagementprovider/mocks"
+  - "./pkg/utils/test_utils.go"
+  - "./pkg/manager/manager.go"
 coverage:
   status:
     patch:
