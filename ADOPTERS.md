@@ -2,7 +2,7 @@ The following organizations are known adopters who use Ratify in production or i
 
 We are happy and proud to have you all as part of the Ratify community! To add your use case and organization to this list, please raise a pull request.
 
-All organizations are sorted alphabetically below.
+All organizations are sorted alphabetically below:
 
 | Adopter name        | Adopter Type     |  Scenario                            |
 |---------------------|------------------|-------------------------------------------|
