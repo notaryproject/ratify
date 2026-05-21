@@ -1,0 +1,5 @@
+# Each line is a Go vulnerability ID to ignore.
+# Remove entries once upstream fixes are available.
+
+# cosign v2.6.3: no upstream fix yet
+GO-2026-4529
