@@ -32,6 +32,16 @@ jobs:
           go-version: "1.26"
           check-latest: true
       - uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
+        with:
+          output-format: text
+          output-file: /tmp/govulncheck.txt
+        continue-on-error: true
+        id: govulncheck
+      - name: Check for unignored vulnerabilities
+        if: steps.govulncheck.outcome == 'failure'
+        run: |
+          # Fail only if there are vulnerabilities NOT listed in the ignorelist
+          ! grep "Vulnerability #" /tmp/govulncheck.txt | grep -qvFf .github/govulncheck.ignorelist
 
   scan_vulnerabilities:
     name: "[Trivy] Scan for vulnerabilities"
