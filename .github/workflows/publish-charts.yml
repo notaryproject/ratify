@@ -1,13 +1,15 @@
 name: publishChart
 on:
-  push:
-    tags:
-      - v*
+  workflow_run:
+    workflows: ["publish-ghcr"]
+    types: [completed]
+  workflow_dispatch:
 
 permissions: read-all
 
 jobs:
   release:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -18,6 +20,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
       - name: Publish Helm charts
         uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 # v1.7.0
         with:
