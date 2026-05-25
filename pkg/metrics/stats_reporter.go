@@ -26,6 +26,8 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
 
+const attrKeyWorkloadNamespace = "workload_namespace"
+
 var (
 	// defines the metrics that are collected
 	verificationDuration instrument.Int64Histogram
@@ -223,7 +225,7 @@ func ReportVerifierDuration(ctx context.Context, duration int64, veriferName str
 				Value: attribute.BoolValue(isError),
 			},
 			attribute.KeyValue{
-				Key:   "workload_namespace",
+				Key:   attrKeyWorkloadNamespace,
 				Value: attribute.StringValue(ctxUtils.GetNamespace(ctx)),
 			},
 		))
@@ -238,7 +240,7 @@ func ReportSystemError(ctx context.Context, errorString string) {
 	if systemErrorCount != nil {
 		systemErrorCount.Add(ctx, 1, instrument.WithAttributes(
 			attribute.KeyValue{Key: "error", Value: attribute.StringValue(errorString)},
-			attribute.KeyValue{Key: "workload_namespace", Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
+			attribute.KeyValue{Key: attrKeyWorkloadNamespace, Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
 	}
 }
 
@@ -252,7 +254,7 @@ func ReportRegistryRequestCount(ctx context.Context, statusCode int, registryHos
 		registryRequestCount.Add(ctx, 1, instrument.WithAttributes(
 			attribute.KeyValue{Key: "status_code", Value: attribute.IntValue(statusCode)},
 			attribute.KeyValue{Key: "registry_host", Value: attribute.StringValue(registryHost)},
-			attribute.KeyValue{Key: "workload_namespace", Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
+			attribute.KeyValue{Key: attrKeyWorkloadNamespace, Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
 	}
 }
 
@@ -264,7 +266,7 @@ func ReportAADExchangeDuration(ctx context.Context, duration int64, resourceType
 	if aadExchangeDuration != nil {
 		aadExchangeDuration.Record(ctx, duration, instrument.WithAttributes(
 			attribute.KeyValue{Key: "resource_type", Value: attribute.StringValue(resourceType)},
-			attribute.KeyValue{Key: "workload_namespace", Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
+			attribute.KeyValue{Key: attrKeyWorkloadNamespace, Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
 	}
 }
 
@@ -276,7 +278,7 @@ func ReportACRExchangeDuration(ctx context.Context, duration int64, repository s
 	if acrExchangeDuration != nil {
 		acrExchangeDuration.Record(ctx, duration, instrument.WithAttributes(
 			attribute.KeyValue{Key: "repository", Value: attribute.StringValue(repository)},
-			attribute.KeyValue{Key: "workload_namespace", Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
+			attribute.KeyValue{Key: attrKeyWorkloadNamespace, Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
 	}
 }
 
@@ -288,7 +290,7 @@ func ReportAKVCertificateDuration(ctx context.Context, duration int64, certifica
 	if akvCertificateDuration != nil {
 		akvCertificateDuration.Record(ctx, duration, instrument.WithAttributes(
 			attribute.KeyValue{Key: "certificate_name", Value: attribute.StringValue(certificateName)},
-			attribute.KeyValue{Key: "workload_namespace", Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
+			attribute.KeyValue{Key: attrKeyWorkloadNamespace, Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
 	}
 }
 
@@ -300,6 +302,6 @@ func ReportBlobCacheCount(ctx context.Context, hit bool) {
 	if cacheBlobCount != nil {
 		cacheBlobCount.Add(ctx, 1, instrument.WithAttributes(
 			attribute.KeyValue{Key: "hit", Value: attribute.BoolValue(hit)},
-			attribute.KeyValue{Key: "workload_namespace", Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
+			attribute.KeyValue{Key: attrKeyWorkloadNamespace, Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
 	}
 }
