@@ -1,6 +1,11 @@
 name: "Steps to restore trivy cache"
 description: "Steps to restore Trivy cache under ~/.cache/trivy"
 
+outputs:
+  cache-hit:
+    description: "Whether the trivy cache was restored"
+    value: ${{ steps.cache-status.outputs.cache-hit }}
+
 runs:
   using: "composite"
   steps:
@@ -16,5 +21,10 @@ runs:
     - name: Set up trivy cache directory
       run: |
         mkdir -p ~/.cache/trivy
-        cp -r ${{ github.workspace }}/.cache/trivy/db ~/.cache/trivy
+        if [[ -d "${{ github.workspace }}/.cache/trivy/db" ]]; then
+          cp -r ${{ github.workspace }}/.cache/trivy/db ~/.cache/trivy
+        else
+          echo "cache-hit=false" >> $GITHUB_OUTPUT
+        fi
       shell: bash
+      id: cache-status

@@ -23,7 +23,7 @@ import (
 
 // Get the packageLicense array from spdxDoc
 func GetPackageLicenses(doc spdx.Document) []PackageLicense {
-	output := []PackageLicense{}
+	output := make([]PackageLicense, 0, len(doc.Packages))
 	for _, p := range doc.Packages {
 		output = append(output, PackageLicense{
 			Name:    p.PackageName,

@@ -125,6 +125,8 @@ func parseCertificatesFromPEM(certificatesInPem string) ([]*x509.Certificate, er
 	return certs, nil
 }
 
+const pemBlockTypeRSAPublicKey = "RSA PUBLIC KEY"
+
 // parsePublicKeysFromPEM decodes PEM-encoded bytes into PublicKey structs.
 func parsePublicKeysFromPEM(keysInPem string) ([]*keyprovider.PublicKey, error) {
 	var keys []*keyprovider.PublicKey
@@ -134,11 +136,11 @@ func parsePublicKeysFromPEM(keysInPem string) ([]*keyprovider.PublicKey, error) 
 	}
 
 	for block != nil {
-		if block.Type == "PUBLIC KEY" || block.Type == "RSA PUBLIC KEY" || block.Type == "EC PUBLIC KEY" {
+		if block.Type == "PUBLIC KEY" || block.Type == pemBlockTypeRSAPublicKey || block.Type == "EC PUBLIC KEY" {
 			pubKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 			if err != nil {
 				// Try parsing as RSA public key if PKIX parsing fails
-				if block.Type == "RSA PUBLIC KEY" {
+				if block.Type == pemBlockTypeRSAPublicKey {
 					pubKey, err = x509.ParsePKCS1PublicKey(block.Bytes)
 					if err != nil {
 						return nil, fmt.Errorf("failed to parse RSA public key: %w", err)
