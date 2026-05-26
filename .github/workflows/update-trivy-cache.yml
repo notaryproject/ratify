@@ -13,7 +13,7 @@ jobs:
     if: ${{ github.ref_name == github.event.repository.default_branch }}
     steps:
       - name: Setup oras
-        uses: oras-project/setup-oras@9c92598691bfef1424de2f8fae81941568f5889c # v1.2.1
+        uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2.0.0
 
       - name: Get current date
         id: date
