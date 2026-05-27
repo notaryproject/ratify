@@ -315,7 +315,7 @@ func TestInlineProvider_MultipleKeys(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected ECDSA public key at index 2, got %T", keys[2].Key)
 	}
-	if gotECKey.X.Cmp(ecKey.X) != 0 || gotECKey.Y.Cmp(ecKey.Y) != 0 {
+	if !gotECKey.Equal(ecKey) {
 		t.Fatalf("returned EC key does not match the provided one")
 	}
 }
@@ -582,7 +582,7 @@ func TestInlineProvider_PublicKeySuccessfulPKIXParsing(t *testing.T) {
 		t.Fatalf("expected ECDSA public key, got %T", keys[0].Key)
 	}
 
-	if gotKey.X.Cmp(wantKey.X) != 0 || gotKey.Y.Cmp(wantKey.Y) != 0 {
+	if !gotKey.Equal(wantKey) {
 		t.Fatalf("returned key does not match the provided one")
 	}
 }

@@ -31,7 +31,7 @@ spec:
   {{- end }}
 ```
 
-We also must define the Assign resource defintion which GK uses to perform the mutation on the correct resource.
+We also must define the Assign resource definition which GK uses to perform the mutation on the correct resource.
 
 ```
 apiVersion: mutations.gatekeeper.sh/v1beta1
