@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/confidential"
@@ -49,7 +50,7 @@ func GetAADAccessToken(ctx context.Context, tenantID, clientID, scope string) (c
 
 	// create the confidential client to request an AAD token
 	confidentialClientApp, err := confidential.New(
-		fmt.Sprintf("%s%s/oauth2/token", authority, tenantID),
+		getAuthority(authority, tenantID),
 		clientID,
 		cred)
 	if err != nil {
@@ -62,6 +63,10 @@ func GetAADAccessToken(ctx context.Context, tenantID, clientID, scope string) (c
 	}
 
 	return result, nil
+}
+
+func getAuthority(authorityHost, tenantID string) string {
+	return fmt.Sprintf("%s/%s", strings.TrimRight(authorityHost, "/"), tenantID)
 }
 
 // readJWTFromFS reads the jwt from file system
