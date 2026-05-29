@@ -18,8 +18,8 @@ package azureauth
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/confidential"
@@ -66,7 +66,8 @@ func GetAADAccessToken(ctx context.Context, tenantID, clientID, scope string) (c
 }
 
 func getAuthority(authorityHost, tenantID string) string {
-	return fmt.Sprintf("%s/%s", strings.TrimRight(authorityHost, "/"), tenantID)
+	authority, _ := url.JoinPath(authorityHost, tenantID)
+	return authority
 }
 
 // readJWTFromFS reads the jwt from file system
