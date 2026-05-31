@@ -5,6 +5,12 @@ vulnerabilities:
     statement: Go stdlib CVE fixed in 1.26.3; kubectl 1.36.1 compiled with Go 1.26.2; waiting for k8s patch release with Go 1.26.3+
   - id: CVE-2026-33814
     statement: Go stdlib CVE fixed in 1.26.3; kubectl 1.36.1 compiled with Go 1.26.2; waiting for k8s patch release with Go 1.26.3+
+  - id: CVE-2026-39823
+    statement: Go stdlib CVE fixed in 1.26.3; kubectl 1.36.1 compiled with Go 1.26.2; waiting for k8s patch release with Go 1.26.3+
+  - id: CVE-2026-39825
+    statement: Go stdlib CVE fixed in 1.26.3; kubectl 1.36.1 compiled with Go 1.26.2; waiting for k8s patch release with Go 1.26.3+
+  - id: CVE-2026-39826
+    statement: Go stdlib CVE fixed in 1.26.3; kubectl 1.36.1 compiled with Go 1.26.2; waiting for k8s patch release with Go 1.26.3+
   - id: CVE-2026-39820
     statement: Go stdlib CVE fixed in 1.26.3; kubectl 1.36.1 compiled with Go 1.26.2; waiting for k8s patch release with Go 1.26.3+
   - id: CVE-2026-39836
