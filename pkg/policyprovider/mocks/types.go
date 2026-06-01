@@ -40,8 +40,7 @@ func (p *TestPolicyProvider) ErrorToVerifyResult(_ context.Context, subjectRefSt
 		IsSuccess: false,
 		Message:   "this a test",
 	}
-	var reports []interface{}
-	reports = append(reports, errorReport)
+	reports := []interface{}{errorReport}
 	return types.VerifyResult{IsSuccess: false, VerifierReports: reports}
 }
 

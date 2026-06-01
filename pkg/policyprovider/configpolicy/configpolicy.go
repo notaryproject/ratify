@@ -99,8 +99,7 @@ func (enforcer PolicyEnforcer) ContinueVerifyOnFailure(_ context.Context, _ comm
 func (enforcer PolicyEnforcer) ErrorToVerifyResult(_ context.Context, subjectRefString string, verifyError error) types.VerifyResult {
 	verifierErr := re.ErrorCodeVerifyReferenceFailure.WithDetail(fmt.Sprintf("failed to verify artifact: %s", subjectRefString)).WithError(verifyError)
 	errorReport := verifier.NewVerifierResult(subjectRefString, "", "", "", false, &verifierErr, nil)
-	var reports []interface{}
-	reports = append(reports, errorReport)
+	reports := []interface{}{errorReport}
 	return types.VerifyResult{IsSuccess: false, VerifierReports: reports}
 }
 
