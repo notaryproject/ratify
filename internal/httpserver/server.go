@@ -55,6 +55,7 @@ type server struct {
 	mutateCache cache.Cache[string]
 	verifyCache cache.Cache[*result]
 	sfGroup     *singleflight.Group
+	health      *healthStatus
 	ServerOptions
 }
 
@@ -145,12 +146,16 @@ func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *
 		return nil, nil, fmt.Errorf("failed to create verify cache: %w", err)
 	}
 
+	health := &healthStatus{}
+	health.alive.Store(true)
+
 	server := &server{
 		router:        mux.NewRouter(),
 		mutateCache:   mutateCache,
 		verifyCache:   verifyCache,
 		sfGroup:       new(singleflight.Group),
 		getExecutor:   getExecutorFunc,
+		health:        health,
 		ServerOptions: *serverOpts,
 	}
 	if server.VerifyTimeout == 0 {
@@ -167,6 +172,10 @@ func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *
 }
 
 func (s *server) registerHandlers() error {
+	// Health endpoints — no auth, no timeout middleware
+	s.router.Methods(http.MethodGet).Path("/healthz").HandlerFunc(s.healthzHandler())
+	s.router.Methods(http.MethodGet).Path("/readyz").HandlerFunc(s.readyzHandler())
+
 	if err := s.registerVerifyHandler(); err != nil {
 		return err
 	}
@@ -228,6 +237,18 @@ func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watch
 		ReadTimeout:  readTimeout,
 		IdleTimeout:  idleTimeout,
 	}
+	// Poll for executor availability and signal readiness.
+	go func() {
+		for {
+			if s.getExecutor() != nil {
+				s.health.ready.Store(true)
+				logrus.Info("server is ready: executor loaded")
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
 	go func() {
 		// Start the configuration watcher (if any) and ensure
 		// it is properly stopped when the server goroutine exits.
