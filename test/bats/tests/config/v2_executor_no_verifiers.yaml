@@ -1,0 +1,18 @@
+apiVersion: config.ratify.dev/v2alpha1
+kind: Executor
+metadata:
+  name: ratify-ratify-gatekeeper-provider-executor-1
+  namespace: gatekeeper-system
+spec:
+  scopes:
+    - "registry:5000"
+  stores:
+    - type: oras
+      parameters:
+        cosignEnabled: true
+        useHttp: true
+  verifiers:
+    - name: placeholder
+      type: placeholder
+  policyEnforcer:
+    type: configPolicy

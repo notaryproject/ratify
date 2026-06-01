@@ -1,0 +1,20 @@
+apiVersion: config.ratify.dev/v2alpha1
+kind: Executor
+metadata:
+  name: executor-cosign-default
+  namespace: default
+spec:
+  scopes:
+    - "registry:5000/cosign"
+  stores:
+    - type: oras
+      parameters:
+        cosignEnabled: true
+        useHttp: true
+  verifiers:
+    - name: cosign
+      type: cosign
+      parameters:
+        key: /usr/local/ratify-certs/cosign/cosign.pub
+  policyEnforcer:
+    type: configPolicy
