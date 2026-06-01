@@ -105,7 +105,7 @@ func TestCheckerFunc_NilFn(t *testing.T) {
 func TestCheckerFunc_ReturnsError(t *testing.T) {
 	expected := errors.New("something failed")
 	c := MustNewChecker("failing", func() error { return expected })
-	if err := c.Check(); err != expected {
+	if err := c.Check(); !errors.Is(err, expected) {
 		t.Fatalf("expected %v, got %v", expected, err)
 	}
 }
@@ -147,18 +147,31 @@ func TestRegistry_RegisterReadiness(t *testing.T) {
 
 func TestRegistry_DuplicateDetection(t *testing.T) {
 	r := NewRegistry()
-	c1 := MustNewChecker("dup", func() error { return nil })
-	c2 := MustNewChecker("dup", func() error { return nil })
+	target := []HealthChecker{MustNewChecker("dup", func() error { return nil })}
 
-	if err := r.RegisterLiveness(c1); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	err := r.RegisterLiveness(c2)
+	err := r.register(&target, MustNewChecker("dup", func() error { return nil }))
 	if err == nil {
 		t.Fatal("expected error for duplicate registration")
 	}
 	if err.Error() != `checker "dup" is already registered` {
 		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestRegistry_Register_EmptyName(t *testing.T) {
+	r := NewRegistry()
+	err := r.register(&[]HealthChecker{}, &CheckerFunc{fn: func() error { return nil }})
+	if err == nil || err.Error() != "checker name is required" {
+		t.Fatalf("expected empty name error, got %v", err)
+	}
+}
+
+func TestRegistry_Register_NilRegistry(t *testing.T) {
+	checker := MustNewChecker("live", func() error { return nil })
+	target := []HealthChecker{}
+	var r *Registry
+	if err := r.register(&target, checker); err == nil || err.Error() != "registry is nil" {
+		t.Fatalf("expected nil registry error, got %v", err)
 	}
 }
 
@@ -202,7 +215,7 @@ func TestRegistry_NilRegistry(t *testing.T) {
 	}
 }
 
-func TestRegistry_ConcurrentAccess(t *testing.T) {
+func TestRegistry_ConcurrentAccess(_ *testing.T) {
 	r := NewRegistry()
 	var wg sync.WaitGroup
 

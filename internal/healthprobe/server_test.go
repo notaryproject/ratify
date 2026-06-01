@@ -19,8 +19,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -198,7 +202,7 @@ func TestServer_ResponseContentType(t *testing.T) {
 
 func TestServer_Run_CancelContext(t *testing.T) {
 	reg := NewRegistry()
-	s, err := NewServer(":0", reg)
+	s, err := NewServer("127.0.0.1:0", reg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -222,6 +226,206 @@ func TestServer_Run_CancelContext(t *testing.T) {
 	}
 }
 
+func TestServer_Start_ShutsDownOnInterrupt(t *testing.T) {
+	reg := NewRegistry()
+	s, err := NewServer("127.0.0.1:0", reg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- s.Start()
+	}()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for !s.started.Load() {
+		if time.Now().After(deadline) {
+			t.Fatal("server did not start in time")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
+		t.Fatalf("failed to send interrupt: %v", err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("expected Start to return nil, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not return in time")
+	}
+}
+
+func TestServer_Run_ListenAndServeError(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to reserve port: %v", err)
+	}
+	defer listener.Close()
+
+	s, err := NewServer(listener.Addr().String(), NewRegistry())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	err = s.Run(context.Background())
+	if err == nil {
+		t.Fatal("expected ListenAndServe error")
+	}
+	if got, want := err.Error(), "failed to start health probe server"; len(got) < len(want) || got[:len(want)] != want {
+		t.Fatalf("expected error prefix %q, got %q", want, got)
+	}
+}
+
+func TestServer_Run_ShutdownError(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to reserve port: %v", err)
+	}
+	address := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("failed to release port: %v", err)
+	}
+
+	requestStarted := make(chan struct{})
+	releaseHandler := make(chan struct{})
+	requestErrCh := make(chan error, 1)
+
+	s := &Server{address: address, registry: NewRegistry(), mux: http.NewServeMux()}
+	s.mux.HandleFunc("/block", func(w http.ResponseWriter, _ *http.Request) {
+		select {
+		case <-requestStarted:
+		default:
+			close(requestStarted)
+		}
+		<-releaseHandler
+		w.WriteHeader(http.StatusOK)
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- s.Run(ctx)
+	}()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		conn, err := net.DialTimeout("tcp", address, 50*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("server did not start listening in time")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	go func() {
+		resp, err := http.Get("http://" + address + "/block")
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
+		requestErrCh <- err
+	}()
+
+	select {
+	case <-requestStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("blocking request did not reach handler")
+	}
+
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err == nil || !strings.Contains(err.Error(), "failed to shutdown health probe server") {
+			t.Fatalf("expected shutdown error, got %v", err)
+		}
+	case <-time.After(7 * time.Second):
+		t.Fatal("Run did not return shutdown error in time")
+	}
+
+	close(releaseHandler)
+
+	select {
+	case err := <-requestErrCh:
+		if err != nil {
+			t.Fatalf("blocking request failed: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("blocking request did not complete in time")
+	}
+}
+
+func TestServer_Run_InvalidState(t *testing.T) {
+	tests := []struct {
+		name    string
+		server  *Server
+		ctx     context.Context
+		wantErr string
+	}{
+		{
+			name:    "nil server",
+			server:  nil,
+			ctx:     context.Background(),
+			wantErr: "health probe server is nil",
+		},
+		{
+			name:    "nil context",
+			server:  &Server{address: ":0", mux: http.NewServeMux(), registry: NewRegistry()},
+			ctx:     nil,
+			wantErr: "health probe context is nil",
+		},
+		{
+			name:    "nil mux",
+			server:  &Server{address: ":0", registry: NewRegistry()},
+			ctx:     context.Background(),
+			wantErr: "health probe mux is nil",
+		},
+		{
+			name:    "nil registry",
+			server:  &Server{address: ":0", mux: http.NewServeMux()},
+			ctx:     context.Background(),
+			wantErr: "health probe registry is nil",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.server.Run(tt.ctx)
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("expected error %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestEvaluate_NilChecker(t *testing.T) {
+	results, healthy := evaluate([]HealthChecker{nil})
+	if healthy {
+		t.Fatal("expected evaluate to report unhealthy for nil checker")
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Name != "unknown" {
+		t.Fatalf("expected checker name %q, got %q", "unknown", results[0].Name)
+	}
+	if results[0].Status != statusError {
+		t.Fatalf("expected checker status %q, got %q", statusError, results[0].Status)
+	}
+	if results[0].Error != msgCheckerNil {
+		t.Fatalf("expected checker error %q, got %q", msgCheckerNil, results[0].Error)
+	}
+}
+
 func TestServer_NotStarted(t *testing.T) {
 	reg := NewRegistry()
 	s, _ := NewServer(":9090", reg)
@@ -231,5 +435,107 @@ func TestServer_NotStarted(t *testing.T) {
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503 when server not started, got %d", rec.Code)
+	}
+}
+
+func TestReadyz_NotStarted(t *testing.T) {
+	tests := []struct {
+		name   string
+		server *Server
+	}{
+		{
+			name:   "nil server",
+			server: nil,
+		},
+		{
+			name:   "server not started",
+			server: &Server{registry: NewRegistry()},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			tt.server.handleReadyz(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("expected 503 when ready server is unavailable, got %d", rec.Code)
+			}
+
+			var resp response
+			if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if resp.Status != statusNotReady {
+				t.Fatalf("expected status %q, got %q", statusNotReady, resp.Status)
+			}
+		})
+	}
+}
+
+func TestServer_RegisterHandlers(t *testing.T) {
+	s, err := NewServer(":9090", NewRegistry())
+	if err != nil {
+		t.Fatalf("unexpected error creating server: %v", err)
+	}
+
+	tests := []struct {
+		path       string
+		wantStatus string
+	}{
+		{path: "/healthz", wantStatus: statusNotAlive},
+		{path: "/readyz", wantStatus: statusNotReady},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			s.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.path, nil))
+
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("expected %s to be registered and return 503, got %d", tt.path, rec.Code)
+			}
+
+			var resp response
+			if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if resp.Status != tt.wantStatus {
+				t.Fatalf("expected status %q, got %q", tt.wantStatus, resp.Status)
+			}
+		})
+	}
+}
+
+func TestServer_RegisterHandlers_NilGuards(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func()
+	}{
+		{
+			name: "nil server",
+			run: func() {
+				var s *Server
+				s.registerHandlers()
+			},
+		},
+		{
+			name: "nil mux",
+			run: func() {
+				s := &Server{registry: NewRegistry()}
+				s.registerHandlers()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("registerHandlers panicked: %v", r)
+				}
+			}()
+			tt.run()
+		})
 	}
 }

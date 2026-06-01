@@ -30,6 +30,11 @@ import (
 const (
 	readHeaderTimeout = 5 * time.Second
 	shutdownTimeout   = 5 * time.Second
+
+	statusNotAlive = "not alive"
+	statusNotReady = "not ready"
+	statusError    = "error"
+	msgCheckerNil  = "checker is nil"
 )
 
 // CheckResult captures the outcome of a single health check.
@@ -133,13 +138,13 @@ func (s *Server) Run(ctx context.Context) error {
 
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	if s == nil || !s.started.Load() || s.registry == nil {
-		writeJSON(w, http.StatusServiceUnavailable, response{Status: "not alive"})
+		writeJSON(w, http.StatusServiceUnavailable, response{Status: statusNotAlive})
 		return
 	}
 
 	results, healthy := evaluate(s.registry.LivenessCheckers())
 	if !healthy {
-		writeJSON(w, http.StatusServiceUnavailable, response{Status: "not alive", Checks: results})
+		writeJSON(w, http.StatusServiceUnavailable, response{Status: statusNotAlive, Checks: results})
 		return
 	}
 
@@ -148,15 +153,15 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
 	if s == nil || !s.started.Load() || s.registry == nil {
-		writeJSON(w, http.StatusServiceUnavailable, response{Status: "not ready"})
+		writeJSON(w, http.StatusServiceUnavailable, response{Status: statusNotReady})
 		return
 	}
 
 	checkers := s.registry.ReadinessCheckers()
 	if len(checkers) == 0 {
-		writeJSON(w, http.StatusServiceUnavailable, response{Status: "not ready", Checks: []CheckResult{{
+		writeJSON(w, http.StatusServiceUnavailable, response{Status: statusNotReady, Checks: []CheckResult{{
 			Name:   "registry",
-			Status: "error",
+			Status: statusError,
 			Error:  "no readiness checks registered",
 		}}})
 		return
@@ -164,7 +169,7 @@ func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
 
 	results, healthy := evaluate(checkers)
 	if !healthy {
-		writeJSON(w, http.StatusServiceUnavailable, response{Status: "not ready", Checks: results})
+		writeJSON(w, http.StatusServiceUnavailable, response{Status: statusNotReady, Checks: results})
 		return
 	}
 
@@ -180,8 +185,8 @@ func evaluate(checkers []HealthChecker) ([]CheckResult, bool) {
 			healthy = false
 			results = append(results, CheckResult{
 				Name:   "unknown",
-				Status: "error",
-				Error:  "checker is nil",
+				Status: statusError,
+				Error:  msgCheckerNil,
 			})
 			continue
 		}
@@ -190,7 +195,7 @@ func evaluate(checkers []HealthChecker) ([]CheckResult, bool) {
 			healthy = false
 			results = append(results, CheckResult{
 				Name:   checker.Name(),
-				Status: "error",
+				Status: statusError,
 				Error:  err.Error(),
 			})
 			continue
