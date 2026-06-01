@@ -72,17 +72,19 @@ type Options struct {
 //   - Repository paths: "registry.example.com/namespace/repo" matches a
 //     specific repository
 //
-// Note: Top level domain wildcard is also not supported. That is, "*" is not a
-// valid pattern.
+// Note: Top level domain wildcard patterns like "*.com" are not supported.
+// The special scope value "*" is reserved for the global fallback executor.
 // Scope matching follows a precedence order from most specific to least
 // specific:
 //  1. Exact repository match
 //  2. Exact registry match
 //  3. Wildcard registry match
+//  4. Fallback executor
 type ScopedExecutor struct {
 	wildcard   map[string]*ratify.Executor
 	registry   map[string]*ratify.Executor
 	repository map[string]*ratify.Executor
+	fallback   *ratify.Executor
 }
 
 // NewScopedExecutor creates a new ScopedExecutor instance based on the provided
@@ -191,6 +193,9 @@ func (s *ScopedExecutor) matchExecutor(artifact string) (*ratify.Executor, error
 			return executor, nil
 		}
 	}
+	if s.fallback != nil {
+		return s.fallback, nil
+	}
 	return nil, fmt.Errorf("no executor configured for the artifact %q", artifact)
 }
 
@@ -201,6 +206,13 @@ func (s *ScopedExecutor) registerExecutor(scope string, executor *ratify.Executo
 	}
 	if executor == nil {
 		return fmt.Errorf("executor cannot be nil")
+	}
+	if scope == "*" {
+		if s.fallback != nil {
+			return fmt.Errorf("fallback executor already registered")
+		}
+		s.fallback = executor
+		return nil
 	}
 
 	if strings.Contains(scope, "/") {
