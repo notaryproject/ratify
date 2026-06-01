@@ -59,6 +59,15 @@ provider:
     key: "" # key used by ratify (httpserver), please provide your own key
     caCert: "" # CA crt used by ratify (httpserver), please provide your own CA crt
     disableCertRotation: false
+  probes:
+    enabled: true
+    scheme: HTTPS
+    liveness:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 10
   disableMutation: false
   disableCRDManager: false
   timeout:

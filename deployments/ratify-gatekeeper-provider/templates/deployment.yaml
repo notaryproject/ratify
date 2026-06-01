@@ -65,7 +65,24 @@ spec:
             - "--gatekeeper-ca-cert-file=/usr/local/tls/client-ca/ca.crt"
             {{- end }}
           ports:
-            - containerPort: 6001
+            - name: https
+              containerPort: 6001
+          {{- if .Values.provider.probes.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: https
+              scheme: {{ .Values.provider.probes.scheme }}
+            initialDelaySeconds: {{ .Values.provider.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.provider.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: https
+              scheme: {{ .Values.provider.probes.scheme }}
+            initialDelaySeconds: {{ .Values.provider.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.provider.probes.readiness.periodSeconds }}
+          {{- end }}
           volumeMounts:
             - mountPath: "/usr/local/tls"
               name: tls
