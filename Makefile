@@ -13,7 +13,7 @@ LDFLAGS += -X $(GO_PKG)/internal/version.GitTreeState=$(GIT_TREE_STATE)
 LDFLAGS += -X $(GO_PKG)/internal/version.GitTag=$(GIT_TAG)
 
 KIND_VERSION ?= 0.14.0
-KUBERNETES_VERSION ?= 1.25.4
+KUBERNETES_VERSION ?= 1.31.2
 GATEKEEPER_VERSION ?= 3.11.0
 COSIGN_VERSION ?= 1.13.1
 NOTATION_VERSION ?= 1.0.0-rc.3
@@ -23,7 +23,8 @@ HELM_VERSION ?= 3.9.2
 BATS_TESTS_FILE ?= test/bats/test.bats
 BATS_CLI_TESTS_FILE ?= test/bats/cli-test.bats
 BATS_VERSION ?= 1.7.0
-SYFT_VERSION ?= v0.76.0
+SYFT_VERSION ?= v1.44.0
+TRIVY_VERSION ?= 0.71.0
 ALPINE_IMAGE ?= alpine@sha256:93d5a28ff72d288d69b5997b8ba47396d2cbb62a72b5d87cd3351094b5d578a0
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -149,7 +150,7 @@ e2e-dependencies:
 	# Download and install kind
 	curl -L https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64 --output ${GITHUB_WORKSPACE}/bin/kind && chmod +x ${GITHUB_WORKSPACE}/bin/kind
 	# Download and install kubectl
-	curl -L https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl --output ${GITHUB_WORKSPACE}/bin/kubectl && chmod +x ${GITHUB_WORKSPACE}/bin/kubectl
+	curl -fsSL https://dl.k8s.io/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl --output ${GITHUB_WORKSPACE}/bin/kubectl && chmod +x ${GITHUB_WORKSPACE}/bin/kubectl
 	# Download and install bats
 	curl -sSLO https://github.com/bats-core/bats-core/archive/v${BATS_VERSION}.tar.gz && tar -zxvf v${BATS_VERSION}.tar.gz && bash bats-core-${BATS_VERSION}/install.sh ${GITHUB_WORKSPACE}
 	# Download and install jq
@@ -374,7 +375,7 @@ e2e-schemavalidator-setup:
 	mkdir -p .staging/schemavalidator
 
 	# Install Trivy
-	curl -L https://github.com/aquasecurity/trivy/releases/download/v0.35.0/trivy_0.35.0_Linux-64bit.tar.gz --output .staging/schemavalidator/trivy.tar.gz
+	curl -fsSL https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz --output .staging/schemavalidator/trivy.tar.gz
 	tar -zxf .staging/schemavalidator/trivy.tar.gz -C .staging/schemavalidator
 
 	# Build/Push Images
