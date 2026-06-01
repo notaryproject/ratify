@@ -2,34 +2,28 @@ apiVersion: config.ratify.dev/v2alpha1
 kind: Executor
 metadata:
   name: executor-notation-default
-  namespace: default
 spec:
   scopes:
     - "registry:5000/notation"
   stores:
-    - type: oras
+    - type: registry-store
       parameters:
-        cosignEnabled: true
-        useHttp: true
+        plainHttp: true
+        credential:
+          provider: "static"
+          username: "test_user"
+          password: "test_pw"
   verifiers:
     - name: notation
       type: notation
       parameters:
-        verificationCertStores:
-          ca:
-            cert-0:
-              - ratify-notation-inline-cert-0
-        trustPolicyDoc:
-          version: "1.0"
-          trustPolicies:
-            - name: default
-              registryScopes:
-                - "*"
-              signatureVerification:
-                level: strict
-              trustStores:
-                - ca:cert-0
-              trustedIdentities:
-                - "*"
+        certificates:
+          - type: "ca"
+            inline: __NOTATION_CERT__
   policyEnforcer:
-    type: configPolicy
+    type: "threshold-policy"
+    parameters:
+      policy:
+        threshold: 1
+        rules:
+          - verifierName: "notation"

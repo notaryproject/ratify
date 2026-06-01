@@ -157,3 +157,38 @@ restore_executor() {
   cat "$file" | sed '/^\s*resourceVersion:/d; /^\s*uid:/d; /^\s*creationTimestamp:/d; /^\s*generation:/d' | \
     kubectl apply --server-side --force-conflicts -f -
 }
+
+# get_notation_cert extracts the inline notation certificate from the currently
+# deployed executor. Returns the PEM cert as stored in the executor spec.
+get_notation_cert() {
+  local executor_name="${1:-ratify-ratify-gatekeeper-provider-executor-1}"
+  kubectl get executors.config.ratify.dev/${executor_name} -o jsonpath='{.spec.verifiers[?(@.name=="notation-1")].parameters.certificates[0].inline}' 2>/dev/null || \
+  kubectl get executors.config.ratify.dev/${executor_name} -o jsonpath='{.spec.verifiers[?(@.name=="notation")].parameters.certificates[0].inline}' 2>/dev/null || \
+  cat ~/.config/notation/localkeys/ratify-bats-test.crt 2>/dev/null || echo ""
+}
+
+# apply_v2_executor applies a v2 executor YAML file, replacing __NOTATION_CERT__
+# placeholder with the actual notation certificate content.
+apply_v2_executor() {
+  local file="$1"
+  local cert="$2"
+  if [[ ! -f "$file" ]]; then
+    echo "apply_v2_executor: file $file not found"
+    return 1
+  fi
+  if [[ -z "$cert" ]]; then
+    echo "apply_v2_executor: cert content is empty"
+    return 1
+  fi
+  # Convert multi-line PEM to a JSON-escaped string (e.g. "-----BEGIN...\n...")
+  # so it can be safely embedded in YAML as a quoted scalar.
+  local json_cert
+  json_cert=$(printf '%s' "$cert" | jq -Rs .)
+  # Use perl for replacement — awk gsub interprets \n in replacement strings
+  export __NOTATION_CERT_REPLACEMENT__="$json_cert"
+  perl -pe 's/__NOTATION_CERT__/$ENV{"__NOTATION_CERT_REPLACEMENT__"}/g' "$file" | \
+    kubectl apply --server-side --force-conflicts -f -
+  local rc=$?
+  unset __NOTATION_CERT_REPLACEMENT__
+  return $rc
+}

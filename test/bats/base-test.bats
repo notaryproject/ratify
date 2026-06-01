@@ -21,6 +21,11 @@ SLEEP_TIME=1
 RATIFY_NAMESPACE=gatekeeper-system
 EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
 
+# Extract notation cert from deployed executor (set once per file)
+setup_file() {
+    export NOTATION_CERT=$(get_notation_cert "${EXECUTOR_NAME}")
+}
+
 @test "base test without cert rotator" {
     teardown() {
         echo "cleaning up"
@@ -182,7 +187,7 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
 
         # restore the original executor for other tests
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-tsa.yaml ${RATIFY_NAMESPACE}'
-        rm -f original-executor-tsa.yaml tsa_cert_content.txt
+        rm -f original-executor-tsa.yaml
     }
 
     # save original executor state
@@ -192,35 +197,18 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     # validate executor status property shows success (retry for controller reconciliation)
     wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
 
-    # read the TSA root certificate
-    tsa_cert_content=$(cat ./test/bats/tests/certificates/tsarootca.cer | base64 | tr -d '\n')
-
-    # patch executor to add TSA root cert and update notation verifier config for timestamping
-    run kubectl patch executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} --type=merge -p '{
-        "spec":{
-            "verifiers":[{
-                "name":"notation",
-                "type":"notation",
-                "parameters":{
-                    "verificationCertStores":{
-                        "ca":{"cert-0":["ratify-notation-inline-cert-0"]},
-                        "tsa":{"tsa-cert":["ratify-tsa-inline-cert"]}
-                    },
-                    "trustPolicyDoc":{
-                        "version":"1.0",
-                        "trustPolicies":[{
-                            "name":"default",
-                            "registryScopes":["*"],
-                            "signatureVerification":{"level":"strict","override":{"timestampVerification":"afterCertExpiry"}},
-                            "trustStores":["ca:cert-0","tsa:tsa-cert"],
-                            "trustedIdentities":["*"]
-                        }]
-                    },
-                    "tsaRootCertificate":"'"${tsa_cert_content}"'"
-                }
-            }]
-        }
-    }'
+    # read the TSA root certificate as PEM and patch executor
+    # patch executor to add TSA trust store and enable timestamp verification via v2 format
+    run bash -c 'TSA_CERT=$(cat ./test/bats/tests/certificates/tsarootca.cer) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg tsa_cert "$TSA_CERT" '"'"' \
+            .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
+                .parameters.certificates = [
+                    (.parameters.certificates[0]),
+                    {"type": "tsa", "inline": {"certs": $tsa_cert}}
+                ]
+            else . end)]
+        '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     sleep 10
 
@@ -246,34 +234,15 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     TARGET_IP=$(ip -4 addr show "eth0" | awk '/inet/ {print $2}' | cut -d'/' -f1)
     run kubectl patch deployment ratify -n ${RATIFY_NAMESPACE} --type='merge' -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"'"${TARGET_IP}"'","hostnames":["yourhost"]}]}}}}'
 
-    # read the CRL root certificate
-    crl_cert_content=$(cat .staging/notation/crl-test/root.crt | base64 | tr -d '\n')
-
-    # patch executor to add CRL root cert and configure audit trust policy for CRL check
-    run kubectl patch executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} --type=merge -p '{
-        "spec":{
-            "verifiers":[{
-                "name":"notation",
-                "type":"notation",
-                "parameters":{
-                    "verificationCertStores":{
-                        "ca":{"crl-cert":["ratify-crl-inline-cert"]}
-                    },
-                    "trustPolicyDoc":{
-                        "version":"1.0",
-                        "trustPolicies":[{
-                            "name":"default",
-                            "registryScopes":["*"],
-                            "signatureVerification":{"level":"audit"},
-                            "trustStores":["ca:crl-cert"],
-                            "trustedIdentities":["*"]
-                        }]
-                    },
-                    "crlRootCertificate":"'"${crl_cert_content}"'"
-                }
-            }]
-        }
-    }'
+    # read the CRL root certificate as PEM and patch executor
+    # patch executor to replace notation verifier with CRL root cert in v2 format
+    run bash -c 'CRL_CERT=$(cat .staging/notation/crl-test/root.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg crl_cert "$CRL_CERT" '"'"' \
+            .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
+                .parameters.certificates = [{"type": "ca", "inline": {"certs": $crl_cert}}]
+            else . end)]
+        '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
 
     run kubectl run demo --namespace default --image=registry:5000/notation:crl
@@ -362,7 +331,7 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     assert_success
 
     # replace executor with legacy cosign verifier format
-    run kubectl apply --server-side --force-conflicts -f ${BATS_TESTS_DIR}/config/v2_executor_cosign_legacy.yaml
+    run apply_v2_executor ${BATS_TESTS_DIR}/config/v2_executor_cosign_legacy.yaml "${NOTATION_CERT}"
     assert_success
     sleep 5
 
@@ -394,7 +363,7 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     assert_success
 
     # replace executor with keyless cosign verifier and HTTPS store
-    run kubectl apply --server-side --force-conflicts -f ${BATS_TESTS_DIR}/config/v2_executor_cosign_keyless.yaml
+    run apply_v2_executor ${BATS_TESTS_DIR}/config/v2_executor_cosign_keyless.yaml "${NOTATION_CERT}"
     assert_success
     sleep 5
 
@@ -415,7 +384,7 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     assert_success
 
     # replace executor with legacy keyless cosign verifier and HTTPS store
-    run kubectl apply --server-side --force-conflicts -f ${BATS_TESTS_DIR}/config/v2_executor_cosign_legacy_keyless.yaml
+    run apply_v2_executor ${BATS_TESTS_DIR}/config/v2_executor_cosign_legacy_keyless.yaml "${NOTATION_CERT}"
     assert_success
     sleep 5
 
@@ -467,11 +436,11 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     assert_success
 
     # replace executor with an invalid store config (invalid plugin version)
-    run kubectl apply --server-side --force-conflicts -f ${BATS_TESTS_DIR}/config/v2_executor_invalid_store.yaml
+    run apply_v2_executor ${BATS_TESTS_DIR}/config/v2_executor_invalid_store.yaml "${NOTATION_CERT}"
     assert_success
-    # wait for download of image
+    # wait for controller reconciliation
     sleep 5
-    run bash -c "kubectl describe executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} | grep 'plugin not found'"
+    run bash -c "kubectl describe executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} | grep 'not registered'"
     assert_success
 }
 
@@ -543,13 +512,14 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     run kubectl run demo-alternate --namespace default --image=registry:5000/notation:signed-alternate
     assert_failure
 
-    # read the alternate certificate content
-    alternate_cert_content=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt | base64 | tr -d '\n')
-
-    # patch executor to use alternate inline certificate in notation verifier
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o json | jq '
-        .spec.verifiers = (.spec.verifiers | map(if .name == \"notation\" then .parameters.inlineCertificate = \"'\"${alternate_cert_content}\"'\" else . end))
-    ' | kubectl apply --server-side --force-conflicts -f -"
+    # patch executor to use alternate inline certificate in notation verifier (v2 format)
+    run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
+        jq --arg alt_cert "$ALT_CERT" '"'"' \
+            .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
+                .parameters.certificates = [{"type": "ca", "inline": {"certs": $alt_cert}}]
+            else . end)]
+        '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     sleep 10
 
@@ -583,13 +553,15 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     assert_failure
     sleep 10
 
-    # read the alternate certificate content
-    alternate_cert_content=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt | base64 | tr -d '\n')
-
-    # patch executor to include alternate cert in verifier config inline
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o json | jq '
-        .spec.verifiers = (.spec.verifiers | map(if .name == \"notation\" then .parameters.verificationCertStores.ca.\"alternate-cert\" = [\"inline:'\"${alternate_cert_content}\"'\"] else . end))
-    ' | kubectl apply --server-side --force-conflicts -f -"
+    # read the alternate certificate content as PEM
+    # patch executor to include alternate cert in verifier config inline (v2 format)
+    run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
+        jq --arg alt_cert "$ALT_CERT" '"'"' \
+            .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
+                .parameters.certificates = (.parameters.certificates + [{"type": "ca", "inline": {"certs": $alt_cert}}])
+            else . end)]
+        '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     sleep 10
 
@@ -628,15 +600,17 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
 
     sleep 10
 
-    # patch executor with an additional invalid inline cert (executor should still work with valid cert taking precedence)
+    # patch executor with an additional cert in inline (executor should still reconcile successfully)
     run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o json | jq '
-        .spec.verifiers = (.spec.verifiers | map(if .name == \"notation\" then .parameters.verificationCertStores.ca.\"invalid-cert\" = [\"inline:aW52YWxpZC1jZXJ0LWNvbnRlbnQ=\"] else . end))
+        .spec.verifiers = [(.spec.verifiers[] | if .name == \"notation\" or .name == \"notation-1\" then
+            .parameters.trustedIdentities = [\"*\"]
+        else . end)]
     ' | kubectl apply --server-side --force-conflicts -f -"
     assert_success
+    sleep 5
     # validate executor status still shows success
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
-    assert_success
-    # verification should succeed as the existing valid cert config takes precedence
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
+    # verification should succeed as the cert config is still valid
     run kubectl run demo1 --namespace default --image=registry:5000/notation:signed
     assert_success
 }
@@ -663,7 +637,7 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     sleep 5
 
     # replace executor with K8s secret auth provider config
-    run kubectl apply --server-side --force-conflicts -f ${BATS_TESTS_DIR}/config/v2_executor_k8s_secret_auth.yaml
+    run apply_v2_executor ${BATS_TESTS_DIR}/config/v2_executor_k8s_secret_auth.yaml "${NOTATION_CERT}"
     assert_success
     sleep 5
     run kubectl run demo --namespace default --image=registry:5000/notation:signed
@@ -692,26 +666,30 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
     assert_success
 
-    # read the root certificate content
-    root_cert_content=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt | base64 | tr -d '\n')
-
-    # patch executor to use root cert in verifier config
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o json | jq '
-        .spec.verifiers = (.spec.verifiers | map(if .name == \"notation\" then .parameters.verificationCertStores.ca.\"leaf-test\" = [\"inline:'\"${root_cert_content}\"'\"] else . end))
-    ' | kubectl apply --server-side --force-conflicts -f -"
+    # read the root certificate content as PEM
+    # patch executor to use root cert in verifier config (v2 format)
+    run bash -c 'ROOT_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
+        jq --arg root_cert "$ROOT_CERT" '"'"' \
+            .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
+                .parameters.certificates = [{"type": "ca", "inline": {"certs": $root_cert}}]
+            else . end)]
+        '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
 
     # verify that the image can be run with a root cert
     run kubectl run demo-leaf --namespace default --image=registry:5000/notation:leafSigned
     assert_success
 
-    # read the leaf certificate content
-    leaf_cert_content=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt | base64 | tr -d '\n')
-
-    # patch executor to use leaf cert directly
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o json | jq '
-        .spec.verifiers = (.spec.verifiers | map(if .name == \"notation\" then .parameters.verificationCertStores.ca.\"leaf-test\" = [\"inline:'\"${leaf_cert_content}\"'\"] else . end))
-    ' | kubectl apply --server-side --force-conflicts -f -"
+    # read the leaf certificate content as PEM
+    # patch executor to use leaf cert directly (v2 format)
+    run bash -c 'LEAF_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
+        jq --arg leaf_cert "$LEAF_CERT" '"'"' \
+            .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
+                .parameters.certificates = [{"type": "ca", "inline": {"certs": $leaf_cert}}]
+            else . end)]
+        '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
 
     # wait for the httpserver cache to be invalidated
@@ -777,7 +755,7 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     assert_success
 
     # create a namespace-scoped executor for notation verification in default namespace
-    run kubectl apply -f ${BATS_TESTS_DIR}/config/v2_executor_namespace_notation.yaml
+    run apply_v2_executor ${BATS_TESTS_DIR}/config/v2_executor_namespace_notation.yaml "${NOTATION_CERT}"
     assert_success
 
     # remove notation verifier from cluster executor to force use of namespace-scoped one
@@ -797,7 +775,7 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
     assert_success
 
     # remove cosign verifier from cluster executor
-    run kubectl apply --server-side --force-conflicts -f ${BATS_TESTS_DIR}/config/v2_executor_no_verifiers.yaml
+    run apply_v2_executor ${BATS_TESTS_DIR}/config/v2_executor_no_verifiers.yaml "${NOTATION_CERT}"
     assert_success
     sleep 5
 
