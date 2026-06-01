@@ -75,8 +75,8 @@ SLEEP_TIME=1
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-keyless --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete verifiers.config.ratify.deislabs.io/verifier-cosign --namespace default --ignore-not-found=true'
         # always restore store and verifier so subsequent tests use useHttp=true
-        kubectl replace -f ./config/samples/config_v1beta1_verifier_cosign.yaml 2>/dev/null || true
-        kubectl replace -f ./config/samples/config_v1beta1_store_oras_http.yaml 2>/dev/null || true
+        kubectl apply -f ./config/samples/config_v1beta1_verifier_cosign.yaml 2>/dev/null || true
+        kubectl apply -f ./config/samples/config_v1beta1_store_oras_http.yaml 2>/dev/null || true
         sleep 5
     }
 
