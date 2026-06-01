@@ -40,6 +40,8 @@ spec:
           args:
             - "--address"
             - ":6001"
+            - "--health-port"
+            - {{ .Values.provider.healthPort | quote }}
             - "--config"
             - "/usr/local/config.json"
             {{- if .Values.provider.timeout.validationTimeoutSeconds }}
@@ -52,7 +54,6 @@ spec:
             {{- end }}
             - "--cert-file=/usr/local/tls/tls.crt"
             - "--key-file=/usr/local/tls/tls.key"
-            - "--health-port=:{{ .Values.healthPort }}"
             {{- if .Values.provider.tls.disableCertRotation }}
             - "--disable-cert-rotation"
             {{- end }}
@@ -68,20 +69,21 @@ spec:
           ports:
             - name: https
               containerPort: 6001
-            - containerPort: {{ required "You must provide .Values.healthPort"  .Values.healthPort }}
-              name: healthz
-              protocol: TCP
+            - name: health
+              containerPort: {{ .Values.provider.healthPort }}
           {{- if .Values.provider.probes.enabled }}
           livenessProbe:
             httpGet:
               path: /healthz
-              port: {{ .Values.healthPort }}
+              port: health
+              scheme: {{ .Values.provider.probes.scheme }}
             initialDelaySeconds: {{ .Values.provider.probes.liveness.initialDelaySeconds }}
             periodSeconds: {{ .Values.provider.probes.liveness.periodSeconds }}
           readinessProbe:
             httpGet:
               path: /readyz
-              port: {{ .Values.healthPort }}
+              port: health
+              scheme: {{ .Values.provider.probes.scheme }}
             initialDelaySeconds: {{ .Values.provider.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.provider.probes.readiness.periodSeconds }}
           {{- end }}

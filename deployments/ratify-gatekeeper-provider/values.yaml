@@ -5,8 +5,6 @@ image:
 
 replicaCount: 1
 
-healthPort: 9090
-
 executor:
   scopes: []
   concurrency: 3
@@ -61,8 +59,10 @@ provider:
     key: "" # key used by ratify (httpserver), please provide your own key
     caCert: "" # CA crt used by ratify (httpserver), please provide your own CA crt
     disableCertRotation: false
+  healthPort: 9090
   probes:
     enabled: true
+    scheme: HTTP
     liveness:
       initialDelaySeconds: 5
       periodSeconds: 10

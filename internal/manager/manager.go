@@ -16,6 +16,7 @@ limitations under the License.
 package manager
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"os"
@@ -48,12 +49,31 @@ func init() {
 	utilruntime.Must(v2alpha1.AddToScheme(scheme))
 }
 
+type managerReadyRunnable struct {
+	mgr   ctrl.Manager
+	ready *ReadySignal
+}
+
+func (r managerReadyRunnable) Start(ctx context.Context) error {
+	if r.ready == nil {
+		<-ctx.Done()
+		return nil
+	}
+	if !r.mgr.GetCache().WaitForCacheSync(ctx) {
+		return fmt.Errorf("manager cache failed to sync")
+	}
+	r.ready.MarkReady()
+	<-ctx.Done()
+	return nil
+}
+
 // StartManager creates a new Manager which is responsible for creating
 // Controllers.
-func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableCRDManager bool) {
+func StartManager(certRotatorReady chan struct{}, managerReady *ReadySignal, disableMutation bool, disableCRDManager bool) {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
+		Scheme:                 scheme,
+		HealthProbeBindAddress: "0",
 	})
 	if err != nil {
 		setupLog.Error(err, "could not create ratify manager")
@@ -62,6 +82,13 @@ func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableC
 
 	setupCertRotator(certRotatorReady, mgr, disableMutation)
 	setupCRDControllers(mgr, disableCRDManager)
+
+	if managerReady != nil {
+		if err := mgr.Add(managerReadyRunnable{mgr: mgr, ready: managerReady}); err != nil {
+			setupLog.Error(err, "could not register manager readiness runnable")
+			os.Exit(1)
+		}
+	}
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "could not start manager")

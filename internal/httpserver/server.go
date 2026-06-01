@@ -31,6 +31,7 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/cache/ristretto"
 	"github.com/notaryproject/ratify/v2/internal/controller"
 	"github.com/notaryproject/ratify/v2/internal/executor"
+	"github.com/notaryproject/ratify/v2/internal/healthprobe"
 	"github.com/notaryproject/ratify/v2/internal/httpserver/config"
 	"github.com/notaryproject/ratify/v2/internal/httpserver/tlssecret"
 	"github.com/sirupsen/logrus"
@@ -55,7 +56,7 @@ type server struct {
 	mutateCache cache.Cache[string]
 	verifyCache cache.Cache[*result]
 	sfGroup     *singleflight.Group
-	health      *healthStatus
+	health      *HealthStatus
 	ServerOptions
 }
 
@@ -107,11 +108,20 @@ type ServerOptions struct {
 	// certificates.
 	// Optional.
 	CertRotatorReady chan struct{}
+
+	// HealthRegistry holds liveness and readiness checks for the dedicated
+	// health probe server.
+	// Optional.
+	HealthRegistry *healthprobe.Registry
 }
 
 // StartServer initializes and starts the Ratify server with provided options
 // and configuration file path.
 func StartServer(opts *ServerOptions, executorConfigPath string) error {
+	if opts == nil {
+		return fmt.Errorf("server options are required")
+	}
+
 	server, configWatcher, err := newServer(opts, executorConfigPath)
 	if err != nil {
 		logrus.Errorf("Failed to create server: %v", err)
@@ -123,6 +133,10 @@ func StartServer(opts *ServerOptions, executorConfigPath string) error {
 }
 
 func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *config.Watcher, error) {
+	if serverOpts == nil {
+		return nil, nil, fmt.Errorf("server options are required")
+	}
+
 	var configWatcher *config.Watcher
 	var getExecutorFunc func() *executor.ScopedExecutor
 	var err error
@@ -146,16 +160,13 @@ func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *
 		return nil, nil, fmt.Errorf("failed to create verify cache: %w", err)
 	}
 
-	health := &healthStatus{}
-	health.alive.Store(true)
-
 	server := &server{
 		router:        mux.NewRouter(),
 		mutateCache:   mutateCache,
 		verifyCache:   verifyCache,
 		sfGroup:       new(singleflight.Group),
 		getExecutor:   getExecutorFunc,
-		health:        health,
+		health:        NewHealthStatus(),
 		ServerOptions: *serverOpts,
 	}
 	if server.VerifyTimeout == 0 {
@@ -165,17 +176,29 @@ func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *
 		server.MutateTimeout = defaultMutateTimeout
 	}
 
+	if err := server.registerHealthChecks(); err != nil {
+		return nil, nil, fmt.Errorf("failed to register health checks: %w", err)
+	}
 	if err := server.registerHandlers(); err != nil {
 		return nil, nil, fmt.Errorf("failed to register handlers: %w", err)
 	}
 	return server, configWatcher, nil
 }
 
-func (s *server) registerHandlers() error {
-	// Health endpoints — no auth, no timeout middleware
-	s.router.Methods(http.MethodGet).Path("/healthz").HandlerFunc(s.healthzHandler())
-	s.router.Methods(http.MethodGet).Path("/readyz").HandlerFunc(s.readyzHandler())
+func (s *server) registerHealthChecks() error {
+	if s == nil || s.HealthRegistry == nil || s.health == nil {
+		return nil
+	}
+	if err := s.HealthRegistry.RegisterLiveness(s.health.AliveChecker()); err != nil {
+		return err
+	}
+	if err := s.HealthRegistry.RegisterReadiness(s.health.ExecutorChecker(s.getExecutor)); err != nil {
+		return err
+	}
+	return nil
+}
 
+func (s *server) registerHandlers() error {
 	if err := s.registerVerifyHandler(); err != nil {
 		return err
 	}
@@ -237,11 +260,10 @@ func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watch
 		ReadTimeout:  readTimeout,
 		IdleTimeout:  idleTimeout,
 	}
-	// Poll for executor availability and signal readiness.
 	go func() {
 		for {
 			if s.getExecutor() != nil {
-				s.health.ready.Store(true)
+				s.health.MarkReady()
 				logrus.Info("server is ready: executor loaded")
 				return
 			}
@@ -250,8 +272,6 @@ func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watch
 	}()
 
 	go func() {
-		// Start the configuration watcher (if any) and ensure
-		// it is properly stopped when the server goroutine exits.
 		if configWatcher != nil {
 			if err := configWatcher.Start(); err != nil {
 				logrus.WithError(err).Error("failed to start config watcher")
@@ -278,6 +298,8 @@ func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watch
 			}
 			defer certWatcher.Stop()
 
+			s.health.MarkAlive()
+
 			// Use GetConfigForClient to dynamically load certificates.
 			srv.TLSConfig = &tls.Config{
 				MinVersion:         tls.VersionTLS13,
@@ -288,13 +310,13 @@ func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watch
 			}
 		} else {
 			logrus.Infof("starting server without TLS at %s", s.HTTPServerAddress)
+			s.health.MarkAlive()
 			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				logrus.Errorf("failed to start server: %v", err)
 			}
 		}
 	}()
 
-	// Handle graceful shutdown.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
