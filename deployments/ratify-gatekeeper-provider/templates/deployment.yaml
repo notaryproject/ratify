@@ -71,22 +71,18 @@ spec:
               containerPort: 6001
             - name: health
               containerPort: {{ .Values.provider.healthPort }}
-          {{- if .Values.provider.probes.enabled }}
           livenessProbe:
             httpGet:
               path: /healthz
-              port: health
-              scheme: {{ .Values.provider.probes.scheme }}
-            initialDelaySeconds: {{ .Values.provider.probes.liveness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.provider.probes.liveness.periodSeconds }}
+              port: {{ .Values.provider.healthPort | default 9090 }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /readyz
-              port: health
-              scheme: {{ .Values.provider.probes.scheme }}
-            initialDelaySeconds: {{ .Values.provider.probes.readiness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.provider.probes.readiness.periodSeconds }}
-          {{- end }}
+              port: {{ .Values.provider.healthPort | default 9090 }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
           volumeMounts:
             - mountPath: "/usr/local/tls"
               name: tls

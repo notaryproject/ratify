@@ -60,15 +60,6 @@ provider:
     caCert: "" # CA crt used by ratify (httpserver), please provide your own CA crt
     disableCertRotation: false
   healthPort: 9090
-  probes:
-    enabled: true
-    scheme: HTTP
-    liveness:
-      initialDelaySeconds: 5
-      periodSeconds: 10
-    readiness:
-      initialDelaySeconds: 5
-      periodSeconds: 10
   disableMutation: false
   disableCRDManager: false
   timeout:
