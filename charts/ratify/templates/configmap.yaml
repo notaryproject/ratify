@@ -11,10 +11,10 @@ data:
       },
       "store": {
         "version": "1.0.0",
-        "useHttp": {{ .Values.oras.useHttp }},
         "plugins": [
             {
-                "name": "oras"
+                "name": "oras",
+                "useHttp": {{ .Values.oras.useHttp }}
                 {{- if .Values.cosign.enabled }}
                 ,
                 "cosignEnabled": true
