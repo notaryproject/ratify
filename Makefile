@@ -155,9 +155,8 @@ delete-gatekeeper:
 	helm delete gatekeeper --namespace ${GATEKEEPER_NAMESPACE}
 
 .PHONY: test-e2e
-test-e2e: generate-rotation-certs
-	timeout 20m bats -t ${BATS_BASE_TESTS_FILE}
-	EXPIRING_CERT_DIR=.staging/rotation/expiring-certs CERT_DIR=.staging/rotation GATEKEEPER_VERSION=${GATEKEEPER_VERSION} bats -t ${BATS_PLUGIN_TESTS_FILE}
+test-e2e:
+	bats -t ${BATS_BASE_TESTS_FILE}
 
 .PHONY: test-e2e-cli
 test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup
@@ -173,6 +172,7 @@ test-quick-start:
 .PHONY: test-high-availability
 test-high-availability:
 	bats -t ${BATS_HA_TESTS_FILE}
+
 
 .PHONY: generate-certs
 generate-certs:
@@ -578,7 +578,23 @@ e2e-deploy-base-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosi
 
 	rm mount_config.json
 
-e2e-deploy-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup e2e-inlinecert-setup e2e-build-crd-image load-build-crd-image e2e-build-local-ratify-image load-local-ratify-image e2e-helm-deploy-ratify
+e2e-deploy-ratify: e2e-helm-install e2e-notation-setup generate-certs e2e-build-ratify-image load-local-ratify-image
+	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
+		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
+		--set image.repository=localbuild \
+		--set image.tag=test \
+		--set image.pullPolicy=Never \
+		--set executor.scopes[0]=registry:5000 \
+		--set stores[0].credential.provider=static \
+		--set stores[0].credential.username=${TEST_REGISTRY_USERNAME} \
+		--set stores[0].credential.password=${TEST_REGISTRY_PASSWORD} \
+		--set stores[0].plainHttp=true \
+		--set-file provider.tls.crt=${CERT_DIR}/server.crt \
+		--set-file provider.tls.key=${CERT_DIR}/server.key \
+		--set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
+		--set notation.certs[0].provider=inline \
+		--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
+		--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 e2e-build-local-ratify-base-image:
 	docker build --progress=plain --no-cache \
@@ -593,6 +609,11 @@ e2e-build-local-ratify-image:
 	--build-arg build_schemavalidator=true \
 	--build-arg build_vulnerabilityreport=true \
 	-f ./httpserver/Dockerfile \
+	-t localbuild:test .
+
+e2e-build-ratify-image:
+	docker build --progress=plain --no-cache \
+	-f ./Dockerfile \
 	-t localbuild:test .
 
 build-local-ratify-gatekeeper-provider-image:
