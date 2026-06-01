@@ -5,6 +5,8 @@ image:
 
 replicaCount: 1
 
+healthPort: 9090
+
 executor:
   scopes: []
   concurrency: 3
@@ -61,7 +63,6 @@ provider:
     disableCertRotation: false
   probes:
     enabled: true
-    scheme: HTTPS
     liveness:
       initialDelaySeconds: 5
       periodSeconds: 10
