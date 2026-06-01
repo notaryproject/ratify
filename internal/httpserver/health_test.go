@@ -131,3 +131,137 @@ func TestReadyzHandler_Ready(t *testing.T) {
 		t.Errorf("expected status 'ok', got %q", resp.Status)
 	}
 }
+
+func TestReadyzHandler_NilGetExecutor(t *testing.T) {
+	s := &server{
+		health:      &healthStatus{},
+		getExecutor: nil,
+	}
+	s.health.alive.Store(true)
+	s.health.ready.Store(true)
+
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	w := httptest.NewRecorder()
+	s.readyzHandler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected status 503, got %d", w.Code)
+	}
+}
+
+func TestMarkAlive_NilReceiver(t *testing.T) {
+	var h *HealthStatus
+	h.MarkAlive() // should not panic
+}
+
+func TestMarkAlive(t *testing.T) {
+	h := NewHealthStatus()
+	if h.IsAlive() {
+		t.Error("expected not alive initially")
+	}
+	h.MarkAlive()
+	if !h.IsAlive() {
+		t.Error("expected alive after MarkAlive")
+	}
+}
+
+func TestMarkReady_NilReceiver(t *testing.T) {
+	var h *HealthStatus
+	h.MarkReady() // should not panic
+}
+
+func TestMarkReady(t *testing.T) {
+	h := NewHealthStatus()
+	if h.IsReady() {
+		t.Error("expected not ready initially")
+	}
+	h.MarkReady()
+	if !h.IsReady() {
+		t.Error("expected ready after MarkReady")
+	}
+}
+
+func TestIsAlive_NilReceiver(t *testing.T) {
+	var h *HealthStatus
+	if h.IsAlive() {
+		t.Error("expected false for nil receiver")
+	}
+}
+
+func TestIsReady_NilReceiver(t *testing.T) {
+	var h *HealthStatus
+	if h.IsReady() {
+		t.Error("expected false for nil receiver")
+	}
+}
+
+func TestAliveChecker_NilReceiver(t *testing.T) {
+	var h *HealthStatus
+	checker := h.AliveChecker()
+	if err := checker.Check(); err == nil {
+		t.Error("expected error for nil health status")
+	}
+}
+
+func TestAliveChecker_NotAlive(t *testing.T) {
+	h := NewHealthStatus()
+	checker := h.AliveChecker()
+	if checker.Name() != httpServerAliveCheckerName {
+		t.Errorf("unexpected checker name: %s", checker.Name())
+	}
+	if err := checker.Check(); err == nil {
+		t.Error("expected error when not alive")
+	}
+}
+
+func TestAliveChecker_Alive(t *testing.T) {
+	h := NewHealthStatus()
+	h.MarkAlive()
+	checker := h.AliveChecker()
+	if err := checker.Check(); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestExecutorChecker_NilReceiver(t *testing.T) {
+	var h *HealthStatus
+	checker := h.ExecutorChecker(func() *executor.ScopedExecutor { return &executor.ScopedExecutor{} })
+	if err := checker.Check(); err == nil {
+		t.Error("expected error for nil health status")
+	}
+}
+
+func TestExecutorChecker_NotAlive(t *testing.T) {
+	h := NewHealthStatus()
+	checker := h.ExecutorChecker(func() *executor.ScopedExecutor { return &executor.ScopedExecutor{} })
+	if err := checker.Check(); err == nil {
+		t.Error("expected error when not alive")
+	}
+}
+
+func TestExecutorChecker_NilGetter(t *testing.T) {
+	h := NewHealthStatus()
+	h.MarkAlive()
+	checker := h.ExecutorChecker(nil)
+	if err := checker.Check(); err == nil {
+		t.Error("expected error when getter is nil")
+	}
+}
+
+func TestExecutorChecker_NilExecutor(t *testing.T) {
+	h := NewHealthStatus()
+	h.MarkAlive()
+	checker := h.ExecutorChecker(func() *executor.ScopedExecutor { return nil })
+	if err := checker.Check(); err == nil {
+		t.Error("expected error when executor is nil")
+	}
+}
+
+func TestExecutorChecker_Success(t *testing.T) {
+	h := NewHealthStatus()
+	h.MarkAlive()
+	checker := h.ExecutorChecker(func() *executor.ScopedExecutor { return &executor.ScopedExecutor{} })
+	if err := checker.Check(); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
