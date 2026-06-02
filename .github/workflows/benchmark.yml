@@ -64,11 +64,17 @@ jobs:
       # On pull requests, also benchmark the merge base so we can compare and
       # gate regressions. On push to main there is no baseline to compare to,
       # so we only record the results above.
+      #
+      # The base commit may predate the `benchmark` Makefile target (this PR
+      # may be the change that introduces it), so run `go test -bench` directly
+      # against the base worktree instead of relying on its Makefile. Any
+      # benchmark that exists only at HEAD simply has no base counterpart and
+      # therefore cannot be flagged as a regression.
       - name: Run benchmarks (base branch)
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           git worktree add --detach ../base "${{ github.event.pull_request.base.sha }}"
-          make -C ../base benchmark BENCH_COUNT=${{ env.BENCH_COUNT }} BENCH_OUT="${GITHUB_WORKSPACE}/base.txt"
+          ( cd ../base && go test -run='^$' -bench=. -benchmem -count=${{ env.BENCH_COUNT }} ./... ) | tee "${GITHUB_WORKSPACE}/base.txt"
           git worktree remove --force ../base
 
       - name: Gate on benchmark regressions
