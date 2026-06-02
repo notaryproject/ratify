@@ -37,6 +37,7 @@ ORAS_VERSION ?= 1.2.1
 HELM_VERSION ?= 3.16.3
 HELMFILE_VERSION ?= 0.169.2
 BATS_BASE_TESTS_FILE ?= test/bats/base-test.bats
+BATS_V2_BASE_TESTS_FILE ?= test/bats/base-test.bats
 BATS_PLUGIN_TESTS_FILE ?= test/bats/plugin-test.bats
 BATS_CLI_TESTS_FILE ?= test/bats/cli-test.bats
 BATS_QUICKSTART_TESTS_FILE ?= test/bats/quickstart-test.bats
@@ -157,6 +158,10 @@ delete-gatekeeper:
 .PHONY: test-e2e
 test-e2e:
 	bats -t ${BATS_BASE_TESTS_FILE}
+
+.PHONY: test-e2e-v2
+test-e2e-v2:
+	bats -t ${BATS_V2_BASE_TESTS_FILE}
 
 .PHONY: test-e2e-cli
 test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup
@@ -577,6 +582,8 @@ e2e-deploy-base-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosi
 		--set logger.level=debug
 
 	rm mount_config.json
+
+e2e-deploy-ratify-v2: e2e-deploy-ratify
 
 e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-inlinecert-setup generate-certs e2e-build-ratify-image load-local-ratify-image
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \

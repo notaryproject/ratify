@@ -563,6 +563,13 @@ setup_file() {
             else . end)]
         '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
+    kubectl rollout restart deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE}
+    kubectl rollout status deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=120s
+    latest_pod=$(kubectl get pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --sort-by=.metadata.creationTimestamp -o name | tail -n 1)
+    kubectl wait --for=condition=ready -n ${RATIFY_NAMESPACE} ${latest_pod} --timeout=60s
+
+    # wait for executor to be reconciled after restart so provider loads new config
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
     sleep 10
 
     # verify that the image can now be run
@@ -692,9 +699,15 @@ setup_file() {
             else . end)]
         '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
+    kubectl rollout restart deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE}
+    kubectl rollout status deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=120s
+    latest_pod=$(kubectl get pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --sort-by=.metadata.creationTimestamp -o name | tail -n 1)
+    kubectl wait --for=condition=ready -n ${RATIFY_NAMESPACE} ${latest_pod} --timeout=60s
 
-    # wait for the httpserver cache to be invalidated
-    sleep 60
+    # wait for executor to be reconciled after restart so provider loads new config
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
+    sleep 10
+
     # verify that the image cannot be run with a leaf cert
     run kubectl run demo-leaf2 --namespace default --image=registry:5000/notation:leafSigned
     assert_failure
