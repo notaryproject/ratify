@@ -23,7 +23,7 @@ spec:
               - "registry:5000/cosign"
             keys:
               inline:
-                keys: "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvjrMZFyaBDsvg5e0C8JaHqw8ULuc\nn947ODVAMvfdqtjqK2eW77OGrsFLdkbG3BET9U4Dj37odn4kI5lC4Lj9Eg==\n-----END PUBLIC KEY-----\n"
+                keys: __COSIGN_KEY__
   policyEnforcer:
     type: "threshold-policy"
     parameters:

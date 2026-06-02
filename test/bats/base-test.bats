@@ -24,6 +24,7 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
 # Extract notation cert from deployed executor (set once per file)
 setup_file() {
     export NOTATION_CERT=$(get_notation_cert "${EXECUTOR_NAME}")
+    export COSIGN_KEY=$(get_cosign_key "${EXECUTOR_NAME}")
     # Ensure ratify provider pod is fully ready and TLS is serving
     echo "Waiting for ratify provider to be fully ready..."
     kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=60s
@@ -231,12 +232,18 @@ setup_file() {
     TARGET_IP=$(ip -4 addr show "eth0" | awk '/inet/ {print $2}' | cut -d'/' -f1)
     run kubectl patch deployment ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --type='merge' -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"'"${TARGET_IP}"'","hostnames":["yourhost"]}]}}}}'
 
+    # wait for rollout to complete after adding hostAliases
+    kubectl rollout status deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=60s
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=60s
+    sleep 5
+
     # read the CRL root certificate as PEM and patch executor
     # patch executor to replace notation verifier with CRL root cert in v2 format
     run bash -c 'CRL_CERT=$(cat .staging/notation/crl-test/root.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg crl_cert "$CRL_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $crl_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
+    sleep 10
 
     run kubectl run demo --namespace default --image=registry:5000/notation:crl
     assert_success
@@ -687,7 +694,7 @@ setup_file() {
     assert_success
 
     # wait for the httpserver cache to be invalidated
-    sleep 30
+    sleep 60
     # verify that the image cannot be run with a leaf cert
     run kubectl run demo-leaf2 --namespace default --image=registry:5000/notation:leafSigned
     assert_failure
@@ -765,7 +772,7 @@ setup_file() {
     assert_failure
 
     # create a namespace-scoped executor for cosign verification in default namespace
-    run kubectl apply -f ${BATS_TESTS_DIR}/config/v2_executor_namespace_cosign.yaml
+    run apply_v2_executor ${BATS_TESTS_DIR}/config/v2_executor_namespace_cosign.yaml "${NOTATION_CERT}"
     assert_success
 
     # remove cosign verifier from cluster executor
