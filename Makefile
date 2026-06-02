@@ -176,7 +176,7 @@ test-high-availability:
 
 .PHONY: generate-certs
 generate-certs:
-	./scripts/generate-tls-certs.sh ${CERT_DIR} ${GATEKEEPER_NAMESPACE}
+	./scripts/generate-tls-certs.sh ${CERT_DIR} ${RATIFY_NAME}-ratify-gatekeeper-provider ${GATEKEEPER_NAMESPACE}
 
 generate-rotation-certs:
 	mkdir -p .staging/rotation
@@ -578,7 +578,7 @@ e2e-deploy-base-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosi
 
 	rm mount_config.json
 
-e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-cosign-setup generate-certs e2e-build-ratify-image load-local-ratify-image
+e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-cosign-setup e2e-inlinecert-setup generate-certs e2e-build-ratify-image load-local-ratify-image
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
 		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
 		--set image.repository=localbuild \
