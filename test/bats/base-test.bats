@@ -24,6 +24,10 @@ EXECUTOR_NAME=ratify-ratify-gatekeeper-provider-executor-1
 # Extract notation cert from deployed executor (set once per file)
 setup_file() {
     export NOTATION_CERT=$(get_notation_cert "${EXECUTOR_NAME}")
+    # Ensure ratify provider pod is fully ready and TLS is serving
+    echo "Waiting for ratify provider to be fully ready..."
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=60s
+    sleep 10
 }
 
 @test "base test without cert rotator" {
@@ -546,9 +550,9 @@ setup_file() {
     # patch executor to include alternate cert in verifier config inline (v2 format)
     run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
-        jq --arg alt_cert "$ALT_CERT" '"'"'
+        jq --arg alt_cert "$ALT_CERT" --arg orig_cert "'"${NOTATION_CERT}"'" '"'"'
             .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
-                .parameters.certificates = (.parameters.certificates + [{"type": "ca", "inline": {"certs": $alt_cert}}])
+                .parameters.certificates = [{"type": "ca", "inline": {"certs": $orig_cert}}, {"type": "ca", "inline": {"certs": $alt_cert}}]
             else . end)]
         '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
@@ -683,7 +687,7 @@ setup_file() {
     assert_success
 
     # wait for the httpserver cache to be invalidated
-    sleep 15
+    sleep 30
     # verify that the image cannot be run with a leaf cert
     run kubectl run demo-leaf2 --namespace default --image=registry:5000/notation:leafSigned
     assert_failure

@@ -369,8 +369,8 @@ e2e-cosign-setup:
 	cd .staging/cosign && \
 	./cosign-linux-amd64 login ${TEST_REGISTRY} -u ${TEST_REGISTRY_USERNAME} -p ${TEST_REGISTRY_PASSWORD} && \
 	./cosign-linux-amd64 generate-key-pair && \
-	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-key --descriptor | jq .digest | xargs` && \
-	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --key cosign.key ${TEST_REGISTRY}/all@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/all:v0 --descriptor | jq .digest | xargs`
+	./cosign-linux-amd64 sign --yes --allow-insecure-registry --allow-http-registry --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-key --descriptor | jq .digest | xargs` && \
+	./cosign-linux-amd64 sign --yes --allow-insecure-registry --allow-http-registry --key cosign.key ${TEST_REGISTRY}/all@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/all:v0 --descriptor | jq .digest | xargs`
 
 e2e-cosign-akv-setup:
 	rm -rf .staging/cosign
