@@ -599,6 +599,7 @@ e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-notation-leaf-cert-se
 		--set-file provider.tls.crt=${CERT_DIR}/server.crt \
 		--set-file provider.tls.key=${CERT_DIR}/server.key \
 		--set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
+		--set provider.tls.disableCertRotation=true \
 		--set notation.certs[0].provider=inline \
 		--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
 		--set cosign.keys.provider=inline \

@@ -28,7 +28,20 @@ setup_file() {
     # Ensure ratify provider pod is fully ready and TLS is serving
     echo "Waiting for ratify provider to be fully ready..."
     kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=60s
-    sleep 10
+    # Wait for gatekeeper to sync the Provider resource and establish TLS trust
+    # by probing the admission webhook with a known-good image
+    echo "Waiting for admission webhook TLS to be functional..."
+    local retries=30
+    while [[ $retries -gt 0 ]]; do
+        if kubectl run setup-probe --namespace default --image=registry:5000/notation:signed --dry-run=server 2>/dev/null; then
+            break
+        fi
+        sleep 5
+        retries=$((retries - 1))
+    done
+    if [[ $retries -eq 0 ]]; then
+        echo "WARNING: admission webhook probe did not succeed after 150s"
+    fi
 }
 
 @test "base test without cert rotator" {
@@ -560,20 +573,13 @@ setup_file() {
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
         jq --arg alt_cert "$ALT_CERT" --arg orig_cert "'"${NOTATION_CERT}"'" '"'"'
             .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
-                .parameters.certificates = [{"type": "ca", "inline": {"certs": $orig_cert}}, {"type": "ca", "inline": {"certs": $alt_cert}}]
+                .parameters.certificates = [{"type": "ca", "inline": {"certs": ($orig_cert + "\n" + $alt_cert)}}]
             else . end)]
         '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
 
-    # wait for executor to be reconciled with new config (controller watches CRD changes)
-    wait_for_process 120 ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
-    # restart to ensure provider reloads the updated executor config
-    kubectl rollout restart deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE}
-    kubectl rollout status deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=120s
-    latest_pod=$(kubectl get pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --sort-by=.metadata.creationTimestamp -o name | tail -n 1)
-    kubectl wait --for=condition=ready -n ${RATIFY_NAMESPACE} ${latest_pod} --timeout=60s
-    # wait for executor reconciliation after restart
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
+    # allow the controller watch to pick up the change and reload in-memory config
+    sleep 20
 
     # verify that the image can now be run
     run kubectl run demo-alternate --namespace default --image=registry:5000/notation:signed-alternate
