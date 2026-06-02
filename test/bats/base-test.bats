@@ -201,7 +201,7 @@ setup_file() {
     # patch executor to add TSA trust store and enable timestamp verification via v2 format
     run bash -c 'TSA_CERT=$(cat ./test/bats/tests/certificates/tsarootca.cer) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
-        jq --arg tsa_cert "$TSA_CERT" '"'"'.spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then .parameters.certificates = [(.parameters.certificates[0]), {"type": "tsa", "inline": {"certs": $tsa_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
+        jq --arg tsa_cert "$TSA_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then .parameters.certificates = [(.parameters.certificates[0]), {"type": "tsa", "inline": {"certs": $tsa_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     sleep 10
 
@@ -225,13 +225,13 @@ setup_file() {
     assert_success
 
     TARGET_IP=$(ip -4 addr show "eth0" | awk '/inet/ {print $2}' | cut -d'/' -f1)
-    run kubectl patch deployment ratify -n ${RATIFY_NAMESPACE} --type='merge' -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"'"${TARGET_IP}"'","hostnames":["yourhost"]}]}}}}'
+    run kubectl patch deployment ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --type='merge' -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"'"${TARGET_IP}"'","hostnames":["yourhost"]}]}}}}'
 
     # read the CRL root certificate as PEM and patch executor
     # patch executor to replace notation verifier with CRL root cert in v2 format
     run bash -c 'CRL_CERT=$(cat .staging/notation/crl-test/root.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
-        jq --arg crl_cert "$CRL_CERT" '"'"'.spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $crl_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
+        jq --arg crl_cert "$CRL_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $crl_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
 
     run kubectl run demo --namespace default --image=registry:5000/notation:crl
@@ -591,6 +591,7 @@ setup_file() {
 
     # patch executor with an additional cert in inline (executor should still reconcile successfully)
     run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o json | jq '
+        del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) |
         .spec.verifiers = [(.spec.verifiers[] | if .name == \"notation\" or .name == \"notation-1\" then
             .parameters.trustedIdentities = [\"*\"]
         else . end)]
