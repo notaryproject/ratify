@@ -34,10 +34,10 @@ setup_file() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod initcontainer-pod --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod initcontainer-pod1 --namespace default --force --ignore-not-found=true'
     }
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     sleep 5
     # validate executor status property shows success (retry for controller reconciliation)
@@ -150,7 +150,7 @@ setup_file() {
     assert_success
 
     # re-apply the executor to verify it can be updated
-    run bash -c "restore_executor original-executor.yaml ${RATIFY_NAMESPACE}"
+    run restore_executor original-executor.yaml ${RATIFY_NAMESPACE}
     assert_success
 
     # verify the executor is still accessible after apply
@@ -164,10 +164,10 @@ setup_file() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo1 --namespace default --force --ignore-not-found=true'
     }
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     sleep 5
 
@@ -256,10 +256,10 @@ setup_file() {
         assert_success
     }
 
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     sleep 5
 
@@ -290,10 +290,10 @@ setup_file() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-unsigned --namespace default --force --ignore-not-found=true'
     }
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     sleep 5
 
@@ -324,10 +324,10 @@ setup_file() {
     assert_success
     sleep 5
 
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     sleep 5
 
@@ -403,7 +403,7 @@ setup_file() {
     assert_failure
 
     echo "Add notation verifier back and validate deployment succeeds"
-    run bash -c "restore_executor original-executor-crd.yaml ${RATIFY_NAMESPACE}"
+    run restore_executor original-executor-crd.yaml ${RATIFY_NAMESPACE}
     assert_success
 
     # wait for the httpserver cache to be invalidated
@@ -435,23 +435,23 @@ setup_file() {
 
 @test "configmap update test" {
     skip "Skipping test for now as we are no longer watching for configfile update in a K8s environment. This test ensures we are watching config file updates in a non-kub scenario"
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     sleep 5
     run kubectl run demo2 --image=registry:5000/notation:signed
     assert_success
 
     run kubectl get configmaps ratify-configuration --namespace=${RATIFY_NAMESPACE} -o yaml >currentConfig.yaml
-    run kubectl delete -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl delete -f ${BATS_TESTS_DIR}/config/constraint.yaml
 
     wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl replace --namespace=${RATIFY_NAMESPACE} -f ${BATS_TESTS_DIR}/configmap/invalidconfigmap.yaml"
     echo "Waiting for 150 second for configuration update"
     sleep 150
 
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     run kubectl run demo3 --image=registry:5000/notation:signed
     echo "Current time after validate : $(date +"%T")"
@@ -466,10 +466,10 @@ setup_file() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod mutate-demo --namespace default --ignore-not-found=true'
     }
 
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     sleep 5
     run kubectl run mutate-demo --namespace default --image=registry:5000/notation:signed
@@ -492,7 +492,7 @@ setup_file() {
     assert_success
 
     # configure the default template/constraint
-    run kubectl apply -f ./library/default/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template_default.yaml
     assert_success
     run kubectl apply -f ./library/default/samples/constraint.yaml
     assert_success
@@ -531,9 +531,9 @@ setup_file() {
     assert_success
 
     # configure the default template/constraint
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
 
     # verify that the image cannot be run due to an invalid cert
@@ -577,9 +577,9 @@ setup_file() {
     assert_success
 
     # configure the default template/constraint
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
 
     # validate executor status property shows success (retry for controller reconciliation)
@@ -618,10 +618,10 @@ setup_file() {
     run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o yaml > original-executor-k8s-auth.yaml"
     assert_success
 
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     sleep 5
 
@@ -650,9 +650,9 @@ setup_file() {
     assert_success
 
     # configure the default template/constraint
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
 
     # read the root certificate content as PEM
@@ -708,10 +708,10 @@ setup_file() {
     sleep 100
 
     # verify that the verification succeeds
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     assert_success
     sleep 5
     run kubectl run demo --namespace default --image=registry:5000/notation:signed
@@ -735,8 +735,8 @@ setup_file() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-unsigned --namespace default --force --ignore-not-found=true'
     }
 
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint_template.yaml
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/constraint.yaml
     sleep 3
 
     # save original executor state

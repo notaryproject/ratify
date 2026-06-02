@@ -578,7 +578,7 @@ e2e-deploy-base-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosi
 
 	rm mount_config.json
 
-e2e-deploy-ratify: e2e-helm-install e2e-notation-setup generate-certs e2e-build-ratify-image load-local-ratify-image
+e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-cosign-setup generate-certs e2e-build-ratify-image load-local-ratify-image
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
 		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
 		--set image.repository=localbuild \
@@ -594,6 +594,9 @@ e2e-deploy-ratify: e2e-helm-install e2e-notation-setup generate-certs e2e-build-
 		--set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
 		--set notation.certs[0].provider=inline \
 		--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
+		--set cosign.keys.provider=inline \
+		--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
+		--set cosign.scopes[0]=registry:5000 \
 		--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 e2e-build-local-ratify-base-image:
