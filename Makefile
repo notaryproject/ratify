@@ -369,8 +369,8 @@ e2e-cosign-setup:
 	cd .staging/cosign && \
 	./cosign-linux-amd64 login ${TEST_REGISTRY} -u ${TEST_REGISTRY_USERNAME} -p ${TEST_REGISTRY_PASSWORD} && \
 	./cosign-linux-amd64 generate-key-pair && \
-	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --tlog-upload=false --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-key --descriptor | jq .digest | xargs` && \
-	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --tlog-upload=false --key cosign.key ${TEST_REGISTRY}/all@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/all:v0 --descriptor | jq .digest | xargs`
+	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-key --descriptor | jq .digest | xargs` && \
+	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --key cosign.key ${TEST_REGISTRY}/all@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/all:v0 --descriptor | jq .digest | xargs`
 
 e2e-cosign-akv-setup:
 	rm -rf .staging/cosign
@@ -578,7 +578,7 @@ e2e-deploy-base-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosi
 
 	rm mount_config.json
 
-e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-cosign-setup e2e-inlinecert-setup generate-certs e2e-build-ratify-image load-local-ratify-image
+e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-inlinecert-setup generate-certs e2e-build-ratify-image load-local-ratify-image
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
 		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
 		--set image.repository=localbuild \
@@ -596,7 +596,6 @@ e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-cosign-setup e2e-inli
 		--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
 		--set cosign.keys.provider=inline \
 		--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
-		--set cosign.ignoreTLog=true \
 		--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 e2e-build-local-ratify-base-image:

@@ -504,7 +504,7 @@ setup_file() {
     # patch executor to use alternate inline certificate in notation verifier (v2 format)
     run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
-        jq --arg alt_cert "$ALT_CERT" '"'"' \
+        jq --arg alt_cert "$ALT_CERT" '"'"'
             .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
                 .parameters.certificates = [{"type": "ca", "inline": {"certs": $alt_cert}}]
             else . end)]
@@ -546,7 +546,7 @@ setup_file() {
     # patch executor to include alternate cert in verifier config inline (v2 format)
     run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
-        jq --arg alt_cert "$ALT_CERT" '"'"' \
+        jq --arg alt_cert "$ALT_CERT" '"'"'
             .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
                 .parameters.certificates = (.parameters.certificates + [{"type": "ca", "inline": {"certs": $alt_cert}}])
             else . end)]
@@ -660,7 +660,7 @@ setup_file() {
     # patch executor to use root cert in verifier config (v2 format)
     run bash -c 'ROOT_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
-        jq --arg root_cert "$ROOT_CERT" '"'"' \
+        jq --arg root_cert "$ROOT_CERT" '"'"'
             .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
                 .parameters.certificates = [{"type": "ca", "inline": {"certs": $root_cert}}]
             else . end)]
@@ -675,7 +675,7 @@ setup_file() {
     # patch executor to use leaf cert directly (v2 format)
     run bash -c 'LEAF_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
-        jq --arg leaf_cert "$LEAF_CERT" '"'"' \
+        jq --arg leaf_cert "$LEAF_CERT" '"'"'
             .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
                 .parameters.certificates = [{"type": "ca", "inline": {"certs": $leaf_cert}}]
             else . end)]
