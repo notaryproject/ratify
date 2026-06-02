@@ -108,6 +108,16 @@ ratify-config:
 test: setup-envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 
+# BENCH_COUNT controls how many times each benchmark is run; more runs reduce
+# noise and improve the reliability of benchstat comparisons.
+BENCH_COUNT ?= 10
+# BENCH_OUT is the file the raw benchmark results are written to.
+BENCH_OUT ?= bench.txt
+
+.PHONY: benchmark
+benchmark: ## Run Go benchmarks and write results to $(BENCH_OUT).
+	go test -run='^$$' -bench=. -benchmem -count=$(BENCH_COUNT) ./... | tee $(BENCH_OUT)
+
 .PHONY: clean
 clean:
 	go clean

@@ -427,3 +427,106 @@ func TestResolve(t *testing.T) {
 		t.Error("expected no error for valid artifact with wildcard scope, got:", err)
 	}
 }
+
+// benchScopedExecutor returns a ScopedExecutor populated with executors for
+// each scope tier, used by the routing benchmarks below.
+func benchScopedExecutor() *ScopedExecutor {
+	return &ScopedExecutor{
+		wildcard: map[string]*ratify.Executor{
+			"example.com": {},
+		},
+		registry: map[string]*ratify.Executor{
+			"registry.example.com": {},
+		},
+		repository: map[string]*ratify.Executor{
+			"registry.example.com/repository/foo": {},
+		},
+	}
+}
+
+// BenchmarkMatchExecutor measures the scope-routing hot path that runs on every
+// validation request. Each sub-benchmark targets a different precedence tier
+// (repository, registry, wildcard) plus the no-match failure path.
+func BenchmarkMatchExecutor(b *testing.B) {
+	scopedExecutor := benchScopedExecutor()
+	cases := []struct {
+		name     string
+		artifact string
+	}{
+		{"repository", "registry.example.com/repository/foo:v1"},
+		{"registry", "registry.example.com/foo:v1"},
+		{"wildcard", "foo.example.com/bar:v1"},
+		{"no-match", "unknown.com/foo:v1"},
+	}
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				//nolint:errcheck // error path is intentionally exercised by the no-match case
+				_, _ = scopedExecutor.matchExecutor(c.artifact)
+			}
+		})
+	}
+}
+
+// registerForBenchmark registers the in-package mocks, tolerating the case
+// where another test in this package has already registered the same types.
+// The underlying Register functions panic on duplicate registration, so each
+// call is guarded with a recover.
+func registerForBenchmark() {
+	tryRegister(func() { store.Register(mockStoreType, newMockStore) })
+	tryRegister(func() { verifier.Register(mockVerifierType, createMockVerifier) })
+	tryRegister(func() { policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer) })
+}
+
+// tryRegister runs a registration func, swallowing the panic raised when the
+// type is already registered.
+func tryRegister(register func()) {
+	defer func() {
+		_ = recover()
+	}()
+	register()
+}
+
+// BenchmarkValidateArtifact measures the end-to-end validation path through a
+// fully wired ScopedExecutor backed by the in-package mocks (store, verifier
+// and policy enforcer). It is intended as an observability signal for the
+// whole request flow and is intentionally NOT part of the regression gate,
+// since its result depends on mock behavior rather than a single hot function.
+func BenchmarkValidateArtifact(b *testing.B) {
+	registerForBenchmark()
+
+	scopedExecutor, err := NewScopedExecutor(Options{
+		Executors: []ScopedOptions{
+			{
+				Scopes: []string{"test"},
+				Verifiers: []verifier.NewOptions{
+					{
+						Name: mockVerifierName,
+						Type: mockVerifierType,
+					},
+				},
+				Stores: []store.NewOptions{
+					{
+						Type:   mockStoreType,
+						Scopes: []string{"test"},
+					},
+				},
+				Policy: &policyenforcer.NewOptions{
+					Type: mockPolicyEnforcerType,
+				},
+			},
+		},
+	})
+	if err != nil {
+		b.Fatalf("failed to create scoped executor: %v", err)
+	}
+
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		//nolint:errcheck // the mock validation result/error is not asserted in a benchmark
+		_, _ = scopedExecutor.ValidateArtifact(ctx, "test/foo:v1")
+	}
+}

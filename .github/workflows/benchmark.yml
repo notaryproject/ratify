@@ -1,0 +1,86 @@
+# Copyright The Ratify Authors.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: benchmark
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "docs/**"
+      - "library/**"
+      - "**.md"
+  workflow_dispatch:
+
+permissions: read-all
+
+env:
+  # Maximum allowed regression (percent) before the gate fails a PR.
+  THRESHOLD_PCT: "20"
+  # Number of times each benchmark is run to reduce measurement noise.
+  BENCH_COUNT: "10"
+
+jobs:
+  benchmark:
+    name: "Run benchmarks and gate regressions"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup go environment
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: "1.24"
+
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: Run benchmarks (PR head)
+        run: make benchmark BENCH_COUNT=${{ env.BENCH_COUNT }} BENCH_OUT=head.txt
+
+      # On pull requests, also benchmark the merge base so we can compare and
+      # gate regressions. On push to main there is no baseline to compare to,
+      # so we only record the results above.
+      - name: Run benchmarks (base branch)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git worktree add --detach ../base "${{ github.event.pull_request.base.sha }}"
+          make -C ../base benchmark BENCH_COUNT=${{ env.BENCH_COUNT }} BENCH_OUT="${GITHUB_WORKSPACE}/base.txt"
+          git worktree remove --force ../base
+
+      - name: Gate on benchmark regressions
+        if: ${{ github.event_name == 'pull_request' }}
+        run: ./scripts/benchmark-gate.sh base.txt head.txt "${{ env.THRESHOLD_PCT }}" | tee "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: ${{ always() }}
+        with:
+          name: benchmark-results
+          path: |
+            head.txt
+            base.txt
+          if-no-files-found: ignore
