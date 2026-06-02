@@ -37,7 +37,6 @@ ORAS_VERSION ?= 1.2.1
 HELM_VERSION ?= 3.16.3
 HELMFILE_VERSION ?= 0.169.2
 BATS_BASE_TESTS_FILE ?= test/bats/base-test.bats
-BATS_V2_BASE_TESTS_FILE ?= test/bats/v2-base-test.bats
 BATS_PLUGIN_TESTS_FILE ?= test/bats/plugin-test.bats
 BATS_CLI_TESTS_FILE ?= test/bats/cli-test.bats
 BATS_QUICKSTART_TESTS_FILE ?= test/bats/quickstart-test.bats
@@ -158,10 +157,6 @@ delete-gatekeeper:
 .PHONY: test-e2e
 test-e2e:
 	bats -t ${BATS_BASE_TESTS_FILE}
-
-.PHONY: test-e2e-v2
-test-e2e-v2:
-	bats -t ${BATS_V2_BASE_TESTS_FILE}
 
 .PHONY: test-e2e-cli
 test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup
@@ -597,7 +592,6 @@ e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-notation-leaf-cert-se
 		--set-file provider.tls.crt=${CERT_DIR}/server.crt \
 		--set-file provider.tls.key=${CERT_DIR}/server.key \
 		--set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
-		--set provider.tls.disableCertRotation=true \
 		--set notation.certs[0].provider=inline \
 		--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
 		--set cosign.keys.provider=inline \
@@ -623,12 +617,6 @@ e2e-build-ratify-image:
 	docker build --progress=plain --no-cache \
 	-f ./Dockerfile \
 	-t localbuild:test .
-
-.PHONY: e2e-build-ratify-v2-image
-e2e-build-ratify-v2-image: e2e-build-ratify-image
-
-.PHONY: e2e-deploy-ratify-v2
-e2e-deploy-ratify-v2: e2e-deploy-ratify
 
 build-local-ratify-gatekeeper-provider-image:
 	docker build --progress=plain --no-cache \

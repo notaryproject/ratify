@@ -233,9 +233,8 @@ setup_file() {
     run kubectl patch deployment ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --type='merge' -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"'"${TARGET_IP}"'","hostnames":["yourhost"]}]}}}}'
 
     # wait for rollout to complete after adding hostAliases
-    kubectl rollout status deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=120s
-    latest_pod=$(kubectl get pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --sort-by=.metadata.creationTimestamp -o name | tail -n 1)
-    kubectl wait --for=condition=ready -n ${RATIFY_NAMESPACE} ${latest_pod} --timeout=60s
+    kubectl rollout status deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=60s
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=60s
     sleep 5
 
     # read the CRL root certificate as PEM and patch executor
@@ -555,20 +554,16 @@ setup_file() {
     sleep 10
 
     # read the alternate certificate content as PEM
-    # patch executor to include both the default and alternate certs inline
+    # patch executor to include alternate cert in verifier config inline (v2 format)
     run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
-        ORIG_CERT=$(cat ~/.config/notation/localkeys/ratify-bats-test.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -n '"${RATIFY_NAMESPACE}"' -o json | \
-        jq --arg alt_cert "$ALT_CERT" --arg orig_cert "$ORIG_CERT" '"'"'
+        jq --arg alt_cert "$ALT_CERT" --arg orig_cert "'"${NOTATION_CERT}"'" '"'"'
             .spec.verifiers = [(.spec.verifiers[] | if .name == "notation" or .name == "notation-1" then
                 .parameters.certificates = [{"type": "ca", "inline": {"certs": $orig_cert}}, {"type": "ca", "inline": {"certs": $alt_cert}}]
             else . end)]
         '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    kubectl rollout restart deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE}
-    kubectl rollout status deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=120s
-    latest_pod=$(kubectl get pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --sort-by=.metadata.creationTimestamp -o name | tail -n 1)
-    kubectl wait --for=condition=ready -n ${RATIFY_NAMESPACE} ${latest_pod} --timeout=60s
+    sleep 10
 
     # verify that the image can now be run
     run kubectl run demo-alternate --namespace default --image=registry:5000/notation:signed-alternate
@@ -697,11 +692,9 @@ setup_file() {
             else . end)]
         '"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    kubectl rollout restart deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE}
-    kubectl rollout status deployment/ratify-ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --timeout=120s
-    latest_pod=$(kubectl get pod -l app.kubernetes.io/name=ratify-gatekeeper-provider -n ${RATIFY_NAMESPACE} --sort-by=.metadata.creationTimestamp -o name | tail -n 1)
-    kubectl wait --for=condition=ready -n ${RATIFY_NAMESPACE} ${latest_pod} --timeout=60s
 
+    # wait for the httpserver cache to be invalidated
+    sleep 60
     # verify that the image cannot be run with a leaf cert
     run kubectl run demo-leaf2 --namespace default --image=registry:5000/notation:leafSigned
     assert_failure
