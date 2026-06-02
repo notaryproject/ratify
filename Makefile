@@ -596,7 +596,6 @@ e2e-deploy-ratify: e2e-helm-install e2e-notation-setup e2e-cosign-setup generate
 		--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
 		--set cosign.keys.provider=inline \
 		--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
-		--set cosign.scopes[0]=registry:5000 \
 		--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 e2e-build-local-ratify-base-image:
