@@ -53,7 +53,10 @@ echo '```'
 # Rows whose name matches EXCLUDE_PATTERN are skipped (non-gating signals).
 regressions="$(
   awk -v threshold="${THRESHOLD_PCT}" -v exclude="${EXCLUDE_PATTERN}" '
-    match($0, /[+][0-9]+(\.[0-9]+)?%/) {
+    # Match a positive delta: either a finite "+12.34%" or "+Inf%". benchstat
+    # emits +Inf% when the base metric is 0 and the head metric is > 0 (e.g.
+    # allocs/op going from 0 to non-zero), which is always a real regression.
+    match($0, /[+]([0-9]+(\.[0-9]+)?|Inf)%/) {
       # Skip the geomean aggregate row: it is a summary across all benchmarks
       # (including excluded ones), not an individual result to gate on.
       if ($1 == "geomean") {
@@ -62,7 +65,12 @@ regressions="$(
       if (exclude != "" && $1 ~ exclude) {
         next
       }
-      pct = substr($0, RSTART + 1, RLENGTH - 2) + 0
+      delta = substr($0, RSTART + 1, RLENGTH - 2)
+      if (delta == "Inf") {
+        print "  - " $1 ": +Inf% (limit +" threshold "%)"
+        next
+      }
+      pct = delta + 0
       if (pct > threshold) {
         print "  - " $1 ": +" pct "% (limit +" threshold "%)"
       }

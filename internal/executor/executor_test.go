@@ -17,6 +17,7 @@ package executor
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
@@ -479,11 +480,18 @@ func registerForBenchmark() {
 	tryRegister(func() { policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer) })
 }
 
-// tryRegister runs a registration func, swallowing the panic raised when the
-// type is already registered.
+// tryRegister runs a registration func, swallowing only the panic raised when
+// the type is already registered (the factory Register functions panic with a
+// message containing "already registered"). Any other panic indicates a real
+// setup problem and is re-raised so the benchmark fails loudly.
 func tryRegister(register func()) {
 	defer func() {
-		_ = recover()
+		if r := recover(); r != nil {
+			if msg, ok := r.(string); ok && strings.Contains(msg, "already registered") {
+				return
+			}
+			panic(r)
+		}
 	}()
 	register()
 }

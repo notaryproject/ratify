@@ -116,7 +116,9 @@ BENCH_OUT ?= bench.txt
 
 .PHONY: benchmark
 benchmark: ## Run Go benchmarks and write results to $(BENCH_OUT).
-	go test -run='^$$' -bench=. -benchmem -count=$(BENCH_COUNT) ./... | tee $(BENCH_OUT)
+	# Run under bash with pipefail so a `go test` failure is not masked by tee's
+	# (usually zero) exit status.
+	bash -o pipefail -c 'go test -run="^$$" -bench=. -benchmem -count=$(BENCH_COUNT) ./... | tee $(BENCH_OUT)'
 
 .PHONY: clean
 clean:
