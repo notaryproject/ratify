@@ -53,6 +53,14 @@ load helpers
     check_crl_cache_deleted
 }
 
+@test "notation verifier multiarch test" {
+    run bin/ratify verify -c $RATIFY_DIR/config.json -s $TEST_REGISTRY/notation:multiarch-signed
+    assert_cmd_verify_success
+
+    run bin/ratify verify -c $RATIFY_DIR/config.json -s $TEST_REGISTRY/notation:multiarch-unsigned
+    assert_cmd_verify_failure
+}
+
 @test "notation verifier with type test" {
     run bin/ratify verify -c $RATIFY_DIR/config_notation_verifier_with_type.json -s $TEST_REGISTRY/notation:leafSigned
     assert_cmd_verify_success_with_type

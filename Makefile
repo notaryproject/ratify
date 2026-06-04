@@ -160,7 +160,7 @@ test-e2e: generate-rotation-certs
 	EXPIRING_CERT_DIR=.staging/rotation/expiring-certs CERT_DIR=.staging/rotation GATEKEEPER_VERSION=${GATEKEEPER_VERSION} bats -t ${BATS_PLUGIN_TESTS_FILE}
 
 .PHONY: test-e2e-cli
-test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup
+test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-notation-multiarch-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup
 	rm ${GOCOVERDIR} -rf
 	mkdir ${GOCOVERDIR} -p
 	RATIFY_DIR=${INSTALL_DIR} TEST_REGISTRY=${TEST_REGISTRY} ${GITHUB_WORKSPACE}/bin/bats -t ${BATS_CLI_TESTS_FILE}
@@ -344,6 +344,27 @@ e2e-notation-crl-setup:
 	rm .staging/notation/notation.tar
 	NOTATION_EXPERIMENTAL=1 .staging/notation/notation sign -u ${TEST_REGISTRY_USERNAME} -p ${TEST_REGISTRY_PASSWORD} --key "crl-test" ${TEST_REGISTRY}/notation@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/notation:crl --descriptor | jq .digest | xargs`
 	python3 ./scripts/crl_server.py & echo "started crl server"
+
+e2e-notation-multiarch-setup:
+	rm -rf .staging/notation/multiarch
+	mkdir -p .staging/notation/multiarch
+
+	# Build a multi-arch image index (manifest list) and push the signed variant
+	printf 'FROM ${ALPINE_IMAGE}\nCMD ["echo", "notation multiarch signed image"]' > .staging/notation/multiarch/Dockerfile
+	docker buildx create --use
+	docker buildx build --platform linux/amd64,linux/arm64 --output type=oci,dest=.staging/notation/multiarch/multiarch.tar -t notation-multiarch:v0 .staging/notation/multiarch
+	${GITHUB_WORKSPACE}/bin/oras cp --from-oci-layout .staging/notation/multiarch/multiarch.tar:v0 ${TEST_REGISTRY}/notation:multiarch-signed
+	rm .staging/notation/multiarch/multiarch.tar
+
+	# Build a separate multi-arch image index and push it unsigned (negative case)
+	printf 'FROM ${ALPINE_IMAGE}\nCMD ["echo", "notation multiarch unsigned image"]' > .staging/notation/multiarch/Dockerfile
+	docker buildx create --use
+	docker buildx build --platform linux/amd64,linux/arm64 --output type=oci,dest=.staging/notation/multiarch/multiarch.tar -t notation-multiarch:v0 .staging/notation/multiarch
+	${GITHUB_WORKSPACE}/bin/oras cp --from-oci-layout .staging/notation/multiarch/multiarch.tar:v0 ${TEST_REGISTRY}/notation:multiarch-unsigned
+	rm .staging/notation/multiarch/multiarch.tar
+
+	# Sign the image index digest with the default notation test key
+	NOTATION_EXPERIMENTAL=1 .staging/notation/notation sign --allow-referrers-api -u ${TEST_REGISTRY_USERNAME} -p ${TEST_REGISTRY_PASSWORD} ${TEST_REGISTRY}/notation@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/notation:multiarch-signed --descriptor | jq .digest | xargs`
 
 e2e-cosign-setup:
 	rm -rf .staging/cosign
