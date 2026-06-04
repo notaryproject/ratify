@@ -284,7 +284,7 @@ func TestGetCertificates(t *testing.T) {
 }
 
 func TestGetCertStatusMap(t *testing.T) {
-	certsStatus := []map[string]string{}
+	certsStatus := make([]map[string]string, 0, 2)
 	certsStatus = append(certsStatus, map[string]string{
 		"CertName":    "Cert1",
 		"CertVersion": "VersionABC",

@@ -53,6 +53,9 @@ const (
 	//
 	// See https://github.com/slsa-framework/source-tool/issues/255
 	OldExpectedSan = "https://github.com/slsa-framework/slsa-source-poc/.github/workflows/compute_slsa_source.yml@refs/heads/main"
+
+	// verificationResultPassed is the expected policy verification result.
+	verificationResultPassed = "PASSED"
 )
 
 var (
@@ -133,7 +136,7 @@ func matchResourceURI(vsa *vpb.VerificationSummary, vsaOpts *VerificationOptions
 
 // confirmVerificationResult checks that the policy verification result is "PASSED".
 func confirmVerificationResult(vsa *vpb.VerificationSummary) error {
-	if vsa.VerificationResult != "PASSED" {
+	if vsa.VerificationResult != verificationResultPassed {
 		return fmt.Errorf("%w: verification result is not Passed: %s", ErrorInvalidVerificationResult, vsa.VerificationResult)
 	}
 	return nil

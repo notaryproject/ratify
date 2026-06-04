@@ -1,3 +1,25 @@
 vulnerabilities:
   - id: CVE-2024-45338
     statement: kubectl is not vulnerable to this and is reason for being flagged
+  # The following are Go standard library DoS-class CVEs in the bundled upstream
+  # kubectl binary. They are fixed only in go1.25.10 / go1.26.3, which no published
+  # Kubernetes/kubectl release has been built with yet (kubectl v1.35.5 uses go1.25.9).
+  # kubectl is bundled solely to apply CRDs and is not network-exposed at runtime.
+  # Remove these entries once a patched kubectl release (built with go >= 1.25.10/1.26.3)
+  # is available and KUBERNETES_VERSION is bumped accordingly.
+  - id: CVE-2026-33811
+    statement: stdlib DoS in bundled kubectl; fixed only in go1.25.10/1.26.3, not yet in any kubectl release.
+  - id: CVE-2026-33814
+    statement: stdlib DoS in bundled kubectl; fixed only in go1.25.10/1.26.3, not yet in any kubectl release.
+  - id: CVE-2026-39820
+    statement: stdlib DoS in bundled kubectl; fixed only in go1.25.10/1.26.3, not yet in any kubectl release.
+  - id: CVE-2026-39823
+    statement: stdlib DoS in bundled kubectl; fixed only in go1.25.10/1.26.3, not yet in any kubectl release.
+  - id: CVE-2026-39825
+    statement: stdlib DoS in bundled kubectl; fixed only in go1.25.10/1.26.3, not yet in any kubectl release.
+  - id: CVE-2026-39826
+    statement: stdlib DoS in bundled kubectl; fixed only in go1.25.10/1.26.3, not yet in any kubectl release.
+  - id: CVE-2026-39836
+    statement: stdlib DoS in bundled kubectl; fixed only in go1.25.10/1.26.3, not yet in any kubectl release.
+  - id: CVE-2026-42499
+    statement: stdlib DoS in bundled kubectl; fixed only in go1.25.10/1.26.3, not yet in any kubectl release.
