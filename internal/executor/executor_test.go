@@ -17,6 +17,7 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -482,12 +483,14 @@ func registerForBenchmark() {
 
 // tryRegister runs a registration func, swallowing only the panic raised when
 // the type is already registered (the factory Register functions panic with a
-// message containing "already registered"). Any other panic indicates a real
-// setup problem and is re-raised so the benchmark fails loudly.
+// message containing "already registered"). The recovered value may be a
+// string or an error, so it is normalized with fmt.Sprint before inspection.
+// Any other panic indicates a real setup problem and is re-raised so the
+// benchmark fails loudly.
 func tryRegister(register func()) {
 	defer func() {
 		if r := recover(); r != nil {
-			if msg, ok := r.(string); ok && strings.Contains(msg, "already registered") {
+			if strings.Contains(fmt.Sprint(r), "already registered") {
 				return
 			}
 			panic(r)

@@ -48,15 +48,34 @@ echo "${COMPARISON}"
 echo '```'
 
 # Parse the "vs base" delta column. benchstat prints deltas like "+21.34%" or
-# "-5.10%"; "~" means the change was not statistically significant. We flag any
-# positive delta (a regression for sec/op, B/op and allocs/op) above threshold.
-# Rows whose name matches EXCLUDE_PATTERN are skipped (non-gating signals).
+# "-5.10%"; "~" means the change was not statistically significant.
+#
+# The gate is unit-aware: benchstat groups results by metric and prints the unit
+# in each section's "vs base" header (e.g. sec/op, B/op, allocs/op, MB/s). For
+# "lower-is-better" units (anything ending in /op) a positive delta is a
+# regression; for "higher-is-better" throughput units (ending in /s, e.g. MB/s
+# from b.SetBytes) a negative delta is the regression instead. Rows whose name
+# matches EXCLUDE_PATTERN are skipped (non-gating signals).
 regressions="$(
   awk -v threshold="${THRESHOLD_PCT}" -v exclude="${EXCLUDE_PATTERN}" '
-    # Match a positive delta: either a finite "+12.34%" or "+Inf%". benchstat
-    # emits +Inf% when the base metric is 0 and the head metric is > 0 (e.g.
-    # allocs/op going from 0 to non-zero), which is always a real regression.
-    match($0, /[+]([0-9]+(\.[0-9]+)?|Inf)%/) {
+    # Track the current metric/unit from each section'"'"'s "vs base" header so we
+    # know which direction counts as a regression for the rows that follow.
+    /vs base/ {
+      unit = ""
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /\/(op|s)$/) {
+          unit = $i
+          break
+        }
+      }
+      # Throughput units (MB/s, B/s, op/s) are better when higher.
+      higher_is_better = (unit ~ /\/s$/)
+      next
+    }
+    # Match a signed delta: a finite "+12.34%"/"-5.10%" or "+Inf%"/"-Inf%".
+    # benchstat emits +Inf% when the base metric is 0 and the head metric is > 0
+    # (e.g. allocs/op going from 0 to non-zero).
+    match($0, /[+-]([0-9]+(\.[0-9]+)?|Inf)%/) {
       # Skip the geomean aggregate row: it is a summary across all benchmarks
       # (including excluded ones), not an individual result to gate on.
       if ($1 == "geomean") {
@@ -65,14 +84,27 @@ regressions="$(
       if (exclude != "" && $1 ~ exclude) {
         next
       }
+      sign = substr($0, RSTART, 1)
       delta = substr($0, RSTART + 1, RLENGTH - 2)
+      # A regression is an increase for lower-is-better units and a decrease for
+      # higher-is-better units; the opposite direction is an improvement.
+      if (higher_is_better) {
+        if (sign != "-") {
+          next
+        }
+      } else {
+        if (sign != "+") {
+          next
+        }
+      }
+      label = (unit != "") ? $1 " (" unit ")" : $1
       if (delta == "Inf") {
-        print "  - " $1 ": +Inf% (limit +" threshold "%)"
+        print "  - " label ": " sign "Inf% (limit " threshold "%)"
         next
       }
       pct = delta + 0
       if (pct > threshold) {
-        print "  - " $1 ": +" pct "% (limit +" threshold "%)"
+        print "  - " label ": " sign pct "% (limit " threshold "%)"
       }
     }
   ' <<<"${COMPARISON}"
