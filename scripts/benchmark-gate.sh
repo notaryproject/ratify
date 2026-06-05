@@ -30,6 +30,11 @@
 
 set -euo pipefail
 
+# Force a deterministic, C locale so benchstat output and awk numeric parsing
+# use '.' as the decimal separator regardless of the host's locale settings.
+export LC_ALL=C
+export LANG=C
+
 BASE_FILE="${1:?usage: benchmark-gate.sh <base.txt> <head.txt> [threshold_pct]}"
 HEAD_FILE="${2:?usage: benchmark-gate.sh <base.txt> <head.txt> [threshold_pct]}"
 THRESHOLD_PCT="${3:-${THRESHOLD_PCT:-20}}"

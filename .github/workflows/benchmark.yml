@@ -64,9 +64,14 @@ jobs:
       - name: Run benchmarks (PR head)
         run: make benchmark BENCH_COUNT=${{ env.BENCH_COUNT }} BENCH_OUT=head.txt
 
-      # On pull requests, also benchmark the merge base so we can compare and
+      # On pull requests, also benchmark the base branch so we can compare and
       # gate regressions. On push to main there is no baseline to compare to,
       # so we only record the results above.
+      #
+      # We check out `pull_request.base.sha` (the base branch tip at event
+      # time). This is not necessarily the git merge-base, but GitHub already
+      # runs this workflow against the PR's merge commit, so the base tip is the
+      # most representative baseline and keeps the step simple.
       #
       # The base commit may predate the `benchmark` Makefile target (this PR
       # may be the change that introduces it), so run `go test -bench` directly
@@ -76,9 +81,11 @@ jobs:
       - name: Run benchmarks (base branch)
         if: ${{ github.event_name == 'pull_request' }}
         run: |
+          # Always remove the worktree on exit so a benchmark failure does not
+          # leave a stale worktree behind for later steps/jobs on the runner.
+          trap 'git worktree remove --force ../base 2>/dev/null || true' EXIT
           git worktree add --detach ../base "${{ github.event.pull_request.base.sha }}"
           ( cd ../base && go test -run='^$' -bench=. -benchmem -count=${{ env.BENCH_COUNT }} ./... ) | tee "${GITHUB_WORKSPACE}/base.txt"
-          git worktree remove --force ../base
 
       - name: Gate on benchmark regressions
         if: ${{ github.event_name == 'pull_request' }}

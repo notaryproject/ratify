@@ -17,8 +17,7 @@ package executor
 
 import (
 	"context"
-	"fmt"
-	"strings"
+	"sync"
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
@@ -89,9 +88,7 @@ func createMockVerifier(_ verifier.NewOptions, _ []string) (ratify.Verifier, err
 }
 
 func TestNewExecutor(t *testing.T) {
-	store.Register(mockStoreType, newMockStore)
-	verifier.Register(mockVerifierType, createMockVerifier)
-	policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
+	registerMocks()
 
 	tests := []struct {
 		name           string
@@ -471,32 +468,22 @@ func BenchmarkMatchExecutor(b *testing.B) {
 	}
 }
 
-// registerForBenchmark registers the in-package mocks, tolerating the case
-// where another test in this package has already registered the same types.
-// The underlying Register functions panic on duplicate registration, so each
-// call is guarded with a recover.
-func registerForBenchmark() {
-	tryRegister(func() { store.Register(mockStoreType, newMockStore) })
-	tryRegister(func() { verifier.Register(mockVerifierType, createMockVerifier) })
-	tryRegister(func() { policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer) })
-}
+// registerMocksOnce guards the one-time registration of the in-package mocks.
+// The underlying factory Register functions panic on duplicate registration,
+// so all callers (tests and benchmarks) funnel through registerMocks to ensure
+// the mocks are registered exactly once per test binary.
+var registerMocksOnce sync.Once
 
-// tryRegister runs a registration func, swallowing only the panic raised when
-// the type is already registered (the factory Register functions panic with a
-// message containing "already registered"). The recovered value may be a
-// string or an error, so it is normalized with fmt.Sprint before inspection.
-// Any other panic indicates a real setup problem and is re-raised so the
-// benchmark fails loudly.
-func tryRegister(register func()) {
-	defer func() {
-		if r := recover(); r != nil {
-			if strings.Contains(fmt.Sprint(r), "already registered") {
-				return
-			}
-			panic(r)
-		}
-	}()
-	register()
+// registerMocks registers the in-package store, verifier and policy-enforcer
+// mocks exactly once, regardless of how many tests or benchmark iterations
+// invoke it. Using sync.Once avoids relying on recover/panic-message matching
+// to tolerate duplicate registration.
+func registerMocks() {
+	registerMocksOnce.Do(func() {
+		store.Register(mockStoreType, newMockStore)
+		verifier.Register(mockVerifierType, createMockVerifier)
+		policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
+	})
 }
 
 // BenchmarkValidateArtifact measures the end-to-end validation path through a
@@ -505,7 +492,7 @@ func tryRegister(register func()) {
 // whole request flow and is intentionally NOT part of the regression gate,
 // since its result depends on mock behavior rather than a single hot function.
 func BenchmarkValidateArtifact(b *testing.B) {
-	registerForBenchmark()
+	registerMocks()
 
 	scopedExecutor, err := NewScopedExecutor(Options{
 		Executors: []ScopedOptions{
