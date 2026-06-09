@@ -108,6 +108,44 @@ ratify-config:
 test: setup-envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 
+# BENCH_COUNT controls how many times each benchmark is run; more runs reduce
+# noise and improve the reliability of benchstat comparisons.
+BENCH_COUNT ?= 10
+# Self-documenting result files. BENCH_HEAD holds the current tree's results,
+# BENCH_BASE holds the comparison baseline's results.
+BENCH_HEAD ?= benchmark-head.txt
+BENCH_BASE ?= benchmark-base.txt
+# Maximum allowed regression (percent) before the gate fails.
+BENCH_THRESHOLD ?= 20
+# Commit-ish to benchmark as the comparison baseline (used by benchmark-base).
+BENCH_BASE_REF ?= origin/main
+
+.PHONY: benchmark
+benchmark: ## Run Go benchmarks for the current tree into $(BENCH_HEAD).
+	# Run under bash with pipefail so a `go test` failure is not masked by tee's
+	# (usually zero) exit status. Quote the output path so it survives spaces.
+	bash -o pipefail -c 'go test -run="^$$" -bench=. -benchmem -count=$(BENCH_COUNT) ./... | tee "$(BENCH_HEAD)"'
+
+.PHONY: benchmark-base
+benchmark-base: ## Run benchmarks for $(BENCH_BASE_REF) in a temp worktree into $(BENCH_BASE).
+	# Benchmark the baseline in a detached worktree so the current tree is left
+	# untouched. The worktree is always removed on exit, even on failure. The
+	# baseline may predate this target, so invoke `go test -bench` directly
+	# rather than relying on its Makefile.
+	bash -o pipefail -c '\
+		set -e; \
+		worktree="$$(mktemp -d)"; \
+		trap "git worktree remove --force \"$$worktree\" 2>/dev/null || true" EXIT; \
+		git worktree add --detach "$$worktree" "$(BENCH_BASE_REF)"; \
+		( cd "$$worktree" && go test -run="^$$" -bench=. -benchmem -count=$(BENCH_COUNT) ./... ) | tee "$(BENCH_BASE)"'
+
+.PHONY: benchmark-gate
+benchmark-gate: ## Compare $(BENCH_BASE) vs $(BENCH_HEAD) and fail on regressions.
+	THRESHOLD_PCT=$(BENCH_THRESHOLD) ./scripts/benchmark-gate.sh "$(BENCH_BASE)" "$(BENCH_HEAD)" "$(BENCH_THRESHOLD)"
+
+.PHONY: benchmark-ci
+benchmark-ci: benchmark benchmark-base benchmark-gate ## Run head + base benchmarks and gate regressions.
+
 .PHONY: clean
 clean:
 	go clean

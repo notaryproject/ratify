@@ -17,6 +17,7 @@ package executor
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
@@ -87,9 +88,7 @@ func createMockVerifier(_ verifier.NewOptions, _ []string) (ratify.Verifier, err
 }
 
 func TestNewExecutor(t *testing.T) {
-	store.Register(mockStoreType, newMockStore)
-	verifier.Register(mockVerifierType, createMockVerifier)
-	policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
+	registerMocks()
 
 	tests := []struct {
 		name           string
@@ -426,4 +425,22 @@ func TestResolve(t *testing.T) {
 	if _, err := scopedExecutor.Resolve(context.Background(), "test.example.com/foo:v1"); err != nil {
 		t.Error("expected no error for valid artifact with wildcard scope, got:", err)
 	}
+}
+
+// registerMocksOnce guards the one-time registration of the in-package mocks.
+// The underlying factory Register functions panic on duplicate registration,
+// so all callers (tests and benchmarks) funnel through registerMocks to ensure
+// the mocks are registered exactly once per test binary.
+var registerMocksOnce sync.Once
+
+// registerMocks registers the in-package store, verifier and policy-enforcer
+// mocks exactly once, regardless of how many tests or benchmark iterations
+// invoke it. Using sync.Once avoids relying on recover/panic-message matching
+// to tolerate duplicate registration.
+func registerMocks() {
+	registerMocksOnce.Do(func() {
+		store.Register(mockStoreType, newMockStore)
+		verifier.Register(mockVerifierType, createMockVerifier)
+		policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
+	})
 }
