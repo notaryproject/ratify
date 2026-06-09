@@ -27,6 +27,8 @@
 #                    gate (e.g. observability-only benchmarks). Excluded rows
 #                    still appear in the printed comparison but never fail the
 #                    gate. Default: "ValidateArtifact".
+#   BENCHSTAT_VERSION  Version of benchstat to auto-install when it is not
+#                    already on PATH. Default: a pinned pseudo-version.
 
 set -euo pipefail
 
@@ -39,10 +41,17 @@ BASE_FILE="${1:?usage: benchmark-gate.sh <base.txt> <head.txt> [threshold_pct]}"
 HEAD_FILE="${2:?usage: benchmark-gate.sh <base.txt> <head.txt> [threshold_pct]}"
 THRESHOLD_PCT="${3:-${THRESHOLD_PCT:-20}}"
 EXCLUDE_PATTERN="${EXCLUDE_PATTERN:-ValidateArtifact}"
+BENCHSTAT_VERSION="${BENCHSTAT_VERSION:-v0.0.0-20260512194132-3cf34090a3db}"
 
+# Install benchstat on demand so the gate works out of the box locally and in
+# CI. The version is pinned for deterministic, reproducible comparisons.
 if ! command -v benchstat >/dev/null 2>&1; then
-  echo "benchstat not found on PATH. Install with: go install golang.org/x/perf/cmd/benchstat@latest" >&2
-  exit 2
+  echo "benchstat not found on PATH; installing golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}" >&2
+  if ! go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"; then
+    echo "failed to install benchstat" >&2
+    exit 2
+  fi
+  export PATH="$PATH:$(go env GOPATH)/bin"
 fi
 
 COMPARISON="$(benchstat "${BASE_FILE}" "${HEAD_FILE}")"

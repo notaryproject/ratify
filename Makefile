@@ -111,14 +111,40 @@ test: setup-envtest ## Run tests.
 # BENCH_COUNT controls how many times each benchmark is run; more runs reduce
 # noise and improve the reliability of benchstat comparisons.
 BENCH_COUNT ?= 10
-# BENCH_OUT is the file the raw benchmark results are written to.
-BENCH_OUT ?= bench.txt
+# Self-documenting result files. BENCH_HEAD holds the current tree's results,
+# BENCH_BASE holds the comparison baseline's results.
+BENCH_HEAD ?= benchmark-head.txt
+BENCH_BASE ?= benchmark-base.txt
+# Maximum allowed regression (percent) before the gate fails.
+BENCH_THRESHOLD ?= 20
+# Commit-ish to benchmark as the comparison baseline (used by benchmark-base).
+BENCH_BASE_REF ?= origin/main
 
 .PHONY: benchmark
-benchmark: ## Run Go benchmarks and write results to $(BENCH_OUT).
+benchmark: ## Run Go benchmarks for the current tree into $(BENCH_HEAD).
 	# Run under bash with pipefail so a `go test` failure is not masked by tee's
 	# (usually zero) exit status. Quote the output path so it survives spaces.
-	bash -o pipefail -c 'go test -run="^$$" -bench=. -benchmem -count=$(BENCH_COUNT) ./... | tee "$(BENCH_OUT)"'
+	bash -o pipefail -c 'go test -run="^$$" -bench=. -benchmem -count=$(BENCH_COUNT) ./... | tee "$(BENCH_HEAD)"'
+
+.PHONY: benchmark-base
+benchmark-base: ## Run benchmarks for $(BENCH_BASE_REF) in a temp worktree into $(BENCH_BASE).
+	# Benchmark the baseline in a detached worktree so the current tree is left
+	# untouched. The worktree is always removed on exit, even on failure. The
+	# baseline may predate this target, so invoke `go test -bench` directly
+	# rather than relying on its Makefile.
+	bash -o pipefail -c '\
+		set -e; \
+		worktree="$$(mktemp -d)"; \
+		trap "git worktree remove --force \"$$worktree\" 2>/dev/null || true" EXIT; \
+		git worktree add --detach "$$worktree" "$(BENCH_BASE_REF)"; \
+		( cd "$$worktree" && go test -run="^$$" -bench=. -benchmem -count=$(BENCH_COUNT) ./... ) | tee "$(BENCH_BASE)"'
+
+.PHONY: benchmark-gate
+benchmark-gate: ## Compare $(BENCH_BASE) vs $(BENCH_HEAD) and fail on regressions.
+	THRESHOLD_PCT=$(BENCH_THRESHOLD) ./scripts/benchmark-gate.sh "$(BENCH_BASE)" "$(BENCH_HEAD)" "$(BENCH_THRESHOLD)"
+
+.PHONY: benchmark-ci
+benchmark-ci: benchmark benchmark-base benchmark-gate ## Run head + base benchmarks and gate regressions.
 
 .PHONY: clean
 clean:
@@ -172,7 +198,7 @@ test-e2e: generate-rotation-certs
 	EXPIRING_CERT_DIR=.staging/rotation/expiring-certs CERT_DIR=.staging/rotation GATEKEEPER_VERSION=${GATEKEEPER_VERSION} bats -t ${BATS_PLUGIN_TESTS_FILE}
 
 .PHONY: test-e2e-cli
-test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup
+test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-notation-multiarch-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup
 	rm ${GOCOVERDIR} -rf
 	mkdir ${GOCOVERDIR} -p
 	RATIFY_DIR=${INSTALL_DIR} TEST_REGISTRY=${TEST_REGISTRY} ${GITHUB_WORKSPACE}/bin/bats -t ${BATS_CLI_TESTS_FILE}
@@ -355,6 +381,27 @@ e2e-notation-crl-setup:
 	${GITHUB_WORKSPACE}/bin/oras cp --from-oci-layout .staging/notation/notation.tar:v0 ${TEST_REGISTRY}/notation:crl
 	rm .staging/notation/notation.tar
 	NOTATION_EXPERIMENTAL=1 .staging/notation/notation sign -u ${TEST_REGISTRY_USERNAME} -p ${TEST_REGISTRY_PASSWORD} --key "crl-test" ${TEST_REGISTRY}/notation@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/notation:crl --descriptor | jq .digest | xargs`
+
+e2e-notation-multiarch-setup:
+	rm -rf .staging/notation/multiarch
+	mkdir -p .staging/notation/multiarch
+
+	# Build a multi-arch image index (manifest list) and push the signed variant
+	printf 'FROM ${ALPINE_IMAGE}\nCMD ["echo", "notation multiarch signed image"]' > .staging/notation/multiarch/Dockerfile
+	docker buildx create --use
+	docker buildx build --platform linux/amd64,linux/arm64 --output type=oci,dest=.staging/notation/multiarch/multiarch.tar -t notation-multiarch:v0 .staging/notation/multiarch
+	${GITHUB_WORKSPACE}/bin/oras cp --from-oci-layout .staging/notation/multiarch/multiarch.tar:v0 ${TEST_REGISTRY}/notation:multiarch-signed
+	rm .staging/notation/multiarch/multiarch.tar
+
+	# Build a separate multi-arch image index and push it unsigned (negative case)
+	printf 'FROM ${ALPINE_IMAGE}\nCMD ["echo", "notation multiarch unsigned image"]' > .staging/notation/multiarch/Dockerfile
+	docker buildx create --use
+	docker buildx build --platform linux/amd64,linux/arm64 --output type=oci,dest=.staging/notation/multiarch/multiarch.tar -t notation-multiarch:v0 .staging/notation/multiarch
+	${GITHUB_WORKSPACE}/bin/oras cp --from-oci-layout .staging/notation/multiarch/multiarch.tar:v0 ${TEST_REGISTRY}/notation:multiarch-unsigned
+	rm .staging/notation/multiarch/multiarch.tar
+
+	# Sign the image index digest with the default notation test key
+	NOTATION_EXPERIMENTAL=1 .staging/notation/notation sign --allow-referrers-api -u ${TEST_REGISTRY_USERNAME} -p ${TEST_REGISTRY_PASSWORD} ${TEST_REGISTRY}/notation@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/notation:multiarch-signed --descriptor | jq .digest | xargs`
 	python3 ./scripts/crl_server.py & echo "started crl server"
 
 e2e-cosign-setup:

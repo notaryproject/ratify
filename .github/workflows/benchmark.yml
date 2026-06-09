@@ -55,48 +55,32 @@ jobs:
         with:
           go-version: "1.24"
 
-      - name: Install benchstat
-        # Pin to a specific version so benchmark gating stays deterministic and
-        # reproducible over time (changes in benchstat analysis/output must be
-        # adopted intentionally rather than silently breaking unchanged PRs).
-        run: go install golang.org/x/perf/cmd/benchstat@v0.0.0-20260512194132-3cf34090a3db
-
+      # Run the current tree's benchmarks. On push to main this records a
+      # baseline only; the gate below runs on pull requests.
       - name: Run benchmarks (PR head)
-        run: make benchmark BENCH_COUNT=${{ env.BENCH_COUNT }} BENCH_OUT=head.txt
+        run: make benchmark BENCH_COUNT=${{ env.BENCH_COUNT }}
 
-      # On pull requests, also benchmark the base branch so we can compare and
-      # gate regressions. On push to main there is no baseline to compare to,
-      # so we only record the results above.
-      #
-      # We check out `pull_request.base.sha` (the base branch tip at event
-      # time). This is not necessarily the git merge-base, but GitHub already
-      # runs this workflow against the PR's merge commit, so the base tip is the
-      # most representative baseline and keeps the step simple.
-      #
-      # The base commit may predate the `benchmark` Makefile target (this PR
-      # may be the change that introduces it), so run `go test -bench` directly
-      # against the base worktree instead of relying on its Makefile. Any
-      # benchmark that exists only at HEAD simply has no base counterpart and
-      # therefore cannot be flagged as a regression.
+      # On pull requests, also benchmark the base branch tip and gate on
+      # regressions. The benchmark logic lives in the Makefile so it can be
+      # reproduced and debugged locally (e.g. `make benchmark-ci`). The base
+      # tip is used as the baseline; GitHub already runs this workflow against
+      # the PR's merge commit, so it is the most representative comparison.
       - name: Run benchmarks (base branch)
         if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          # Always remove the worktree on exit so a benchmark failure does not
-          # leave a stale worktree behind for later steps/jobs on the runner.
-          trap 'git worktree remove --force ../base 2>/dev/null || true' EXIT
-          git worktree add --detach ../base "${{ github.event.pull_request.base.sha }}"
-          ( cd ../base && go test -run='^$' -bench=. -benchmem -count=${{ env.BENCH_COUNT }} ./... ) | tee "${GITHUB_WORKSPACE}/base.txt"
+        run: make benchmark-base BENCH_COUNT=${{ env.BENCH_COUNT }} BENCH_BASE_REF=${{ github.event.pull_request.base.sha }}
 
       - name: Gate on benchmark regressions
         if: ${{ github.event_name == 'pull_request' }}
-        run: ./scripts/benchmark-gate.sh base.txt head.txt "${{ env.THRESHOLD_PCT }}" | tee "${GITHUB_STEP_SUMMARY}"
+        run: make benchmark-gate BENCH_THRESHOLD=${{ env.THRESHOLD_PCT }} | tee "${GITHUB_STEP_SUMMARY}"
 
+      # Always upload the raw results so a failed gate can be troubleshooted by
+      # inspecting the head and base benchmark output.
       - name: Upload benchmark results
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: ${{ always() }}
         with:
           name: benchmark-results
           path: |
-            head.txt
-            base.txt
+            benchmark-head.txt
+            benchmark-base.txt
           if-no-files-found: ignore

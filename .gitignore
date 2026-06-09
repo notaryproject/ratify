@@ -18,6 +18,4 @@ certs/
 
 pkg/referrerstore/factory/plugin-store
 
-bench.txt
-head.txt
-base.txt
+benchmark*.txt
