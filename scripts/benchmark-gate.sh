@@ -19,7 +19,7 @@
 # (worse sec/op, B/op, or allocs/op) above THRESHOLD_PCT fails the gate.
 #
 # Usage:
-#   scripts/benchmark-gate.sh <base.txt> <head.txt> [threshold_pct]
+#   scripts/benchmark-gate.sh <benchmark-base.txt> <benchmark-head.txt> [threshold_pct]
 #
 # Environment:
 #   THRESHOLD_PCT  Maximum allowed regression percentage (default: 20).
@@ -37,8 +37,8 @@ set -euo pipefail
 export LC_ALL=C
 export LANG=C
 
-BASE_FILE="${1:?usage: benchmark-gate.sh <base.txt> <head.txt> [threshold_pct]}"
-HEAD_FILE="${2:?usage: benchmark-gate.sh <base.txt> <head.txt> [threshold_pct]}"
+BASE_FILE="${1:?usage: benchmark-gate.sh <benchmark-base.txt> <benchmark-head.txt> [threshold_pct]}"
+HEAD_FILE="${2:?usage: benchmark-gate.sh <benchmark-base.txt> <benchmark-head.txt> [threshold_pct]}"
 THRESHOLD_PCT="${3:-${THRESHOLD_PCT:-20}}"
 EXCLUDE_PATTERN="${EXCLUDE_PATTERN:-ValidateArtifact}"
 BENCHSTAT_VERSION="${BENCHSTAT_VERSION:-v0.0.0-20260512194132-3cf34090a3db}"
