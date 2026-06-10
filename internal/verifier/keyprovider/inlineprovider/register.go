@@ -52,10 +52,16 @@ func init() {
 			return nil, fmt.Errorf("failed to marshal options: %w", err)
 		}
 
-		// Try to unmarshal as a struct with certs field
+		// Support both bare PEM string (legacy) and struct {certs, keys} formats
 		var opts inlineOptions
 		if err := json.Unmarshal(raw, &opts); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal options: %w", err)
+			// Fallback: try unmarshalling as a bare PEM string for backwards
+			// compatibility with chart templates using inline: "PEM content"
+			var certStr string
+			if strErr := json.Unmarshal(raw, &certStr); strErr != nil {
+				return nil, fmt.Errorf("failed to unmarshal options: %w", err)
+			}
+			opts.Certs = certStr
 		}
 
 		var certs []*x509.Certificate

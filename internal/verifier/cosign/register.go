@@ -327,11 +327,9 @@ func toVerifierOptions(s *ScopedOptions, name string) (*cosign.VerifierOptions, 
 		return opts, nil
 	}
 	// If keys are provided, use key-based verification and ignore CTLog.
-	// And [verify.Verifier] requires timestamps from either an RFC3161
-	// timestamp authority or a log's SignedEntryTimestamp. So IgnoreTlog must
-	// be false.
+	// IgnoreTLog is configurable to support keys that signed without tlog upload.
 	opts.IgnoreCTLog = true
-	opts.IgnoreTLog = false
+	opts.IgnoreTLog = s.IgnoreTLog
 	opts.IdentityPolicies = []verify.PolicyOption{
 		verify.WithKey(),
 	}
