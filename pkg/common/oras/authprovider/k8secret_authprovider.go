@@ -52,10 +52,11 @@ type k8SecretAuthProviderConf struct {
 	Name               string         `json:"name"`
 	ServiceAccountName string         `json:"serviceAccountName,omitempty"`
 	Secrets            []secretConfig `json:"secrets,omitempty"`
+	SecretTimeout      uint32         `json:"secretTimeout,omitempty"`
 }
 
 const defaultName = "default"
-const secretTimeout = time.Hour * 12
+const defaultSecretTimeout = 3600 * 12 * time.Second
 
 // init calls Register for our k8Secrets provider
 func init() {
@@ -65,14 +66,9 @@ func init() {
 // Create returns a k8AuthProvider instance after parsing auth config and resolving
 // named K8s secrets
 func (s *k8SecretProviderFactory) Create(authProviderConfig AuthProviderConfig) (AuthProvider, error) {
-	conf := k8SecretAuthProviderConf{}
-	authProviderConfigBytes, err := json.Marshal(authProviderConfig)
+	conf, err := parseAuthProviderConfig(authProviderConfig)
 	if err != nil {
-		return nil, re.ErrorCodeConfigInvalid.NewError(re.AuthProvider, "", re.EmptyLink, err, "failed to marshal authentication provider config", re.HideStackTrace)
-	}
-
-	if err := json.Unmarshal(authProviderConfigBytes, &conf); err != nil {
-		return nil, re.ErrorCodeConfigInvalid.NewError(re.AuthProvider, "", re.EmptyLink, err, "failed to parse authentication provider configuration", re.HideStackTrace)
+		return nil, re.ErrorCodeConfigInvalid.NewError(re.AuthProvider, "", re.EmptyLink, err, "failed to deserialize auth provider config", re.HideStackTrace)
 	}
 
 	clusterConfig, err := rest.InClusterConfig()
@@ -100,6 +96,20 @@ func (s *k8SecretProviderFactory) Create(authProviderConfig AuthProviderConfig) 
 		config:           conf,
 		clusterClientSet: clientSet,
 	}, nil
+}
+
+func parseAuthProviderConfig(authProviderConfig AuthProviderConfig) (k8SecretAuthProviderConf, error) {
+	conf := k8SecretAuthProviderConf{}
+	authProviderConfigBytes, err := json.Marshal(authProviderConfig)
+	if err != nil {
+		return conf, re.ErrorCodeConfigInvalid.NewError(re.AuthProvider, "", re.EmptyLink, err, "failed to marshal authentication provider config", re.HideStackTrace)
+	}
+
+	if err := json.Unmarshal(authProviderConfigBytes, &conf); err != nil {
+		return conf, re.ErrorCodeConfigInvalid.NewError(re.AuthProvider, "", re.EmptyLink, err, "failed to parse authentication provider configuration", re.HideStackTrace)
+	}
+
+	return conf, nil
 }
 
 // Enabled checks if ratify namespace, config, or cluster client set is nil
@@ -215,6 +225,14 @@ func (d *k8SecretAuthProvider) resolveCredentialFromSecret(ctx context.Context, 
 		Password:      authConfig.Password,
 		IdentityToken: authConfig.IdentityToken,
 		Provider:      d,
-		ExpiresOn:     time.Now().Add(secretTimeout),
+		ExpiresOn:     time.Now().Add(d.getSecretTimeout()),
 	}, nil
+}
+
+func (d *k8SecretAuthProvider) getSecretTimeout() time.Duration {
+	if d.config.SecretTimeout == 0 {
+		return defaultSecretTimeout
+	}
+
+	return time.Second * time.Duration(d.config.SecretTimeout)
 }

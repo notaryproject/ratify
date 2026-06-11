@@ -69,7 +69,8 @@ roleRef:
                             "secretName": "test2.ghcr.io",
                             "namespace": "test"
                         }
-                    ]
+                    ],
+                    "secretTimeout": 43200 // in seconds - 43200s or 12h used by default if not specified
                 }
             }
         ]
@@ -106,6 +107,7 @@ type k8SecretAuthProviderConf struct {
 	Name               string         `json:"name"`
 	ServiceAccountName string         `json:"serviceAccountName,omitempty"`
 	Secrets            []secretConfig `json:"secrets,omitempty"`
+    SecretTimeout      uint32         `json:"secretTimeout,omitempty"`
 }
 
 func init() // init calls Register for our k8s-secrets provider
@@ -141,6 +143,7 @@ func (d *k8SecretAuthProvider) Provide(artifact string) (AuthConfig, error) {
         // if .dockercfg secret, deserialize .dockercfg data, see if matching registry host credential exists, extract auth configs and return matching AuthConfig if it exists
         // if config.json secret do same as above except using non legacy format
 
+    // set the cache TTL to the "SecretTimeout" property (defaults to 12h)
 }
 
 ```
