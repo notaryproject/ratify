@@ -79,8 +79,8 @@ deploy_ratify() {
 
   kubectl delete verifiers.config.ratify.deislabs.io/verifier-cosign
 
-  kubectl apply -f https://ratify-project.github.io/ratify/library/default/template.yaml
-  kubectl apply -f https://ratify-project.github.io/ratify/library/default/samples/constraint.yaml
+  kubectl apply -f library/default/template.yaml
+  kubectl apply -f library/default/samples/constraint.yaml
 }
 
 upload_cert_to_akv() {

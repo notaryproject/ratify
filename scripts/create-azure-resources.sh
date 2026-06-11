@@ -106,7 +106,7 @@ create_akv() {
   # Grant runner SP permissions to create keys and import certificates
   az role assignment create \
     --assignee-object-id ${AZURE_SP_OBJECT_ID} \
-    --assignee-principal-type "ServicePrincipal" \
+    --assignee-principal-type "${AZURE_SP_PRINCIPAL_TYPE:-ServicePrincipal}" \
     --role "Key Vault Administrator" \
     --scope subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${GROUP_NAME}/providers/Microsoft.KeyVault/vaults/${KEYVAULT_NAME}
 }
