@@ -9,7 +9,7 @@ on:
       k8s_version:
         description: "Kubernetes version"
         required: true
-        default: "1.31.2"
+        default: "1.33.12"
         type: string
       gatekeeper_version:
         description: "Gatekeeper version"
