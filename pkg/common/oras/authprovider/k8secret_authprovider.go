@@ -52,7 +52,7 @@ type k8SecretAuthProviderConf struct {
 	Name               string         `json:"name"`
 	ServiceAccountName string         `json:"serviceAccountName,omitempty"`
 	Secrets            []secretConfig `json:"secrets,omitempty"`
-	SecretTimeout      uint32         `json:"secretTimeout,omitempty"`
+	SecretTimeout      *uint32        `json:"secretTimeout,omitempty"`
 }
 
 const defaultName = "default"
@@ -230,9 +230,9 @@ func (d *k8SecretAuthProvider) resolveCredentialFromSecret(ctx context.Context, 
 }
 
 func (d *k8SecretAuthProvider) getSecretTimeout() time.Duration {
-	if d.config.SecretTimeout == 0 {
+	if d.config.SecretTimeout == nil {
 		return defaultSecretTimeout
 	}
 
-	return time.Second * time.Duration(d.config.SecretTimeout)
+	return time.Second * time.Duration(*d.config.SecretTimeout)
 }

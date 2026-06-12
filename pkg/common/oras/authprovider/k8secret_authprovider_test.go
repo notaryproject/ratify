@@ -355,7 +355,7 @@ func TestProvider_ServiceAccountSecretFound_ReturnsSuccess(t *testing.T) {
 		}),
 		config: k8SecretAuthProviderConf{
 			ServiceAccountName: "ratify-admin",
-			SecretTimeout:      secretTimeout,
+			SecretTimeout:      &secretTimeout,
 		},
 	}
 
@@ -375,6 +375,28 @@ func TestProvider_ServiceAccountSecretFound_ReturnsSuccess(t *testing.T) {
 	}
 }
 
+func TestProvider_NilSecretTimeoutReturnsDefault(t *testing.T) {
+	authConfig := AuthProviderConfig{
+		"name":               "k8Secrets",
+		"serviceAccountName": "ratify-admin",
+	}
+	parsedAuthConf, err := parseAuthProviderConfig(authConfig)
+	if err != nil {
+		t.Fatalf("could not parse auth config properly: %v", err)
+	}
+
+	if parsedAuthConf.SecretTimeout != nil {
+		t.Fatalf("expected SecretTimeout to be nil due to no secretTimeout config in auth provider config")
+	}
+
+	authProvider := &k8SecretAuthProvider{
+		config: parsedAuthConf,
+	}
+	if authProvider.getSecretTimeout() != defaultSecretTimeout {
+		t.Fatalf("expected secret timeout to be defaulted to 12h due to nil secret timeout in auth config")
+	}
+}
+
 func TestProvider_Deserialization_Success(t *testing.T) {
 	authProviderConfig := AuthProviderConfig{
 		"name":               "k8Secrets",
@@ -389,7 +411,8 @@ func TestProvider_Deserialization_Success(t *testing.T) {
 
 	if conf.Name != "k8Secrets" ||
 		conf.ServiceAccountName != "ratify-admin" ||
-		conf.SecretTimeout != 7200 ||
+		conf.SecretTimeout == nil ||
+		*conf.SecretTimeout != 7200 ||
 		conf.Secrets != nil {
 		t.Fatalf("Parsed auth config does not match the input: %v", err)
 	}
