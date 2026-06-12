@@ -30,6 +30,9 @@ spec:
           username: "{{ .credential.username }}"
           password: "{{ .credential.password }}"
           {{- end }}
+        {{- if .plainHttp }}
+        plainHttp: true
+        {{- end }}
         {{- if eq (include "ratify.cosignConfigured" $root) "true" }}
         allowCosignTag: true
         {{- end }}
