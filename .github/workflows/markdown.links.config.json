@@ -8,6 +8,18 @@
     },
     {
       "pattern": "^https://github.com/anlandu/ratify-perf"
+    },
+    {
+      "pattern": "^https://hackmd\\.io/"
+    },
+    {
+      "pattern": "^https://repost\\.aws/knowledge-center/eks-iam-permissions-namespaces"
+    },
+    {
+      "pattern": "^https://docs\\.aws\\.amazon\\.com/kms/"
+    },
+    {
+      "pattern": "^https://docs\\.aws\\.amazon\\.com/signer/latest/developerguide/Welcome\\.html"
     }
   ]
 }
