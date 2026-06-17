@@ -9,12 +9,24 @@ on:
       k8s_version:
         description: "Kubernetes version"
         required: true
-        default: "1.33.12"
+        default: "1.35.5"
         type: string
       gatekeeper_version:
         description: "Gatekeeper version"
         required: true
-        default: "3.18.0"
+        default: "3.22.2"
+        type: string
+  workflow_dispatch:
+    inputs:
+      k8s_version:
+        description: "Kubernetes version"
+        required: true
+        default: "1.35.5"
+        type: string
+      gatekeeper_version:
+        description: "Gatekeeper version"
+        required: true
+        default: "3.22.2"
         type: string
 
 jobs:
@@ -63,6 +75,9 @@ jobs:
           make e2e-dependencies
 
       - name: Run e2e on Azure
+        env:
+          GROUP_NAME: ratify-project
+          LOCATION: westus2
         run: |
           make e2e-aks KUBERNETES_VERSION=${{ inputs.k8s_version }} GATEKEEPER_VERSION=${{ inputs.gatekeeper_version }} TENANT_ID=${{ secrets.AZURE_TENANT_ID }} AZURE_SP_OBJECT_ID=${{ secrets.AZURE_SP_OBJECT_ID }}
 

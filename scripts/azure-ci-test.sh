@@ -133,8 +133,10 @@ cleanup() {
   echo "Purge key vault"
   az keyvault purge --name "${KEYVAULT_NAME}" --no-wait || true
 
-  echo "Deleting group"
-  az group delete --name "${GROUP_NAME}" --yes --no-wait || true
+  echo "Deleting child resources (RG is shared, do not delete)"
+  az aks      delete -g "${GROUP_NAME}" -n "${AKS_NAME}"                     --yes --no-wait || true
+  az acr      delete -g "${GROUP_NAME}" -n "${ACR_NAME}"                     --yes           || true
+  az identity delete -g "${GROUP_NAME}" -n "${USER_ASSIGNED_IDENTITY_NAME}"                  || true
 }
 
 trap cleanup EXIT
