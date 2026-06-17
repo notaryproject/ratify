@@ -20,6 +20,9 @@
     },
     {
       "pattern": "^https://docs\\.aws\\.amazon\\.com/signer/latest/developerguide/Welcome\\.html"
+    },
+    {
+      "pattern": "^https://asciinema\\.org/a/622368"
     }
   ]
 }
