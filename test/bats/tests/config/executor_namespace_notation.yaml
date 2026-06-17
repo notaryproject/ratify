@@ -1,0 +1,29 @@
+apiVersion: config.ratify.dev/v2alpha1
+kind: Executor
+metadata:
+  name: executor-notation-default
+spec:
+  scopes:
+    - "registry:5000/notation"
+  stores:
+    - type: registry-store
+      parameters:
+        plainHttp: true
+        credential:
+          provider: "static"
+          username: "test_user"
+          password: "test_pw"
+  verifiers:
+    - name: notation
+      type: notation
+      parameters:
+        certificates:
+          - type: "ca"
+            inline: __NOTATION_CERT__
+  policyEnforcer:
+    type: "threshold-policy"
+    parameters:
+      policy:
+        threshold: 1
+        rules:
+          - verifierName: "notation"

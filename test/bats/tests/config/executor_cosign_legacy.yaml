@@ -1,0 +1,40 @@
+apiVersion: config.ratify.dev/v2alpha1
+kind: Executor
+metadata:
+  name: ratify-ratify-gatekeeper-provider-executor-1
+spec:
+  scopes:
+    - "registry:5000"
+  stores:
+    - type: registry-store
+      parameters:
+        plainHttp: true
+        allowCosignTag: true
+        credential:
+          provider: "static"
+          username: "test_user"
+          password: "test_pw"
+  verifiers:
+    - name: notation
+      type: notation
+      parameters:
+        certificates:
+          - type: "ca"
+            inline: __NOTATION_CERT__
+    - name: cosign
+      type: cosign
+      parameters:
+        trustPolicies:
+          - scopes:
+              - "registry:5000"
+            keys:
+              inline:
+                keys: __COSIGN_KEY__
+  policyEnforcer:
+    type: "threshold-policy"
+    parameters:
+      policy:
+        threshold: 1
+        rules:
+          - verifierName: "notation"
+          - verifierName: "cosign"
