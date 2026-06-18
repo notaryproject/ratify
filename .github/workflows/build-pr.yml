@@ -35,8 +35,8 @@ jobs:
       k8s_version: ${{ matrix.KUBERNETES_VERSION }}
       gatekeeper_version: ${{ matrix.GATEKEEPER_VERSION }}
 
-  build_test_e2e_full_conditional:
-    name: "run e2e on full test matrix with conditions"
+  build_test_e2e_full:
+    name: "run e2e on full test matrix"
     if: contains(github.event.pull_request.labels.*.name, 'safe to test') || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
