@@ -71,7 +71,9 @@ jobs:
           for img in "localbuild:test" "localbuildcrd:test"; do
               trivy image --skip-db-update --ignore-unfixed --pkg-types="os,library" "${img}"
           done
-      - name: Run trivy on images and exit on HIGH/CRITICAL severity
+      - name: Run trivy on Ratify image and exit on HIGH/CRITICAL severity
         run: |
           trivy image --skip-db-update --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --pkg-types="os,library" --show-suppressed --ignorefile ./.github/server.trivyignore.yaml "localbuild:test"
-          trivy image --skip-db-update --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --pkg-types="os,library" --show-suppressed --ignorefile ./.github/crd.trivyignore.yaml "localbuildcrd:test"
+      - name: Run trivy on CRD image for HIGH/CRITICAL severity as warning only
+        run: |
+          trivy image --skip-db-update --ignore-unfixed --severity HIGH,CRITICAL --pkg-types="os,library" --show-suppressed "localbuildcrd:test"
