@@ -36,7 +36,8 @@ jobs:
       gatekeeper_version: ${{ matrix.GATEKEEPER_VERSION }}
 
   build_test_e2e_full_conditional:
-    name: "Build and run e2e on full test matrix"
+    name: "run e2e on full test matrix with conditions"
+    if: contains(github.event.pull_request.labels.*.name, 'safe to test') || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
