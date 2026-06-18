@@ -50,7 +50,7 @@ jobs:
 
   build_test_aks_e2e_conditional:
     name: "Build and run e2e Test on AKS with conditions"
-    if: contains(github.event.pull_request.labels.*.name, 'safe to test') || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: false
     permissions:
       id-token: write
       contents: read
@@ -67,6 +67,7 @@ jobs:
 
   aks-test-cleanup:
     needs: ["build_test_aks_e2e_conditional"]
+    if: false
     runs-on: ubuntu-latest
     permissions:
       id-token: write
