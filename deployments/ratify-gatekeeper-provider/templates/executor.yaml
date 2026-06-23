@@ -30,6 +30,19 @@ spec:
           username: "{{ .credential.username }}"
           password: "{{ .credential.password }}"
           {{- end }}
+        {{- if .plainHttp }}
+        {{- if or .caBase64 .caPem }}
+        {{- fail (printf "store with scopes %v: plainHttp cannot be combined with caBase64/caPem (no TLS over plain HTTP)" .scopes) }}
+        {{- end }}
+        plainHttp: true
+        {{- else }}
+        {{- if .caPem }}
+        caPem: {{ .caPem | quote }}
+        {{- end }}
+        {{- if .caBase64 }}
+        caBase64: {{ .caBase64 | quote }}
+        {{- end }}
+        {{- end }}
         {{- if eq (include "ratify.cosignConfigured" $root) "true" }}
         allowCosignTag: true
         {{- end }}

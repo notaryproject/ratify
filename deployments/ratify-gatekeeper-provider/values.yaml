@@ -43,6 +43,7 @@ cosign:
 
 stores:
   - scopes: []
+    plainHttp: false # set to true for registries that do not use TLS (e.g. local development)
     caBase64: "" # base64 encoded CA certificate, used for TLS verification, e.g. "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg=="
     caPem: "" # PEM encoded CA certificate, used for TLS verification, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
     # if both caBase64 and caPem are provided, caPem will be used
