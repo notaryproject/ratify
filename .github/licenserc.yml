@@ -60,3 +60,6 @@ dependency:
     - name: github.com/owenrumney/go-sarif/v2 # TODO: remove this when library is under a compatible license
       version: v2.3.3
       license: Apache-2.0
+    - name: github.com/segmentio/asm
+      version: v1.2.1
+      license: MIT
