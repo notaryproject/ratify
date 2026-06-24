@@ -27,7 +27,7 @@ export AKS_NAME="${AKS_NAME:-ratify-aks-${SUFFIX}}"
 export KEYVAULT_NAME="${KEYVAULT_NAME:-ratify-akv-${SUFFIX}}"
 export USER_ASSIGNED_IDENTITY_NAME="${USER_ASSIGNED_IDENTITY_NAME:-ratify-e2e-identity-${SUFFIX}}"
 export LOCATION="westus2"
-export KUBERNETES_VERSION=${1:-1.30.6}
+export KUBERNETES_VERSION=${1:-1.33.12}
 GATEKEEPER_VERSION=${2:-3.18.0}
 TENANT_ID=$3
 export RATIFY_NAMESPACE=${4:-gatekeeper-system}
@@ -79,8 +79,8 @@ deploy_ratify() {
 
   kubectl delete verifiers.config.ratify.deislabs.io/verifier-cosign
 
-  kubectl apply -f https://ratify-project.github.io/ratify/library/default/template.yaml
-  kubectl apply -f https://ratify-project.github.io/ratify/library/default/samples/constraint.yaml
+  kubectl apply -f library/default/template.yaml
+  kubectl apply -f library/default/samples/constraint.yaml
 }
 
 upload_cert_to_akv() {
@@ -133,8 +133,10 @@ cleanup() {
   echo "Purge key vault"
   az keyvault purge --name "${KEYVAULT_NAME}" --no-wait || true
 
-  echo "Deleting group"
-  az group delete --name "${GROUP_NAME}" --yes --no-wait || true
+  echo "Deleting child resources (RG is shared, do not delete)"
+  az aks      delete -g "${GROUP_NAME}" -n "${AKS_NAME}"                     --yes --no-wait || true
+  az acr      delete -g "${GROUP_NAME}" -n "${ACR_NAME}"                     --yes           || true
+  az identity delete -g "${GROUP_NAME}" -n "${USER_ASSIGNED_IDENTITY_NAME}"                  || true
 }
 
 trap cleanup EXIT

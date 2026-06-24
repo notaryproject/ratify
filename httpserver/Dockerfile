@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM golang:1.26.3@sha256:2981696eed011d747340d7252620932677929cce7d2d539602f56a8d7e9b660b AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.4@sha256:68cb6d68bed024785b69195b89af7ac7a444f27791435f98647edff595aa0479 AS builder
 
 ARG TARGETPLATFORM
 ARG TARGETOS
@@ -60,4 +60,3 @@ EXPOSE 8888
 USER 65532:65532
 
 ENTRYPOINT ["/app/ratify", "serve", "--http", ":6001"]
-
