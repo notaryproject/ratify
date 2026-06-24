@@ -1,0 +1,38 @@
+apiVersion: config.ratify.dev/v2alpha1
+kind: Executor
+metadata:
+  name: ratify-ratify-gatekeeper-provider-executor-1
+spec:
+  scopes:
+    - "registry:5000"
+  stores:
+    - type: registry-store
+      parameters:
+        plainHttp: true
+        allowCosignTag: true
+        credential:
+          provider: "static"
+          username: "test_user"
+          password: "test_pw"
+  verifiers:
+    - name: cosign
+      type: cosign
+      parameters:
+        ignoreTLog: true
+        trustPolicies:
+          - scopes:
+              - "registry:5000"
+            keys:
+              azurekeyvault:
+                vaultURL: "__VAULT_URI__"
+                clientID: "__CLIENT_ID__"
+                tenantID: "__TENANT_ID__"
+                keys:
+                  - name: "__COSIGN_KEY_NAME__"
+  policyEnforcer:
+    type: "threshold-policy"
+    parameters:
+      policy:
+        threshold: 1
+        rules:
+          - verifierName: "cosign"

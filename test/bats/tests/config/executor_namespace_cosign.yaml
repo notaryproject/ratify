@@ -1,0 +1,33 @@
+apiVersion: config.ratify.dev/v2alpha1
+kind: Executor
+metadata:
+  name: executor-cosign-default
+spec:
+  scopes:
+    - "registry:5000/cosign"
+  stores:
+    - type: registry-store
+      parameters:
+        plainHttp: true
+        allowCosignTag: true
+        credential:
+          provider: "static"
+          username: "test_user"
+          password: "test_pw"
+  verifiers:
+    - name: cosign
+      type: cosign
+      parameters:
+        trustPolicies:
+          - scopes:
+              - "registry:5000/cosign"
+            keys:
+              inline:
+                keys: __COSIGN_KEY__
+  policyEnforcer:
+    type: "threshold-policy"
+    parameters:
+      policy:
+        threshold: 1
+        rules:
+          - verifierName: "cosign"
