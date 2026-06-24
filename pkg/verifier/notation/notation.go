@@ -276,7 +276,7 @@ func normalizeVerificationCertsStores(conf *NotationPluginVerifierConfig) error 
 		if err != nil {
 			return err
 		}
-		// support legacy verfier config format for backward compatibility
+		// support legacy verifier config format for backward compatibility
 		// normalize <store>:<certs> to ca:<store><certs> if no store type is provided
 		conf.VerificationCertStores = verificationCertStores{
 			trustStoreTypeCA: legacyCertStore,

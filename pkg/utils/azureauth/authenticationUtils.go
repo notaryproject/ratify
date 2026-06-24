@@ -18,6 +18,7 @@ package azureauth
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 
@@ -49,7 +50,7 @@ func GetAADAccessToken(ctx context.Context, tenantID, clientID, scope string) (c
 
 	// create the confidential client to request an AAD token
 	confidentialClientApp, err := confidential.New(
-		fmt.Sprintf("%s%s/oauth2/token", authority, tenantID),
+		getAuthority(authority, tenantID),
 		clientID,
 		cred)
 	if err != nil {
@@ -62,6 +63,11 @@ func GetAADAccessToken(ctx context.Context, tenantID, clientID, scope string) (c
 	}
 
 	return result, nil
+}
+
+func getAuthority(authorityHost, tenantID string) string {
+	authority, _ := url.JoinPath(authorityHost, tenantID)
+	return authority
 }
 
 // readJWTFromFS reads the jwt from file system
