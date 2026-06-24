@@ -41,7 +41,7 @@ require (
 	github.com/notaryproject/notation-plugin-framework-go v1.0.0
 	github.com/open-policy-agent/cert-controller v0.13.0
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20260331232501-49bf6f95dad7
-	github.com/open-policy-agent/opa v1.15.0
+	github.com/open-policy-agent/opa v1.15.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/owenrumney/go-sarif/v2 v2.3.3

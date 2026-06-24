@@ -53,8 +53,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        KUBERNETES_VERSION: ["1.33.12"]
-        GATEKEEPER_VERSION: ["3.18.0"]
+        KUBERNETES_VERSION: ["1.35.5"]
+        GATEKEEPER_VERSION: ["3.22.2"]
     uses: ./.github/workflows/e2e-aks.yml
     with:
       k8s_version: ${{ matrix.KUBERNETES_VERSION }}
