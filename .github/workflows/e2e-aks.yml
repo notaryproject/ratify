@@ -34,7 +34,7 @@ jobs:
     name: "Build and run e2e Test on AKS"
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: azure-test-fork
+    environment: azure-test
     permissions:
       id-token: write
       contents: read
