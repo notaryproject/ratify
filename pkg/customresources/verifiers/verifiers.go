@@ -70,7 +70,7 @@ func (v *ActiveVerifiers) AddVerifier(scope, verifierName string, verifier vr.Re
 }
 
 // DeleteVerifier fulfills the VerifierManager interface.
-// It deletes the verfier of the given name under the given scope.
+// It deletes the verifier of the given name under the given scope.
 func (v *ActiveVerifiers) DeleteVerifier(scope, verifierName string) {
 	if scopedVerifier, ok := v.scopedVerifiers.Load(scope); ok {
 		delete(scopedVerifier.(map[string]vr.ReferenceVerifier), verifierName)
