@@ -112,7 +112,7 @@ create_akv() {
 }
 
 main() {
-  az group create --name "${GROUP_NAME}" --tags "ratifye2e" --location "${LOCATION}" >/dev/null
+  echo "Using existing resource group ${GROUP_NAME} in ${LOCATION}"
 
   create_user_managed_identity
   create_akv
