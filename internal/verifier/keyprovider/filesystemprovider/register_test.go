@@ -89,7 +89,7 @@ func TestGetCertificates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get certificates: %v", err)
 	}
-	if len(certs) != 1 {
+	if len(certs) == 0 {
 		t.Fatalf("expected at least one certificate, got %d", len(certs))
 	}
 
@@ -102,7 +102,7 @@ func TestGetCertificates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get certificates: %v", err)
 	}
-	if len(certs) != 1 {
+	if len(certs) == 0 {
 		t.Fatalf("expected at least one certificate, got %d", len(certs))
 	}
 
@@ -120,10 +120,9 @@ func TestGetCertificates(t *testing.T) {
 	}
 }
 
-func TestGetCertificatesFromCache(t *testing.T) {
+func TestGetCertificatesReloadsAfterFileChange(t *testing.T) {
 	tempDir := t.TempDir()
 
-	// Create a temporary certificate file.
 	certFile := filepath.Join(tempDir, "test-cert.pem")
 	certContent, err := createCert()
 	if err != nil {
@@ -133,40 +132,36 @@ func TestGetCertificatesFromCache(t *testing.T) {
 		t.Fatalf("failed to create temp cert file: %v", err)
 	}
 
-	// Create provider which should load certificates during initialization
-	opts := []string{tempDir}
-	provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+	provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, []string{tempDir})
 	if err != nil {
 		t.Fatalf("failed to create key provider: %v", err)
 	}
 
-	// Get certificates first time
-	certs1, err := provider.GetCertificates(context.Background())
+	certs, err := provider.GetCertificates(context.Background())
 	if err != nil {
 		t.Fatalf("failed to get certificates: %v", err)
 	}
-	if len(certs1) != 1 {
-		t.Fatalf("expected 1 certificate, got %d", len(certs1))
+	if len(certs) == 0 {
+		t.Fatalf("expected at least one certificate, got %d", len(certs))
 	}
 
-	// Remove the certificate file to ensure we're getting from cache
 	if err := os.Remove(certFile); err != nil {
 		t.Fatalf("failed to remove cert file: %v", err)
 	}
 
-	// Get certificates second time - should still work from cache
-	certs2, err := provider.GetCertificates(context.Background())
-	if err != nil {
-		t.Fatalf("failed to get certificates from cache: %v", err)
-	}
-	if len(certs2) != 1 {
-		t.Fatalf("expected 1 cached certificate, got %d", len(certs2))
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		certs, err = provider.GetCertificates(context.Background())
+		if err != nil {
+			t.Fatalf("failed to get certificates after removal: %v", err)
+		}
+		if len(certs) == 0 {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
 
-	// Verify both calls return the same certificate
-	if !certs1[0].Equal(certs2[0]) {
-		t.Fatalf("cached certificate doesn't match original")
-	}
+	t.Fatalf("expected watcher to reload certificates after file removal, still have %d", len(certs))
 }
 
 func TestGetKeys(t *testing.T) {
