@@ -24,7 +24,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.41.4
 	github.com/aws/aws-sdk-go-v2/config v1.32.12
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.12
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.45.1
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.45.2
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dapr/go-sdk v1.8.0
 	github.com/dgraph-io/ristretto v0.2.0
