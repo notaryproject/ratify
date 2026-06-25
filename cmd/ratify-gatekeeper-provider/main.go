@@ -18,14 +18,20 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"time"
 
+	"github.com/notaryproject/ratify/v2/internal/healthprobe"
 	"github.com/notaryproject/ratify/v2/internal/httpserver"
 	"github.com/notaryproject/ratify/v2/internal/manager"
 	"github.com/sirupsen/logrus"
 )
 
-var startManagerFunc = manager.StartManager
+var managerReadySignal *manager.ReadySignal
+
+var startManagerFunc = func(certRotatorReady chan struct{}, disableMutation bool, disableCRDManager bool) {
+	manager.StartManager(certRotatorReady, managerReadySignal, disableMutation, disableCRDManager)
+}
 
 // main is the entry point for the Ratify server.
 func main() {
@@ -38,6 +44,7 @@ func main() {
 type options struct {
 	configFilePath       string
 	httpServerAddress    string
+	healthPort           int
 	certFile             string
 	keyFile              string
 	gatekeeperCACertFile string
@@ -52,6 +59,7 @@ func parse() *options {
 	opts := &options{}
 	flag.StringVar(&opts.configFilePath, "config", "", "Path to the Ratify configuration file")
 	flag.StringVar(&opts.httpServerAddress, "address", "", "HTTP server address")
+	flag.IntVar(&opts.healthPort, "health-port", 9090, "Dedicated health probe port")
 	flag.StringVar(&opts.certFile, "cert-file", "", "Path to the TLS certificate file")
 	flag.StringVar(&opts.keyFile, "key-file", "", "Path to the TLS key file")
 	flag.StringVar(&opts.gatekeeperCACertFile, "gatekeeper-ca-cert-file", "", "Path to the Gatekeeper CA certificate file")
@@ -67,13 +75,35 @@ func parse() *options {
 }
 
 func startRatify(opts *options) error {
+	if opts == nil {
+		return errors.New("options are required")
+	}
 	if len(opts.httpServerAddress) == 0 {
 		return errors.New("HTTP server address is required")
 	}
+	if opts.healthPort <= 0 {
+		return errors.New("health port must be greater than zero")
+	}
+
 	var certRotatorReady chan struct{}
 	if !opts.disableCertRotation {
 		certRotatorReady = make(chan struct{})
 	}
+
+	healthRegistry := healthprobe.NewRegistry()
+	managerReadySignal = manager.NewReadySignal()
+	defer func() {
+		managerReadySignal = nil
+	}()
+	if err := healthRegistry.RegisterReadiness(managerReadySignal.Checker()); err != nil {
+		return fmt.Errorf("failed to register manager readiness checker: %w", err)
+	}
+
+	healthServer, err := healthprobe.NewServer(fmt.Sprintf(":%d", opts.healthPort), healthRegistry)
+	if err != nil {
+		return fmt.Errorf("failed to create health probe server: %w", err)
+	}
+
 	serverOpts := &httpserver.ServerOptions{
 		HTTPServerAddress:    opts.httpServerAddress,
 		CertFile:             opts.certFile,
@@ -84,8 +114,14 @@ func startRatify(opts *options) error {
 		DisableMutation:      opts.disableMutation,
 		DisableCRDManager:    opts.disableCRDManager,
 		CertRotatorReady:     certRotatorReady,
+		HealthRegistry:       healthRegistry,
 	}
 
+	go func() {
+		if err := healthServer.Start(); err != nil {
+			logrus.WithError(err).Fatal("failed to start health probe server")
+		}
+	}()
 	go startManagerFunc(certRotatorReady, serverOpts.DisableMutation, serverOpts.DisableCRDManager)
 	return httpserver.StartServer(serverOpts, opts.configFilePath)
 }
