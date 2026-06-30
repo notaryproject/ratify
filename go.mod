@@ -11,7 +11,7 @@ retract (
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
-	github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry v0.2.2
+	github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry v0.2.3
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates v0.9.0
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.10.0
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets v0.12.0
@@ -58,8 +58,8 @@ require (
 	golang.org/x/sync v0.21.0
 	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
-	k8s.io/api v0.35.3
-	k8s.io/apimachinery v0.35.5
+	k8s.io/api v0.35.6
+	k8s.io/apimachinery v0.35.6
 	k8s.io/client-go v0.35.3
 	oras.land/oras-go/v2 v2.6.0
 )
