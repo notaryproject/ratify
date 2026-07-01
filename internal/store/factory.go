@@ -59,25 +59,49 @@ func New(opts []NewOptions, globalScopes []string) (ratify.Store, error) {
 	if len(opts) == 0 {
 		return nil, fmt.Errorf("no store options provided")
 	}
+
+	if len(opts) == 1 && len(opts[0].Scopes) == 0 && len(globalScopes) == 0 {
+		store, err := newStore(opts[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to create store for type %q: %w", opts[0].Type, err)
+		}
+		storeMux := ratify.NewStoreMux()
+		if err = storeMux.RegisterFallback(store); err != nil {
+			return nil, fmt.Errorf("failed to register fallback store: %w", err)
+		}
+		return storeMux, nil
+	}
+
 	// If there is more than one store option, clear the global scopes as
 	// multiple stores should not share the same global scopes.
 	if len(opts) > 1 {
 		globalScopes = []string{}
 	}
+
 	storeMux := ratify.NewStoreMux()
 	for _, storeOptions := range opts {
-		if len(storeOptions.Scopes) == 0 {
+		scopes := storeOptions.Scopes
+		if len(scopes) == 0 {
 			// if no scopes are provided, use the global scopes of the executor.
-			storeOptions.Scopes = globalScopes
+			scopes = globalScopes
 		}
-		if len(storeOptions.Scopes) == 0 {
-			return nil, fmt.Errorf("store options must contain at least one scope")
-		}
+
 		store, err := newStore(storeOptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create store for type %q: %w", storeOptions.Type, err)
 		}
-		for _, scope := range storeOptions.Scopes {
+
+		if len(scopes) == 1 && scopes[0] == "*" {
+			if err = storeMux.RegisterFallback(store); err != nil {
+				return nil, fmt.Errorf("failed to register fallback store: %w", err)
+			}
+			continue
+		}
+
+		if len(scopes) == 0 {
+			return nil, fmt.Errorf("store options must contain at least one scope")
+		}
+		for _, scope := range scopes {
 			if err = storeMux.Register(scope, store); err != nil {
 				return nil, fmt.Errorf("failed to register store for scope %q: %w", scope, err)
 			}

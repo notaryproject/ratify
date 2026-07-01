@@ -162,15 +162,15 @@ func TestNew(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "invalid store scope",
+			name: "fallback store with star scope",
 			opts: []NewOptions{
 				{
 					Type:       "mock-store",
 					Parameters: map[string]any{},
+					Scopes:     []string{"*"},
 				},
 			},
-			globalScopes:  []string{"*"},
-			expectedError: true,
+			expectedError: false,
 		},
 		{
 			name: "multiple stores clear global scopes",
@@ -188,15 +188,24 @@ func TestNew(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "store registration failure with bad store type",
+			name: "store creation failure with fallback scope",
 			opts: []NewOptions{
 				{
 					Type:   "mock-store-with-error",
-					Scopes: []string{"*"}, // Invalid scope that causes Register to fail
+					Scopes: []string{"*"},
 				},
 			},
 			globalScopes:  []string{},
 			expectedError: true,
+		},
+		{
+			name: "single store without scopes registers fallback",
+			opts: []NewOptions{
+				{
+					Type: "mock-store",
+				},
+			},
+			expectedError: false,
 		},
 	}
 
