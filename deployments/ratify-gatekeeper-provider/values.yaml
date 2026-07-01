@@ -60,6 +60,7 @@ provider:
     key: "" # key used by ratify (httpserver), please provide your own key
     caCert: "" # CA crt used by ratify (httpserver), please provide your own CA crt
     disableCertRotation: false
+  healthPort: 9090
   disableMutation: false
   disableCRDManager: false
   timeout:

@@ -63,6 +63,7 @@ func TestParse(t *testing.T) {
 			expected: &options{
 				configFilePath:    "config.json",
 				httpServerAddress: ":8080",
+				healthPort:        9090,
 				certFile:          "cert.pem",
 				keyFile:           "key.pem",
 				verifyTimeout:     10 * time.Second,
@@ -76,6 +77,7 @@ func TestParse(t *testing.T) {
 				"-mutate-timeout=10s",
 			},
 			expected: &options{
+				healthPort:    9090,
 				verifyTimeout: 30 * time.Second,
 				mutateTimeout: 10 * time.Second,
 			},
@@ -84,6 +86,7 @@ func TestParse(t *testing.T) {
 			name: "default values",
 			args: []string{},
 			expected: &options{
+				healthPort:    9090,
 				verifyTimeout: 5 * time.Second,
 				mutateTimeout: 2 * time.Second,
 			},
@@ -129,6 +132,7 @@ func TestStartRatify(t *testing.T) {
 			name: "failed to start the server",
 			opts: &options{
 				httpServerAddress:   ":8080",
+				healthPort:          9090,
 				configFilePath:      "config.yaml",
 				certFile:            "cert.pem",
 				disableCertRotation: true,
