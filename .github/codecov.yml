@@ -1,6 +1,8 @@
 ignore:
   - "./api" # ignore folders and all its contents
   - "./experimental/proto/v1"
+  - "**/mocks" # ignore mock files
+  - "**/test_utils.go" # ignore test utilities
 coverage:
   status:
     patch:

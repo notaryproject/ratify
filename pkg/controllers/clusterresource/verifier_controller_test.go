@@ -55,6 +55,10 @@ func (w mockResourceWriter) Patch(_ context.Context, _ client.Object, _ client.P
 	return nil
 }
 
+func (w mockResourceWriter) Apply(_ context.Context, _ runtime.ApplyConfiguration, _ ...client.SubResourceApplyOption) error {
+	return nil
+}
+
 type mockStatusClient struct {
 	updateFailed bool
 }

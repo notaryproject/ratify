@@ -92,5 +92,8 @@ type NamespacedVerifierList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&NamespacedVerifier{}, &NamespacedVerifierList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &NamespacedVerifier{}, &NamespacedVerifierList{})
+		return nil
+	})
 }

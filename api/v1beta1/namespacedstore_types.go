@@ -81,5 +81,8 @@ type NamespacedStoreList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&NamespacedStore{}, &NamespacedStoreList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &NamespacedStore{}, &NamespacedStoreList{})
+		return nil
+	})
 }
