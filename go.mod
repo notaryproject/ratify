@@ -60,7 +60,7 @@ require (
 	google.golang.org/protobuf v1.36.11
 	k8s.io/api v0.35.6
 	k8s.io/apimachinery v0.35.6
-	k8s.io/client-go v0.35.3
+	k8s.io/client-go v0.35.6
 	oras.land/oras-go/v2 v2.6.0
 )
 
