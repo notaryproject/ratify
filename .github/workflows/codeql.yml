@@ -41,7 +41,7 @@ jobs:
         with:
           go-version: "1.24"
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@fe4161a26a8629af62121b670040955b330f9af2 # tag=v3.29.5
+        uses: github/codeql-action/init@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # tag=v3.29.5
         with:
           languages: go
       - name: Perform CodeQL Analysis
