@@ -78,5 +78,8 @@ type StoreList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&Store{}, &StoreList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &Store{}, &StoreList{})
+		return nil
+	})
 }

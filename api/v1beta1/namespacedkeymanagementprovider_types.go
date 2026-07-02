@@ -89,5 +89,8 @@ type NamespacedKeyManagementProviderList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&NamespacedKeyManagementProvider{}, &NamespacedKeyManagementProviderList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &NamespacedKeyManagementProvider{}, &NamespacedKeyManagementProviderList{})
+		return nil
+	})
 }

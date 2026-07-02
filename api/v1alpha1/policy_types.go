@@ -60,5 +60,8 @@ type PolicyList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&Policy{}, &PolicyList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &Policy{}, &PolicyList{})
+		return nil
+	})
 }

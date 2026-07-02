@@ -76,5 +76,8 @@ type NamespacedPolicyList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&NamespacedPolicy{}, &NamespacedPolicyList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &NamespacedPolicy{}, &NamespacedPolicyList{})
+		return nil
+	})
 }
