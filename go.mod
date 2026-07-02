@@ -42,7 +42,7 @@ require (
 	github.com/ratify-project/ratify v1.4.0
 	github.com/sigstore/sigstore v1.10.8
 	github.com/sigstore/sigstore-go v1.1.4
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/spdx/tools-golang v0.5.5
 	go.opentelemetry.io/otel/exporters/prometheus v0.65.0
 	go.opentelemetry.io/otel/metric v1.43.0
