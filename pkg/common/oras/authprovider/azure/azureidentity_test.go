@@ -272,3 +272,27 @@ func TestGetManagedIdentityToken_Error(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, azcore.AccessToken{}, token)
 }
+
+// TestMIAuthProvider_Create_InitializesRegistryHostGetter verifies that the
+// factory function initializes registryHostGetter, preventing nil pointer
+// dereference panics in Provide(). See https://github.com/notaryproject/ratify/issues/2504
+func TestMIAuthProvider_Create_InitializesRegistryHostGetter(t *testing.T) {
+	t.Setenv("AZURE_TENANT_ID", "test-tenant")
+	t.Setenv("AZURE_CLIENT_ID", "test-client")
+
+	// Mock the token acquisition to avoid real Azure calls in CI
+	originalFunc := getManagedIdentityTokenFunc
+	getManagedIdentityTokenFunc = func(_ context.Context, _ string, _ func(opts *azidentity.ManagedIdentityCredentialOptions) (*azidentity.ManagedIdentityCredential, error)) (azcore.AccessToken, error) {
+		return azcore.AccessToken{Token: "fake-token", ExpiresOn: time.Now().Add(1 * time.Hour)}, nil
+	}
+	defer func() { getManagedIdentityTokenFunc = originalFunc }()
+
+	factory := &azureManagedIdentityProviderFactory{}
+	p, err := factory.Create(authprovider.AuthProviderConfig{})
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	miProvider, ok := p.(*MIAuthProvider)
+	assert.True(t, ok)
+	assert.NotNil(t, miProvider.registryHostGetter, "registryHostGetter must be initialized to prevent nil pointer panic in Provide()")
+}
