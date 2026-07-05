@@ -159,7 +159,7 @@ delete-demo: delete-demo-constraints delete-ratify delete-gatekeeper
 
 .PHONY: deploy-ratify
 deploy-ratify:
-	helm install ratify ./charts/ratify --atomic
+	helm install ratify ./deployments/ratify-gatekeeper-provider --atomic
 
 .PHONY: delete-ratify
 delete-ratify:
@@ -586,51 +586,42 @@ e2e-deploy-gatekeeper: e2e-helm-install
 	./.staging/helm/linux-amd64/helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts
 	./.staging/helm/linux-amd64/helm install gatekeeper/gatekeeper --version ${GATEKEEPER_VERSION} --name-template=gatekeeper --namespace ${GATEKEEPER_NAMESPACE} --create-namespace --set enableExternalData=true --set validatingWebhookTimeoutSeconds=5 --set mutatingWebhookTimeoutSeconds=2 --set auditInterval=0 --set externaldataProviderResponseCacheTTL=1s
 
-e2e-build-crd-image:
-	docker build --progress=plain --no-cache --build-arg KUBE_VERSION=${KUBERNETES_VERSION} --build-arg TARGETOS="linux" --build-arg TARGETARCH="amd64" -f crd.Dockerfile -t localbuildcrd:test ./charts/ratify/crds	
-
-load-build-crd-image:
-	kind load docker-image --name kind localbuildcrd:test
-
-e2e-deploy-base-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosign-setup e2e-inlinecert-setup e2e-build-crd-image load-build-crd-image e2e-build-local-ratify-base-image
+e2e-deploy-base-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosign-setup e2e-inlinecert-setup e2e-build-local-ratify-base-image
 	printf "{\n\t\"auths\": {\n\t\t\"registry:5000\": {\n\t\t\t\"auth\": \"`echo "${TEST_REGISTRY_USERNAME}:${TEST_REGISTRY_PASSWORD}" | tr -d '\n' | base64 -i -w 0`\"\n\t\t}\n\t}\n}" > mount_config.json
 
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
-		./charts/ratify --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
+		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
 		--set image.repository=baselocalbuild \
-		--set image.crdRepository=localbuildcrd \
 		--set image.tag=test \
-		--set gatekeeper.version=${GATEKEEPER_VERSION} \
-		--set featureFlags.RATIFY_CERT_ROTATION=${CERT_ROTATION_ENABLED} \
+		--set image.pullPolicy=Never \
+		--set executor.scopes[0]=registry:5000 \
+		--set stores[0].credential.provider=static \
+		--set stores[0].credential.username=${TEST_REGISTRY_USERNAME} \
+		--set stores[0].credential.password=${TEST_REGISTRY_PASSWORD} \
+		--set stores[0].plainHttp=true \
 		--set-file provider.tls.crt=${CERT_DIR}/server.crt \
 		--set-file provider.tls.key=${CERT_DIR}/server.key \
 		--set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
-		--set-file provider.tls.caKey=${CERT_DIR}/ca.key \
-		--set provider.tls.cabundle="$(shell cat ${CERT_DIR}/ca.crt | base64 | tr -d '\n')" \
-		--set notationCerts[0]="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
-		--set cosignKeys[0]="$$(cat .staging/cosign/cosign.pub)" \
-		--set cosign.key="$$(cat .staging/cosign/cosign.pub)" \
-		--set oras.useHttp=true \
-		--set-file dockerConfig="mount_config.json" \
-		--set logger.level=debug
+		--set provider.tls.disableCertRotation=true \
+		--set notation.certs[0].provider=inline \
+		--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
+		--set cosign.keys.provider=inline \
+		--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
+		--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 	rm mount_config.json
 
-e2e-deploy-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup e2e-inlinecert-setup e2e-build-crd-image load-build-crd-image e2e-build-local-ratify-image load-local-ratify-image e2e-helm-deploy-ratify
+e2e-deploy-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup e2e-inlinecert-setup e2e-build-local-ratify-image load-local-ratify-image e2e-helm-deploy-ratify
 
 e2e-build-local-ratify-base-image:
 	docker build --progress=plain --no-cache \
-		-f ./httpserver/Dockerfile \
+		-f ./Dockerfile \
 		-t baselocalbuild:test .
 	kind load docker-image --name kind baselocalbuild:test
 
 e2e-build-local-ratify-image:
 	docker build --progress=plain --no-cache \
-	--build-arg build_sbom=true \
-	--build-arg build_licensechecker=true \
-	--build-arg build_schemavalidator=true \
-	--build-arg build_vulnerabilityreport=true \
-	-f ./httpserver/Dockerfile \
+	-f ./Dockerfile \
 	-t localbuild:test .
 
 build-local-ratify-gatekeeper-provider-image:
@@ -644,48 +635,53 @@ load-local-ratify-image:
 e2e-helmfile-deploy-released-ratify:
 	./.staging/helmfilebin/helmfile sync -f git::https://github.com/notaryproject/ratify.git@helmfile.yaml
 
+# TODO: add --set logger.level=debug once the chart supports it
 e2e-helm-deploy-ratify:
 	printf "{\n\t\"auths\": {\n\t\t\"registry:5000\": {\n\t\t\t\"auth\": \"`echo "${TEST_REGISTRY_USERNAME}:${TEST_REGISTRY_PASSWORD}" | tr -d '\n' | base64 -i -w 0`\"\n\t\t}\n\t}\n}" > mount_config.json
 
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
-    ./charts/ratify --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
+		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
 	--set image.repository=localbuild \
-	--set image.crdRepository=localbuildcrd \
 	--set image.tag=test \
-	--set gatekeeper.version=${GATEKEEPER_VERSION} \
-	--set featureFlags.RATIFY_CERT_ROTATION=${CERT_ROTATION_ENABLED} \
+	--set image.pullPolicy=Never \
+	--set executor.scopes[0]=registry:5000 \
+	--set stores[0].credential.provider=static \
+	--set stores[0].credential.username=${TEST_REGISTRY_USERNAME} \
+	--set stores[0].credential.password=${TEST_REGISTRY_PASSWORD} \
+	--set stores[0].plainHttp=true \
 	--set-file provider.tls.crt=${CERT_DIR}/server.crt \
 	--set-file provider.tls.key=${CERT_DIR}/server.key \
 	--set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
-    --set-file provider.tls.caKey=${CERT_DIR}/ca.key \
-	--set provider.tls.cabundle="$(shell cat ${CERT_DIR}/ca.crt | base64 | tr -d '\n')" \
-	--set notationCerts[0]="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
-	--set cosignKeys[0]="$$(cat .staging/cosign/cosign.pub)" \
-	--set cosign.key="$$(cat .staging/cosign/cosign.pub)" \
-	--set cosign.tLogVerify=false \
-	--set oras.useHttp=true \
-	--set-file dockerConfig="mount_config.json" \
-	--set logger.level=debug
+	--set provider.tls.disableCertRotation=true \
+	--set notation.certs[0].provider=inline \
+	--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
+	--set cosign.keys.provider=inline \
+	--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
+	--set cosign.ignoreTLog=true \
+	--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 	rm mount_config.json
 
+# TODO: add --set logger.level=debug once the chart supports it
 e2e-helm-deploy-ratify-without-tls-certs:
 	printf "{\n\t\"auths\": {\n\t\t\"registry:5000\": {\n\t\t\t\"auth\": \"`echo "${TEST_REGISTRY_USERNAME}:${TEST_REGISTRY_PASSWORD}" | tr -d '\n' | base64 -i -w 0`\"\n\t\t}\n\t}\n}" > mount_config.json
 
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
-    ./charts/ratify --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
+		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
 	--set image.repository=localbuild \
-	--set image.crdRepository=localbuildcrd \
 	--set image.tag=test \
-	--set gatekeeper.version=${GATEKEEPER_VERSION} \
-	--set featureFlags.RATIFY_CERT_ROTATION=${CERT_ROTATION_ENABLED} \
-	--set notationCerts[0]="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
-	--set cosign.key="$$(cat .staging/cosign/cosign.pub)" \
-	--set cosignKeys[0]="$$(cat .staging/cosign/cosign.pub)" \
-	--set cosign.tLogVerify=false \
-	--set oras.useHttp=true \
-	--set-file dockerConfig="mount_config.json" \
-	--set logger.level=debug
+	--set image.pullPolicy=Never \
+	--set executor.scopes[0]=registry:5000 \
+	--set stores[0].credential.provider=static \
+	--set stores[0].credential.username=${TEST_REGISTRY_USERNAME} \
+	--set stores[0].credential.password=${TEST_REGISTRY_PASSWORD} \
+	--set stores[0].plainHttp=true \
+	--set notation.certs[0].provider=inline \
+	--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
+	--set cosign.keys.provider=inline \
+	--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
+	--set cosign.ignoreTLog=true \
+	--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 	rm mount_config.json
 
@@ -706,32 +702,28 @@ e2e-helm-deploy-redis: e2e-helm-deploy-dapr
 	kubectl apply -f test/testdata/dapr/dapr-redis-secret.yaml -n ${GATEKEEPER_NAMESPACE}
 	kubectl apply -f test/testdata/dapr/dapr-redis.yaml -n ${GATEKEEPER_NAMESPACE}
  
-e2e-helm-deploy-ratify-replica: e2e-helm-deploy-redis e2e-notation-setup e2e-build-crd-image load-build-crd-image e2e-build-local-ratify-image load-local-ratify-image
+# TODO: add logger.level, resources.requests, and provider.cache (HA) once the chart supports them
+e2e-helm-deploy-ratify-replica: e2e-helm-deploy-redis e2e-notation-setup e2e-build-local-ratify-image load-local-ratify-image
 	printf "{\n\t\"auths\": {\n\t\t\"registry:5000\": {\n\t\t\t\"auth\": \"`echo "${TEST_REGISTRY_USERNAME}:${TEST_REGISTRY_PASSWORD}" | tr -d '\n' | base64 -i -w 0`\"\n\t\t}\n\t}\n}" > mount_config.json
 
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
-    ./charts/ratify --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
+		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
 	--set image.repository=localbuild \
-	--set image.crdRepository=localbuildcrd \
 	--set image.tag=test \
-	--set gatekeeper.version=${GATEKEEPER_VERSION} \
-	--set featureFlags.RATIFY_CERT_ROTATION=${CERT_ROTATION_ENABLED} \
+	--set image.pullPolicy=Never \
+	--set executor.scopes[0]=registry:5000 \
+	--set stores[0].credential.provider=static \
+	--set stores[0].credential.username=${TEST_REGISTRY_USERNAME} \
+	--set stores[0].credential.password=${TEST_REGISTRY_PASSWORD} \
+	--set stores[0].plainHttp=true \
 	--set-file provider.tls.crt=${CERT_DIR}/server.crt \
 	--set-file provider.tls.key=${CERT_DIR}/server.key \
 	--set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
-    --set-file provider.tls.caKey=${CERT_DIR}/ca.key \
-	--set provider.tls.cabundle="$(shell cat ${CERT_DIR}/ca.crt | base64 | tr -d '\n')" \
-	--set notationCerts[0]="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
-	--set oras.useHttp=true \
-	--set cosign.enabled=false \
-	--set-file dockerConfig="mount_config.json" \
-	--set logger.level=debug \
+	--set provider.tls.disableCertRotation=true \
+	--set notation.certs[0].provider=inline \
+	--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
 	--set replicaCount=2 \
-	--set provider.cache.type="dapr" \
-	--set provider.cache.name="dapr-redis" \
-	--set featureFlags.RATIFY_EXPERIMENTAL_HIGH_AVAILABILITY=true \
-	--set resources.requests.memory="64Mi" \
-	--set resources.requests.cpu="200m"
+	--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 	rm mount_config.json
 
