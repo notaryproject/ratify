@@ -27,6 +27,8 @@ import (
 	"github.com/ratify-project/ratify/pkg/verifier/plugin/skel"
 )
 
+const testVersion = "1.0.0"
+
 func TestParseInput(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -221,7 +223,7 @@ func TestVerifyReference(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmdArgs := &skel.CmdArgs{
-				Version:   pluginVersion,
+				Version:   testVersion,
 				Subject:   "test_subject",
 				StdinData: []byte(tt.stdinData),
 			}
@@ -289,7 +291,7 @@ func TestVerifyReferenceMaxBlobs(t *testing.T) {
 	}
 
 	cmdArgs := &skel.CmdArgs{
-		Version:   "1.0.0",
+		Version:   testVersion,
 		Subject:   "test_subject",
 		StdinData: []byte(`{"config":{"name":"slsa","type":"slsa"}}`),
 	}
