@@ -54,7 +54,7 @@ SBOM_TOOL_VERSION ?=v2.2.9
 TRIVY_VERSION ?= 0.71.0
 
 GATEKEEPER_NAMESPACE = gatekeeper-system
-RATIFY_NAME = ratify
+RATIFY_NAME = ratify-gatekeeper-provider
 
 TIMESTAMP_URL = http://timestamp.digicert.com
 
