@@ -111,7 +111,7 @@ func TestNewExecutor(t *testing.T) {
 			expectExecutor: false,
 		},
 		{
-			name: "invalid executor scopes",
+			name: "valid fallback scope",
 			opts: Options{
 				Executors: []ScopedOptions{
 					{
@@ -124,8 +124,7 @@ func TestNewExecutor(t *testing.T) {
 						},
 						Stores: []store.NewOptions{
 							{
-								Type:   mockStoreType,
-								Scopes: []string{"testrepo"},
+								Type: mockStoreType,
 							},
 						},
 						Policy: &policyenforcer.NewOptions{
@@ -134,8 +133,8 @@ func TestNewExecutor(t *testing.T) {
 					},
 				},
 			},
-			expectErr:      true,
-			expectExecutor: false,
+			expectErr:      false,
+			expectExecutor: true,
 		},
 		{
 			name: "failed to create store",
@@ -233,12 +232,14 @@ func TestRegisterExecutor(t *testing.T) {
 		wildcardScoped   bool
 		registryScoped   bool
 		repositoryScoped bool
+		fallbackScoped   bool
 	}{
 		{
-			name:          "Register executor with global wildcard scope",
-			scope:         "*",
-			executor:      &ratify.Executor{},
-			registerError: true,
+			name:           "Register executor with fallback scope",
+			scope:          "*",
+			executor:       &ratify.Executor{},
+			registerError:  false,
+			fallbackScoped: true,
 		},
 		{
 			name:          "Register executor with empty scope",
@@ -322,6 +323,9 @@ func TestRegisterExecutor(t *testing.T) {
 				if test.repositoryScoped && len(scopedExecutor.repository) == 0 {
 					t.Errorf("expected repository scoped executors to be registered, but got none")
 				}
+				if test.fallbackScoped && scopedExecutor.fallback == nil {
+					t.Errorf("expected fallback executor to be registered, but got none")
+				}
 			}
 		})
 	}
@@ -331,6 +335,7 @@ func TestMatchExecutor(t *testing.T) {
 	e1 := &ratify.Executor{}
 	e2 := &ratify.Executor{}
 	e3 := &ratify.Executor{}
+	e4 := &ratify.Executor{}
 	scopedExecutor := &ScopedExecutor{
 		wildcard: map[string]*ratify.Executor{
 			"example.com": e1,
@@ -341,6 +346,7 @@ func TestMatchExecutor(t *testing.T) {
 		repository: map[string]*ratify.Executor{
 			"registry.example.com/repository/foo": e3,
 		},
+		fallback: e4,
 	}
 	tests := []struct {
 		name             string
@@ -373,10 +379,10 @@ func TestMatchExecutor(t *testing.T) {
 			expectedError:    false,
 		},
 		{
-			name:             "No match",
+			name:             "Match fallback executor",
 			artifact:         "unknown.com/foo:v1",
-			expectedExecutor: nil,
-			expectedError:    true,
+			expectedExecutor: e4,
+			expectedError:    false,
 		},
 	}
 
@@ -398,10 +404,11 @@ func TestValidateArtifact(t *testing.T) {
 		wildcard: map[string]*ratify.Executor{
 			"example.com": {},
 		},
+		fallback: &ratify.Executor{},
 	}
 
 	if _, err := scopedExecutor.ValidateArtifact(context.Background(), "unknown.com/foo:v1"); err == nil {
-		t.Error("expected error for unknown artifact, got nil")
+		t.Error("expected error for fallback executor without store/verifiers, got nil")
 	}
 
 	if _, err := scopedExecutor.ValidateArtifact(context.Background(), "test.example.com/foo:v1"); err == nil {
