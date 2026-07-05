@@ -292,11 +292,15 @@ func TestVerifyReferenceMaxBlobs(t *testing.T) {
 
 	// All blobs have invalid attestation data, so GetVsa will fail
 	// but we verify the function doesn't crash and respects the maxBlobs limit
-	result, _ := VerifyReference(cmdArgs, subjectRef, refDesc, testStore)
-	if result != nil && result.IsSuccess {
-		// With invalid blob data, we shouldn't get success
-		// (unless all blobs were skipped)
-		t.Log("VerifyReference() completed without crash, maxBlobs limit respected")
+	result, err := VerifyReference(cmdArgs, subjectRef, refDesc, testStore)
+	if err != nil {
+		t.Fatalf("VerifyReference() unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("VerifyReference() result is nil")
+	}
+	if result.IsSuccess {
+		t.Fatalf("VerifyReference() IsSuccess = %v, want %v", result.IsSuccess, false)
 	}
 }
 
