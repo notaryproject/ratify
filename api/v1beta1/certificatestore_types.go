@@ -81,5 +81,8 @@ type CertificateStoreList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&CertificateStore{}, &CertificateStoreList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &CertificateStore{}, &CertificateStoreList{})
+		return nil
+	})
 }

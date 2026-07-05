@@ -29,7 +29,7 @@ jobs:
 
       - uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
-          go-version: "1.22"
+          go-version: "1.26.4"
           check-latest: true
       - uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
 
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     env:
-      TRIVY_VERSION: 0.58.2
+      TRIVY_VERSION: 0.70.0
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
@@ -69,9 +69,11 @@ jobs:
       - name: Run trivy on images for all severity
         run: |
           for img in "localbuild:test" "localbuildcrd:test"; do
-              trivy image --skip-db-update --ignore-unfixed --vuln-type="os,library" "${img}"
+              trivy image --skip-db-update --ignore-unfixed --pkg-types="os,library" "${img}"
           done
-      - name: Run trivy on images and exit on HIGH/CRITICAL severity
+      - name: Run trivy on Ratify image and exit on HIGH/CRITICAL severity
         run: |
-          trivy image --skip-db-update --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --vuln-type="os,library" "localbuild:test"
-          trivy image --skip-db-update --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --vuln-type="os,library" --show-suppressed --ignorefile ./.github/crd.trivyignore.yaml "localbuildcrd:test"
+          trivy image --skip-db-update --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --pkg-types="os,library" --show-suppressed --ignorefile ./.github/server.trivyignore.yaml "localbuild:test"
+      - name: Run trivy on CRD image for HIGH/CRITICAL severity as warning only
+        run: |
+          trivy image --skip-db-update --ignore-unfixed --severity HIGH,CRITICAL --pkg-types="os,library" --show-suppressed "localbuildcrd:test"

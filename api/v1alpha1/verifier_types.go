@@ -71,5 +71,8 @@ type VerifierList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&Verifier{}, &VerifierList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &Verifier{}, &VerifierList{})
+		return nil
+	})
 }

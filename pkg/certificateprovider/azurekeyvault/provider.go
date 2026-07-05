@@ -264,8 +264,7 @@ func getCertsFromSecretBundle(ctx context.Context, secretBundle azsecrets.Secret
 		case "PRIVATE KEY":
 			logger.GetLogger(ctx, logOpt).Warnf("azure keyvault certificate provider: certificate %s, version %s private key skipped. Please see doc to learn how to create a new certificate in keyvault with non exportable keys. https://learn.microsoft.com/en-us/azure/key-vault/certificates/how-to-export-certificate?tabs=azure-cli#exportable-and-non-exportable-keys", certName, version)
 		case "CERTIFICATE":
-			var pemData []byte
-			pemData = append(pemData, pem.EncodeToMemory(block)...)
+			pemData := pem.EncodeToMemory(block)
 			decodedCerts, err := certificateprovider.DecodeCertificates(pemData)
 			if err != nil {
 				return nil, nil, re.ErrorCodeCertInvalid.NewError(re.CertProvider, providerName, re.EmptyLink, err, fmt.Sprintf("azure keyvault certificate provider: failed to decode Certificate %s, version %s", certName, version), re.HideStackTrace)

@@ -1,3 +1,0 @@
-vulnerabilities:
-  - id: CVE-2024-45338
-    statement: kubectl is not vulnerable to this and is reason for being flagged

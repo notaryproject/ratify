@@ -87,5 +87,8 @@ type KeyManagementProviderList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&KeyManagementProvider{}, &KeyManagementProviderList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &KeyManagementProvider{}, &KeyManagementProviderList{})
+		return nil
+	})
 }

@@ -44,6 +44,9 @@ func (g *defaultManagedIdentityTokenGetterImpl) GetManagedIdentityToken(ctx cont
 	return getManagedIdentityToken(ctx, clientID, azidentity.NewManagedIdentityCredential)
 }
 
+// getManagedIdentityTokenFunc is a package-level variable to allow test injection.
+var getManagedIdentityTokenFunc = getManagedIdentityToken
+
 func getManagedIdentityToken(ctx context.Context, clientID string, newCredentialFunc func(opts *azidentity.ManagedIdentityCredentialOptions) (*azidentity.ManagedIdentityCredential, error)) (azcore.AccessToken, error) {
 	id := azidentity.ClientID(clientID)
 	opts := azidentity.ManagedIdentityCredentialOptions{ID: id}
@@ -115,7 +118,7 @@ func (s *azureManagedIdentityProviderFactory) Create(authProviderConfig provider
 	}
 
 	// retrieve an AAD Access token
-	token, err := getManagedIdentityToken(context.Background(), client, azidentity.NewManagedIdentityCredential)
+	token, err := getManagedIdentityTokenFunc(context.Background(), client, azidentity.NewManagedIdentityCredential)
 	if err != nil {
 		return nil, re.ErrorCodeAuthDenied.NewError(re.AuthProvider, "", re.AzureManagedIdentityLink, err, "", re.HideStackTrace)
 	}
@@ -125,6 +128,7 @@ func (s *azureManagedIdentityProviderFactory) Create(authProviderConfig provider
 		clientID:                client,
 		tenantID:                tenant,
 		authClientFactory:       &defaultAuthClientFactoryImpl{},          // Concrete implementation
+		registryHostGetter:      &defaultRegistryHostGetterImpl{},         // Concrete implementation
 		getManagedIdentityToken: &defaultManagedIdentityTokenGetterImpl{}, // Concrete implementation
 		endpoints:               endpoints,
 	}, nil
