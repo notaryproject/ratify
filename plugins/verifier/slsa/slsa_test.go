@@ -221,7 +221,7 @@ func TestVerifyReference(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmdArgs := &skel.CmdArgs{
-				Version:   "1.0.0",
+				Version:   pluginVersion,
 				Subject:   "test_subject",
 				StdinData: []byte(tt.stdinData),
 			}

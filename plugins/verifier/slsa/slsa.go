@@ -34,8 +34,9 @@ import (
 )
 
 const (
-	maxBlobs    = 10               // Limit the number of referenceManifest blob, default to 10
-	maxBlobSize = 50 * 1024 * 1024 // The max blob size, default to 50MB
+	maxBlobs       = 10               // Limit the number of referenceManifest blob, default to 10
+	maxBlobSize    = 50 * 1024 * 1024  // The max blob size, default to 50MB
+	pluginVersion  = "1.0.0"
 )
 
 type PluginConfig struct {
@@ -56,7 +57,7 @@ func main() {
 
 	// output info and Debug to stderr
 	pluginlogger.Info("initialized slsa plugin")
-	skel.PluginMain("slsa", "1.0.0", VerifyReference, []string{"1.0.0"})
+	skel.PluginMain("slsa", pluginVersion, VerifyReference, []string{pluginVersion})
 
 	// By default, the pluginlogger writes to stderr. To change the output, use SetOutput
 	pluginlogger.SetOutput(os.Stdout)

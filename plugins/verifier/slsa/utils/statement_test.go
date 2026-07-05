@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ratify-project/ratify/pkg/common/plugin/logger"
 	spb "github.com/in-toto/attestation/go/v1"
+	"github.com/ratify-project/ratify/pkg/common/plugin/logger"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
 
