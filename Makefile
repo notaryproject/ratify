@@ -524,7 +524,7 @@ e2e-trivy-setup:
 	tar -zxf .staging/trivy/trivy.tar.gz -C .staging/trivy
 
 	# Download Trivy DB if not already cached
-	if [ ! -d ~/.cache/trivy/db ]; then \
+	if [ ! -d "${HOME}/.cache/trivy/db" ]; then \
 		echo "Trivy DB not found in cache, downloading..."; \
 		.staging/trivy/trivy image --download-db-only; \
 	fi
