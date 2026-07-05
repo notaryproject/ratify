@@ -248,12 +248,18 @@ func TestConvertLineToStatement_CertIdentityFallback(t *testing.T) {
 	v := &statementMockVerifier{err: identityErr}
 	br := NewBundleReader(nil, v)
 
-	// The fallback also creates a real BndVerifier which will fail on invalid data,
-	// so we just verify the function doesn't panic and returns an error
+	// The fallback creates a real BndVerifier which will fail on "test-line",
+	// so we expect an error wrapping the original identity error.
 	testLogger := logger.NewLogger()
 	result, err := br.convertLineToStatement("test-line", testLogger)
-	if err == nil && result == nil {
-		t.Fatal("convertLineToStatement() expected either error or result")
+	if result != nil {
+		t.Fatalf("convertLineToStatement() expected nil result for fallback failure, got %v", result)
+	}
+	if err == nil {
+		t.Fatal("convertLineToStatement() expected error from fallback path, got nil")
+	}
+	if !strings.Contains(err.Error(), "could not convert line to statement") {
+		t.Fatalf("convertLineToStatement() error = %v, want containing 'could not convert line to statement'", err)
 	}
 }
 

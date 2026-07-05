@@ -85,6 +85,18 @@ func TestParseInput(t *testing.T) {
 			if config.Type != tt.wantType {
 				t.Fatalf("parseInput() type = %q, want %q", config.Type, tt.wantType)
 			}
+			if tt.wantName == "slsa" {
+				// Assert the full-config fields are parsed correctly
+				if config.ExpectedVerifierID != "test-verifier" {
+					t.Fatalf("parseInput() expectedVerifierId = %q, want %q", config.ExpectedVerifierID, "test-verifier")
+				}
+				if config.ExpectedResourceURI != "test-resource" {
+					t.Fatalf("parseInput() expectedResourceUri = %q, want %q", config.ExpectedResourceURI, "test-resource")
+				}
+				if len(config.ExpectedVerifiedLevels) != 1 || config.ExpectedVerifiedLevels[0] != "SLSA_SOURCE_LEVEL_2" {
+					t.Fatalf("parseInput() expectedVerifiedLevels = %v, want [SLSA_SOURCE_LEVEL_2]", config.ExpectedVerifiedLevels)
+				}
+			}
 		})
 	}
 }
@@ -250,6 +262,13 @@ func TestVerifyReference(t *testing.T) {
 			if tt.wantMsg != "" && !strings.Contains(result.Message, tt.wantMsg) {
 				t.Fatalf("VerifyReference() Message = %q, want containing %q", result.Message, tt.wantMsg)
 			}
+
+			// Assert verifier type fallback: when Type is empty, Name should be used as Type
+			if tt.name == "verifier type falls back to name when type is empty" {
+				if result.Type != "my-slsa" {
+					t.Fatalf("VerifyReference() Type = %q, want %q (should fall back to name)", result.Type, "my-slsa")
+				}
+			}
 		})
 	}
 }
@@ -290,8 +309,9 @@ func TestVerifyReferenceMaxBlobs(t *testing.T) {
 		},
 	}
 
-	// All blobs have invalid attestation data, so GetVsa will fail
-	// but we verify the function doesn't crash and respects the maxBlobs limit
+	// All blobs have invalid attestation data, so GetVsa will fail on the first blob
+	// and return a non-success result. The key behavior: it should not process more
+	// than maxBlobs blobs and should not crash.
 	result, err := VerifyReference(cmdArgs, subjectRef, refDesc, testStore)
 	if err != nil {
 		t.Fatalf("VerifyReference() unexpected error: %v", err)
@@ -300,7 +320,10 @@ func TestVerifyReferenceMaxBlobs(t *testing.T) {
 		t.Fatal("VerifyReference() result is nil")
 	}
 	if result.IsSuccess {
-		t.Fatalf("VerifyReference() IsSuccess = %v, want %v", result.IsSuccess, false)
+		t.Fatal("VerifyReference() IsSuccess = true, want false (invalid attestation data)")
+	}
+	if !strings.Contains(result.Message, "can not get VSA") {
+		t.Fatalf("VerifyReference() Message = %q, want containing 'can not get VSA'", result.Message)
 	}
 }
 
