@@ -175,10 +175,6 @@ delete-demo-constraints:
 	kubectl delete -f ./library/multi-tenancy-validation/template.yaml
 	kubectl delete -f ./library/multi-tenancy-validation/samples/constraint.yaml
 
-.PHONY: deploy-rego-policy
-deploy-rego-policy:
-	kubectl replace -f ./config/samples/clustered/policy/config_v1beta1_policy_rego.yaml
-
 .PHONY: deploy-gatekeeper
 deploy-gatekeeper:
 	helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts
@@ -214,7 +210,7 @@ test-high-availability:
 
 .PHONY: generate-certs
 generate-certs:
-	./scripts/generate-tls-certs.sh ${CERT_DIR} ${GATEKEEPER_NAMESPACE}
+	./scripts/generate-tls-certs.sh ${CERT_DIR} ${RATIFY_NAME} ${GATEKEEPER_NAMESPACE}
 
 generate-rotation-certs:
 	mkdir -p .staging/rotation
@@ -222,8 +218,8 @@ generate-rotation-certs:
 	mkdir -p .staging/rotation/expiring-certs
 
 	./scripts/generate-gk-tls-certs.sh .staging/rotation/gatekeeper ${GATEKEEPER_NAMESPACE}
-	./scripts/generate-tls-certs.sh .staging/rotation ${GATEKEEPER_NAMESPACE}
-	./scripts/generate-tls-certs.sh .staging/rotation/expiring-certs ${GATEKEEPER_NAMESPACE} 1
+	./scripts/generate-tls-certs.sh .staging/rotation ${RATIFY_NAME} ${GATEKEEPER_NAMESPACE}
+	./scripts/generate-tls-certs.sh .staging/rotation/expiring-certs ${RATIFY_NAME} ${GATEKEEPER_NAMESPACE} 1
 
 install-bats:
 	# Download and install bats

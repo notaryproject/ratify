@@ -68,7 +68,6 @@ jobs:
           kubectl get executors.config.ratify.dev -A -o yaml > logs-executor-${{ inputs.k8s_version }}-${{ inputs.gatekeeper_version }}.yaml 2>&1 || true
       - name: Run e2e with Rego policy
         run: |
-          make deploy-rego-policy
           make test-e2e
       - name: Save logs
         if: ${{ always() }}
