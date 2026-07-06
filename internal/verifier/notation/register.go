@@ -22,7 +22,6 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	"github.com/notaryproject/ratify-go"
-	"github.com/notaryproject/ratify-verifier-go/notation"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 )
@@ -53,6 +52,18 @@ type options struct {
 	// verifier. Certificates would be loaded into trust store for Notation
 	// verifier to access. Required.
 	Certificates []trustStoreOptions `json:"certificates"`
+
+	// CRL configures certificate revocation list checks. Revocation checks are
+	// enabled by default. Cache is optional and disabled unless configured.
+	CRL crlOptions `json:"crl,omitempty"`
+}
+
+type crlOptions struct {
+	Cache crlCacheOptions `json:"cache,omitempty"`
+}
+
+type crlCacheOptions struct {
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 func init() {
@@ -72,13 +83,14 @@ func init() {
 			return nil, fmt.Errorf("failed to initialize trust store: %w", err)
 		}
 
-		notationOpts := &notation.VerifierOptions{
+		notationOpts := &notationVerifierOptions{
 			Name:           opts.Name,
 			TrustPolicyDoc: initTrustPolicyDocument(params.Scopes, params.TrustedIdentities, types),
 			TrustStore:     trustStore,
+			CRL:            params.CRL,
 		}
 
-		return notation.NewVerifier(notationOpts)
+		return newNotationVerifier(notationOpts)
 	})
 }
 

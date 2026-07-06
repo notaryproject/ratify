@@ -22,6 +22,9 @@ spec:
   verifiers:
     - name: notation-1
       parameters:
+        crl:
+          cache:
+            enabled: true
         certificates:
           - type: ca
             inline: |

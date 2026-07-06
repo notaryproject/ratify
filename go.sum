@@ -485,8 +485,6 @@ github.com/notaryproject/ratify-go v0.0.0-20250912144645-8f7f89aff329 h1:QPU718m
 github.com/notaryproject/ratify-go v0.0.0-20250912144645-8f7f89aff329/go.mod h1:skeFG5In355I3GUZj25V5glopSbWDcbY8u/fhwgX+E0=
 github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20250912090755-582a09910433 h1:BSt96EvpwQo5ca4SRIbeUSfO5+zOEuyXraVpQOdFEGg=
 github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20250912090755-582a09910433/go.mod h1:4+5h2tJp96UF2jNqaK6SV1ne5+kweyREtaRrN2oXrvM=
-github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a h1:Q4B+c5a2hSk93D6d1qteXhMAZnHaWxfJ5A6gefDRF94=
-github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a/go.mod h1:mXQTrTrQvOov3awSbT0jEdpf76l8SSfYPyGKDQdq5KY=
 github.com/notaryproject/tspclient-go v1.0.0 h1:AwQ4x0gX8IHnyiZB1tggpn5NFqHpTEm1SDX8YNv4Dg4=
 github.com/notaryproject/tspclient-go v1.0.0/go.mod h1:LGyA/6Kwd2FlM0uk8Vc5il3j0CddbWSHBj/4kxQDbjs=
 github.com/oklog/ulid/v2 v2.1.1 h1:suPZ4ARWLOJLegGFiZZ1dFAkqzhMjL3J1TzI+5wHz8s=

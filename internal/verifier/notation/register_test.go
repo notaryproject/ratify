@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
@@ -65,6 +66,12 @@ func createMockKeyProvider(options any) (keyprovider.KeyProvider, error) {
 }
 
 func TestNewVerifier(t *testing.T) {
+	oldCacheDir := dir.UserCacheDir
+	dir.UserCacheDir = t.TempDir()
+	t.Cleanup(func() {
+		dir.UserCacheDir = oldCacheDir
+	})
+
 	// Register the mock key provider
 	keyprovider.RegisterKeyProvider(mockKeyProviderName, createMockKeyProvider)
 
@@ -175,6 +182,27 @@ func TestNewVerifier(t *testing.T) {
 				Type: verifierTypeNotation,
 				Name: testName,
 				Parameters: options{
+					Certificates: []trustStoreOptions{
+						{
+							"type":              "ca",
+							mockKeyProviderName: nil,
+						},
+					},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "Valid notation options with CRL cache enabled",
+			opts: verifier.NewOptions{
+				Type: verifierTypeNotation,
+				Name: testName,
+				Parameters: options{
+					CRL: crlOptions{
+						Cache: crlCacheOptions{
+							Enabled: true,
+						},
+					},
 					Certificates: []trustStoreOptions{
 						{
 							"type":              "ca",
