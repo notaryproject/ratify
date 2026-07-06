@@ -105,7 +105,8 @@ spec:
         certificates:
           - type: "ca"
             {{- if eq (index .Values.notation.certs 0).provider "inline" }}
-            inline: {{ (index .Values.notation.certs 0).cert | quote }}
+            inline:
+              certs: {{ (index .Values.notation.certs 0).cert | quote }}
             {{- else if eq (index .Values.notation.certs 0).provider "files" }}
             files:
               - "/usr/local/notation/certs"
