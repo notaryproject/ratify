@@ -148,12 +148,13 @@ func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 // executor based on the artifact's reference. It returns the validation result
 // or an error if no matching executor is found.
 func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) (*ratify.ValidationResult, error) {
-	executor, err := s.matchExecutor(artifact)
+	reference := stripNamespacePrefix(artifact)
+	executor, err := s.matchExecutor(reference)
 	if err != nil {
-		return nil, fmt.Errorf("failed to match executor for artifact %q: %w", artifact, err)
+		return nil, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
 	}
 	opts := ratify.ValidateArtifactOptions{
-		Subject: artifact,
+		Subject: reference,
 	}
 	return executor.ValidateArtifact(ctx, opts)
 }
@@ -162,11 +163,24 @@ func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) 
 // request to the appropriate executor based on the artifact's reference.
 // It returns the descriptor or an error if no matching executor is found.
 func (s *ScopedExecutor) Resolve(ctx context.Context, artifact string) (ocispec.Descriptor, error) {
-	executor, err := s.matchExecutor(artifact)
+	reference := stripNamespacePrefix(artifact)
+	executor, err := s.matchExecutor(reference)
 	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to match executor for artifact %q: %w", artifact, err)
+		return ocispec.Descriptor{}, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
 	}
-	return executor.Store.Resolve(ctx, artifact)
+	return executor.Store.Resolve(ctx, reference)
+}
+
+// stripNamespacePrefix removes a leading [namespace] prefix from an artifact
+// reference. Gatekeeper constraint templates prepend [namespace] to image refs
+// before sending them to ratify via external data.
+func stripNamespacePrefix(artifact string) string {
+	if strings.HasPrefix(artifact, "[") {
+		if idx := strings.Index(artifact, "]"); idx != -1 {
+			return artifact[idx+1:]
+		}
+	}
+	return artifact
 }
 
 // matchExecutor finds the appropriate executor for the given artifact.

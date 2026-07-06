@@ -373,6 +373,12 @@ func TestMatchExecutor(t *testing.T) {
 			expectedError:    false,
 		},
 		{
+			name:             "Match registry executor with namespace prefix",
+			artifact:         "[default]registry.example.com/foo:v1",
+			expectedExecutor: nil,
+			expectedError:    true,
+		},
+		{
 			name:             "No match",
 			artifact:         "unknown.com/foo:v1",
 			expectedExecutor: nil,
@@ -393,6 +399,54 @@ func TestMatchExecutor(t *testing.T) {
 	}
 }
 
+func TestStripNamespacePrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "No prefix",
+			input:    "registry:5000/notation@sha256:abc123",
+			expected: "registry:5000/notation@sha256:abc123",
+		},
+		{
+			name:     "Default namespace prefix",
+			input:    "[default]registry:5000/notation@sha256:abc123",
+			expected: "registry:5000/notation@sha256:abc123",
+		},
+		{
+			name:     "Custom namespace prefix",
+			input:    "[my-namespace]registry.example.com/foo:v1",
+			expected: "registry.example.com/foo:v1",
+		},
+		{
+			name:     "Empty namespace prefix",
+			input:    "[]registry:5000/foo:v1",
+			expected: "registry:5000/foo:v1",
+		},
+		{
+			name:     "No closing bracket",
+			input:    "[defaultregistry:5000/foo:v1",
+			expected: "[defaultregistry:5000/foo:v1",
+		},
+		{
+			name:     "Namespace prefix with IPv6 registry",
+			input:    "[default][2001:db8::1]:5000/repo:tag",
+			expected: "[2001:db8::1]:5000/repo:tag",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := stripNamespacePrefix(test.input)
+			if result != test.expected {
+				t.Errorf("expected %q, got %q", test.expected, result)
+			}
+		})
+	}
+}
+
 func TestValidateArtifact(t *testing.T) {
 	scopedExecutor := &ScopedExecutor{
 		wildcard: map[string]*ratify.Executor{
@@ -406,6 +460,11 @@ func TestValidateArtifact(t *testing.T) {
 
 	if _, err := scopedExecutor.ValidateArtifact(context.Background(), "test.example.com/foo:v1"); err == nil {
 		t.Error("expected error for artifact with wildcard scope, got nil")
+	}
+
+	// Verify namespace prefix is stripped before scope matching
+	if _, err := scopedExecutor.ValidateArtifact(context.Background(), "[default]unknown.com/foo:v1"); err == nil {
+		t.Error("expected error for prefixed unknown artifact, got nil")
 	}
 }
 
@@ -424,6 +483,15 @@ func TestResolve(t *testing.T) {
 
 	if _, err := scopedExecutor.Resolve(context.Background(), "test.example.com/foo:v1"); err != nil {
 		t.Error("expected no error for valid artifact with wildcard scope, got:", err)
+	}
+
+	// Verify namespace prefix is stripped before scope matching
+	if _, err := scopedExecutor.Resolve(context.Background(), "[default]test.example.com/foo:v1"); err != nil {
+		t.Error("expected no error for prefixed artifact with wildcard scope, got:", err)
+	}
+
+	if _, err := scopedExecutor.Resolve(context.Background(), "[default]unknown.com/foo:v1"); err == nil {
+		t.Error("expected error for prefixed unknown artifact, got nil")
 	}
 }
 
