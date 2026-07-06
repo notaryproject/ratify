@@ -151,7 +151,7 @@ func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) 
 	reference := stripNamespacePrefix(artifact)
 	executor, err := s.matchExecutor(reference)
 	if err != nil {
-		return nil, fmt.Errorf("failed to match executor for artifact %q (original: %q): %w", reference, artifact, err)
+		return nil, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
 	}
 	opts := ratify.ValidateArtifactOptions{
 		Subject: reference,
@@ -166,7 +166,7 @@ func (s *ScopedExecutor) Resolve(ctx context.Context, artifact string) (ocispec.
 	reference := stripNamespacePrefix(artifact)
 	executor, err := s.matchExecutor(reference)
 	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to match executor for artifact %q (original: %q): %w", reference, artifact, err)
+		return ocispec.Descriptor{}, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
 	}
 	return executor.Store.Resolve(ctx, reference)
 }
