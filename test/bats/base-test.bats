@@ -74,8 +74,9 @@ RATIFY_NAMESPACE=gatekeeper-system
     echo "fake cert 3" > notation-file3.crt
 
     # Happy path:
+    # TODO: update helm template arguments to match v2 chart values schema
     # Capture Helm template output
-    rendered=$(helm template multiple-trust-policies ./charts/ratify \
+    rendered=$(helm template multiple-trust-policies ./deployments/ratify-gatekeeper-provider \
         --set featureFlags.RATIFY_CERT_ROTATION=true \
         --set-file notationCerts[0]="notation-file1.crt" \
         --set-file notationCerts[1]="notation-file2.crt" \
@@ -88,6 +89,7 @@ RATIFY_NAMESPACE=gatekeeper-system
         --set notation.trustPolicies[1].registryScopes[0]="registry2.azurecr.io/" \
         --set notation.trustPolicies[1].trustStores[0]=ca:notationCerts[1])
 
+    # TODO: update expected_verifier_notation to match v2 Executor CRD format
     # the expected partial output
     expected_verifier_notation=$(cat <<EOF
 apiVersion: config.ratify.deislabs.io/v1beta1
@@ -117,22 +119,22 @@ spec:
     trustPolicyDoc:
       version: "1.0"
       trustPolicies:
-        - name: trustPolicy-0  
+        - name: trustPolicy-0
           registryScopes:
             - "registry1.azurecr.io/"
           signatureVerification:
-            level: strict  
+            level: strict
           trustStores:
             - ca:cert-0
             - tsa:cert-1
             - signingAuthority:cert-2
           trustedIdentities:
             - "x509.subject: cert identity 1"
-        - name: trustPolicy-1  
+        - name: trustPolicy-1
           registryScopes:
             - "registry2.azurecr.io/"
           signatureVerification:
-            level: strict  
+            level: strict
           trustStores:
             - ca:cert-3
           trustedIdentities:
@@ -151,8 +153,9 @@ EOF
     }
 
     # failure path:
+    # TODO: update helm template arguments to match v2 chart values schema
     # Capture Helm template output
-    run helm template multiple-trust-policies ./charts/ratify \
+    run helm template multiple-trust-policies ./deployments/ratify-gatekeeper-provider \
         --set featureFlags.RATIFY_CERT_ROTATION=true \
         --set-file notationCerts[0]="notation-file1.crt" \
         --set notation.trustPolicies[0].registryScopes[0]="registry1.azurecr.io/" \
