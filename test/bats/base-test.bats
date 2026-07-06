@@ -20,6 +20,7 @@ WAIT_TIME=60
 SLEEP_TIME=1
 RATIFY_NAME=ratify
 RATIFY_NAMESPACE=gatekeeper-system
+EXECUTOR_NAME=ratify-gatekeeper-provider-executor-1
 
 @test "base test without cert rotator" {
     teardown() {
@@ -175,7 +176,7 @@ EOF
 }
 
 @test "crd version test" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 executor CRD has only one version (v2alpha1), no version conversion to test"
     run kubectl delete verifiers.config.ratify.deislabs.io/verifier-notation
     assert_success
     run kubectl apply -f ./config/samples/clustered/verifier/config_v1alpha1_verifier_notation.yaml
@@ -192,7 +193,6 @@ EOF
 }
 
 @test "notation test" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
@@ -205,9 +205,8 @@ EOF
     assert_success
     sleep 5
 
-    # validate key management provider status property shows success
-    run bash -c "kubectl get keymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0 -o yaml | grep 'issuccess: true'"
-    assert_success
+    # validate executor status shows success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run demo --namespace default --image=registry:5000/notation:signed
     assert_success
 
@@ -216,29 +215,29 @@ EOF
 }
 
 @test "notation test timestamping" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-tsa --namespace default --force --ignore-not-found=true'
 
-        # restore the original notation verifier for other tests
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/verifier/config_v1beta1_verifier_notation.yaml'
+        # restore the original executor for other tests
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-tsa.yaml'
+        rm -f original-executor-tsa.yaml
     }
 
-    # validate key management provider status property shows success
-    run bash -c "kubectl get keymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0 -o yaml | grep 'issuccess: true'"
+    # save original executor state
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-tsa.yaml"
     assert_success
 
-    # add the tsaroot certificate as an inline key management provider
-    cat ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml >> tsakmprovider.yaml
-    cat ./test/bats/tests/certificates/tsarootca.cer | sed 's/^/      /g' >> tsakmprovider.yaml
-    run kubectl apply -f tsakmprovider.yaml --namespace ${RATIFY_NAMESPACE}
-    assert_success
+    # validate executor status shows success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
-    # configure the notation verifier to use the inline key management provider
-    run kubectl replace -f ./test/bats/tests/config/config_v1beta1_verifier_notation_tsa.yaml
+    # apply executor with TSA trust store certificate using JSON to avoid YAML document separator issues with PEM certs
+    run bash -c 'TSA_CERT=$(cat ./test/bats/tests/certificates/tsarootca.cer) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg tsa_cert "$TSA_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates += [{"type": "tsa", "inline": {"certs": $tsa_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    sleep 10
+    # wait for executor to be reconciled after patch
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     # verify that the image can now be run
     run kubectl run demo-tsa --namespace default --image=registry:5000/notation:tsa
