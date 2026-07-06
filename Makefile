@@ -54,7 +54,7 @@ SBOM_TOOL_VERSION ?=v2.2.9
 TRIVY_VERSION ?= 0.71.0
 
 GATEKEEPER_NAMESPACE = gatekeeper-system
-RATIFY_NAME = ratify
+RATIFY_NAME = ratify-gatekeeper-provider
 
 TIMESTAMP_URL = http://timestamp.digicert.com
 
@@ -522,6 +522,12 @@ e2e-trivy-setup:
 	# Install Trivy
 	curl -L https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz --output .staging/trivy/trivy.tar.gz
 	tar -zxf .staging/trivy/trivy.tar.gz -C .staging/trivy
+
+	# Download Trivy DB if not already cached
+	if [ ! -d "${HOME}/.cache/trivy/db" ]; then \
+		echo "Trivy DB not found in cache, downloading..."; \
+		.staging/trivy/trivy image --download-db-only; \
+	fi
 
 e2e-schemavalidator-setup:
 	rm -rf .staging/schemavalidator

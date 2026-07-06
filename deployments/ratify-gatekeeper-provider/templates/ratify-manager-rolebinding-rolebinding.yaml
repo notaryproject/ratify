@@ -5,7 +5,7 @@ metadata:
   labels:
     heritage: '{{ .Release.Service }}'
     release: '{{ .Release.Name }}'
-  name: ratify-manager-rolebinding
+  name: {{ include "ratify.fullname" . }}-manager-rolebinding
   namespace: {{ .Release.Namespace }}
 subjects:
 - kind: ServiceAccount
@@ -13,6 +13,6 @@ subjects:
   namespace: '{{ .Release.Namespace }}'
 roleRef:
   kind: Role
-  name: ratify-manager-role
+  name: {{ include "ratify.fullname" . }}-manager-role
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
