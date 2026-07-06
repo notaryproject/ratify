@@ -64,8 +64,8 @@ jobs:
       - name: Save logs
         if: ${{ always() }}
         run: |
-          kubectl logs -n gatekeeper-system -l app=ratify --tail=-1 > logs-ratify-preinstall-${{ inputs.k8s_version }}-${{ inputs.gatekeeper_version }}-config-policy.json
-          kubectl logs -n gatekeeper-system -l app.kubernetes.io/name=ratify --tail=-1 > logs-ratify-${{ inputs.k8s_version }}-${{ inputs.gatekeeper_version }}-config-policy.json
+          kubectl logs -n gatekeeper-system -l app.kubernetes.io/name=ratify-gatekeeper-provider --tail=-1 > logs-ratify-${{ inputs.k8s_version }}-${{ inputs.gatekeeper_version }}-config-policy.json
+          kubectl get executors.config.ratify.dev -A -o yaml > logs-executor-${{ inputs.k8s_version }}-${{ inputs.gatekeeper_version }}.json 2>&1 || true
       - name: Run e2e with Rego policy
         run: |
           make deploy-rego-policy
