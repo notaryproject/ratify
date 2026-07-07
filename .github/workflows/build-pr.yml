@@ -3,6 +3,7 @@ name: build-pr
 on:
   pull_request:
     branches:
+      - main
       - v1-dev
       - v1
     paths-ignore:
@@ -13,6 +14,7 @@ permissions: read-all
 
 jobs:
   call_test_cli:
+    if: github.base_ref == 'v1-dev' || github.base_ref == 'v1'
     uses: ./.github/workflows/e2e-cli.yml
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

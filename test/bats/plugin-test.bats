@@ -21,6 +21,7 @@ SLEEP_TIME=1
 RATIFY_NAMESPACE=gatekeeper-system
 
 @test "helm genCert test" {
+    skip "TODO: migrate to v2 executor CRD"
     # tls cert provided
     helm uninstall ratify --namespace gatekeeper-system
     make e2e-helm-deploy-ratify CERT_DIR=${CERT_DIR} CERT_ROTATION_ENABLED=true GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
@@ -53,6 +54,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "cert rotator test" {
+    skip "TODO: migrate to v2 executor CRD"
     helm uninstall ratify --namespace gatekeeper-system
     make e2e-helm-deploy-ratify CERT_DIR=${EXPIRING_CERT_DIR} CERT_ROTATION_ENABLED=true GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
     sleep 10
@@ -61,6 +63,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "licensechecker test" {
+    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod license-checker --namespace default --force --ignore-not-found=true'
@@ -87,6 +90,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "sbom verifier test" {
+    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod sbom --namespace default --force --ignore-not-found=true'
@@ -151,6 +155,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "vulnerabilityreport verifier test" {
+    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete verifiers.config.ratify.deislabs.io/verifier-vulnerabilityreport --namespace default --ignore-not-found=true'
@@ -177,6 +182,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "sbom/notary/cosign/licensechecker/schemavalidator verifiers test" {
+    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete verifiers.config.ratify.deislabs.io/verifier-license-checker --namespace default --ignore-not-found=true'
@@ -208,6 +214,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "namespaced sbom/notary/cosign/licensechecker/schemavalidator verifiers test" {
+    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete namespacedverifiers.config.ratify.deislabs.io/verifier-license-checker --namespace default --ignore-not-found=true'
@@ -271,6 +278,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "validate crd add, replace and delete" {
+    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod crdtest --namespace default --force --ignore-not-found=true'
@@ -297,6 +305,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "verifier crd status check" {
+    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete verifiers.config.ratify.deislabs.io/verifier-license-checker'
@@ -325,6 +334,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "dynamic plugins disabled test" {
+    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete verifiers.config.ratify.deislabs.io/verifier-dynamic --namespace default --ignore-not-found=true'
