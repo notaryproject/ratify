@@ -22,7 +22,6 @@ RATIFY_NAME=ratify
 RATIFY_NAMESPACE=gatekeeper-system
 
 @test "base test without cert rotator" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
@@ -36,9 +35,8 @@ RATIFY_NAMESPACE=gatekeeper-system
     run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
     assert_success
     sleep 5
-    # validate key management provider status property shows success
-    run bash -c "kubectl get keymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0 -o yaml | grep 'issuccess: true'"
-    assert_success
+    # wait for executor to be reconciled by controller
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev -n ${RATIFY_NAMESPACE} -o jsonpath='{.items[0].status.succeeded}' | grep true"
     run kubectl run demo --namespace default --image=registry:5000/notation:signed
     assert_success
     run kubectl run demo1 --namespace default --image=registry:5000/notation:unsigned
