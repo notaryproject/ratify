@@ -133,19 +133,19 @@ jobs:
       - name: Verify with Cosign
         run: |
           cosign verify \
-            --certificate-identity-regexp "https://github.com/ratify-project/ratify/.github/workflows/publish-package.yml@*" \
+            --certificate-identity-regexp "https://github.com/notaryproject/ratify/.github/workflows/publish-package.yml@*" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-github-workflow-repository ratify-project/ratify \
+            --certificate-github-workflow-repository notaryproject/ratify \
             ${{ steps.prepare.outputs.crdref }}
           cosign verify \
-            --certificate-identity-regexp "https://github.com/ratify-project/ratify/.github/workflows/publish-package.yml@*" \
+            --certificate-identity-regexp "https://github.com/notaryproject/ratify/.github/workflows/publish-package.yml@*" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-github-workflow-repository ratify-project/ratify \
+            --certificate-github-workflow-repository notaryproject/ratify \
             ${{ steps.prepare.outputs.baseref }}
           cosign verify \
-            --certificate-identity-regexp "https://github.com/ratify-project/ratify/.github/workflows/publish-package.yml@*" \
+            --certificate-identity-regexp "https://github.com/notaryproject/ratify/.github/workflows/publish-package.yml@*" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-github-workflow-repository ratify-project/ratify \
+            --certificate-github-workflow-repository notaryproject/ratify \
             ${{ steps.prepare.outputs.ref }}
       - name: clear
         if: always()
