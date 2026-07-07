@@ -143,3 +143,16 @@ check_crl_cache_created() {
     return 1
   fi
 }
+
+# restore_executor applies a saved executor YAML back to the cluster.
+# Uses server-side apply with force-conflicts to avoid resourceVersion staleness.
+restore_executor() {
+  local file="$1"
+  local ns="${2:-gatekeeper-system}"
+  if [[ ! -f "$file" ]]; then
+    echo "restore_executor: file $file not found"
+    return 1
+  fi
+  cat "$file" | sed '/^\s*resourceVersion:/d; /^\s*uid:/d; /^\s*creationTimestamp:/d; /^\s*generation:/d' | \
+    kubectl apply --server-side --force-conflicts -f -
+}
