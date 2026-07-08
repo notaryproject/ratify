@@ -203,7 +203,7 @@ EOF
 }
 
 @test "notation verification pass on CRL check with audit trust policy" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 notation verifier does not support configurable verification level (audit); hardcoded to strict"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
@@ -227,7 +227,7 @@ EOF
 }
 
 @test "notation test with certs across namespace" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 executor CRD is cluster-scoped only, namespace-scoped executor not yet supported (see #2672)"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
