@@ -15,6 +15,10 @@
 # limitations under the License.
 #
 ##--------------------------------------------------------------------
+#
+# AKS end-to-end test for the Ratify gatekeeper provider.
+#
+##--------------------------------------------------------------------
 
 set -o errexit
 set -o nounset
@@ -31,56 +35,36 @@ export KUBERNETES_VERSION=${1:-1.30.6}
 GATEKEEPER_VERSION=${2:-3.18.0}
 TENANT_ID=$3
 export RATIFY_NAMESPACE=${4:-gatekeeper-system}
-CERT_DIR=${5:-"~/ratify/certs"}
+CERT_DIR=${5:-"${HOME}/ratify/certs"}
 export AZURE_SP_OBJECT_ID=$6
 export NOTATION_PEM_NAME="notation"
-export NOTATION_CHAIN_PEM_NAME="notationchain"
-export KEYVAULT_KEY_NAME="test-key"
+# The variables below are only needed by capabilities that are not yet
+# wired into the v2 AKS e2e. They are kept commented (rather than deleted)
+# so the pieces are easy to re-enable in the follow-up PRs that add them and
+# so the diff against the v1 script stays traceable.
+# TODO(follow-up: notation leaf-cert chain):
+# export NOTATION_CHAIN_PEM_NAME="notationchain"
+# TODO(follow-up: cosign on AKV):
+# export KEYVAULT_KEY_NAME="test-key"
 
 TAG="test${SUFFIX}"
 REGISTRY="${ACR_NAME}.azurecr.io"
 
+# Helm release name for the v2 gatekeeper provider chart. It is used as the
+# fully-qualified name, and therefore also as the in-cluster service DNS name
+# that the TLS certificate SAN must match.
+RATIFY_RELEASE_NAME="ratify-gatekeeper-provider"
+# Service account name must match the federated identity credential subject
+# created in scripts/create-azure-resources.sh
+# (system:serviceaccount:${RATIFY_NAMESPACE}:ratify-admin).
+SERVICE_ACCOUNT_NAME="ratify-admin"
+
 build_push_to_acr() {
-  echo "Building and pushing images to ACR"
-  docker build --progress=plain --no-cache --build-arg build_sbom=true --build-arg build_licensechecker=true --build-arg build_schemavalidator=true --build-arg build_vulnerabilityreport=true -f ./httpserver/Dockerfile -t "${ACR_NAME}.azurecr.io/test/localbuild:${TAG}" .
-  docker push "${REGISTRY}/test/localbuild:${TAG}"
-
-  docker build --progress=plain --no-cache --build-arg KUBE_VERSION=${KUBERNETES_VERSION} --build-arg TARGETOS="linux" --build-arg TARGETARCH="amd64" -f crd.Dockerfile -t "${ACR_NAME}.azurecr.io/test/localbuildcrd:${TAG}" ./charts/ratify/crds
-  docker push "${REGISTRY}/test/localbuildcrd:${TAG}"
-}
-
-deploy_gatekeeper() {
-  echo "deploying gatekeeper"
-  make e2e-deploy-gatekeeper GATEKEEPER_VERSION=${GATEKEEPER_VERSION} GATEKEEPER_NAMESPACE="gatekeeper-system"
-}
-
-deploy_ratify() {
-  echo "deploying ratify"
-  local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
-  local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
-
-  helm install ratify \
-    ./charts/ratify --atomic \
-    --namespace ${RATIFY_NAMESPACE} --create-namespace \
-    --set image.repository=${REGISTRY}/test/localbuild \
-    --set image.crdRepository=${REGISTRY}/test/localbuildcrd \
-    --set image.tag=${TAG} \
-    --set gatekeeper.version=${GATEKEEPER_VERSION} \
-    --set azurekeyvault.enabled=true \
-    --set azurekeyvault.vaultURI=${VAULT_URI} \
-    --set azurekeyvault.certificates[0].name=${NOTATION_PEM_NAME} \
-    --set azurekeyvault.certificates[1].name=${NOTATION_CHAIN_PEM_NAME} \
-    --set azurekeyvault.tenantId=${TENANT_ID} \
-    --set oras.authProviders.azureWorkloadIdentityEnabled=true \
-    --set azureWorkloadIdentity.clientId=${IDENTITY_CLIENT_ID} \
-    --set azurekeyvault.keys[0].name=${KEYVAULT_KEY_NAME} \
-    --set featureFlags.RATIFY_CERT_ROTATION=true \
-    --set logger.level=debug
-
-  kubectl delete verifiers.config.ratify.deislabs.io/verifier-cosign
-
-  kubectl apply -f https://notaryproject.github.io/ratify/library/default/template.yaml
-  kubectl apply -f https://notaryproject.github.io/ratify/library/default/samples/constraint.yaml
+  echo "Building and pushing the ratify-gatekeeper-provider image to ACR"
+  docker build --progress=plain --no-cache \
+    -f ./Dockerfile \
+    -t "${REGISTRY}/test/ratify-gatekeeper-provider:${TAG}" .
+  docker push "${REGISTRY}/test/ratify-gatekeeper-provider:${TAG}"
 }
 
 upload_cert_to_akv() {
@@ -94,34 +78,74 @@ upload_cert_to_akv() {
     -n ${NOTATION_PEM_NAME} \
     -f notation.pem
 
-  rm -f notationchain.pem
-
-  cat .staging/notation/leaf-test/leaf.key >>notationchain.pem
-  cat .staging/notation/leaf-test/leaf.crt >>notationchain.pem
-
-  echo "uploading notationchain.pem"
-  az keyvault certificate import \
-    --vault-name ${KEYVAULT_NAME} \
-    -n ${NOTATION_CHAIN_PEM_NAME} \
-    -f notationchain.pem \
-    -p @./test/bats/tests/config/akvpolicy.json
+  # TODO(follow-up: notation leaf-cert chain): the v2 notation verifier does
+  # not yet distinguish a leaf cert from a root cert in an inline trust store,
+  # so the leaf-cert chain is not uploaded yet. Re-enable this together with
+  # the "validate image signed by leaf cert" bats case.
+  # rm -f notationchain.pem
+  # cat .staging/notation/leaf-test/leaf.key >>notationchain.pem
+  # cat .staging/notation/leaf-test/leaf.crt >>notationchain.pem
+  # echo "uploading notationchain.pem"
+  # az keyvault certificate import \
+  #   --vault-name ${KEYVAULT_NAME} \
+  #   -n ${NOTATION_CHAIN_PEM_NAME} \
+  #   -f notationchain.pem \
+  #   -p @./test/bats/tests/config/akvpolicy.json
 }
 
-create_key_akv() {
-  az keyvault key create \
-    --vault-name ${KEYVAULT_NAME} \
-    -n ${KEYVAULT_KEY_NAME} \
-    --kty RSA \
-    --size 2048
+# TODO(follow-up: cosign on AKV): create the AKV signing key used by the
+# cosign verifier. cosign-on-AKV is not yet wired into the v2 AKS e2e;
+# re-enable this together with the "cosign test" bats case and the
+# create_key_akv call in main().
+# create_key_akv() {
+#   az keyvault key create \
+#     --vault-name ${KEYVAULT_NAME} \
+#     -n ${KEYVAULT_KEY_NAME} \
+#     --kty RSA \
+#     --size 2048
+# }
+
+deploy_gatekeeper() {
+  echo "deploying gatekeeper"
+  make e2e-deploy-gatekeeper GATEKEEPER_VERSION=${GATEKEEPER_VERSION} GATEKEEPER_NAMESPACE="gatekeeper-system"
+}
+
+deploy_ratify() {
+  echo "deploying the ratify-gatekeeper-provider (v2)"
+  local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
+  local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
+
+  # Generate static TLS certificates whose SAN matches the provider service DNS
+  # (${RATIFY_RELEASE_NAME}.${RATIFY_NAMESPACE}).
+  ./scripts/generate-tls-certs.sh ${CERT_DIR} ${RATIFY_RELEASE_NAME} ${RATIFY_NAMESPACE}
+
+  helm install ${RATIFY_RELEASE_NAME} \
+    ./deployments/ratify-gatekeeper-provider --atomic \
+    --namespace ${RATIFY_NAMESPACE} --create-namespace \
+    --set image.repository=${REGISTRY}/test/ratify-gatekeeper-provider \
+    --set image.tag=${TAG} \
+    --set-file provider.tls.crt=${CERT_DIR}/server.crt \
+    --set-file provider.tls.key=${CERT_DIR}/server.key \
+    --set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
+    --set provider.tls.disableCertRotation=true \
+    --set executor.scopes[0]=${REGISTRY}/notation \
+    --set stores[0].credential.provider=azure \
+    --set notation.scopes[0]=${REGISTRY}/notation \
+    --set notation.certs[0].provider=azurekeyvault \
+    --set notation.certs[0].vaultURL=${VAULT_URI} \
+    --set notation.certs[0].clientID=${IDENTITY_CLIENT_ID} \
+    --set notation.certs[0].tenantID=${TENANT_ID} \
+    --set notation.certs[0].certificates[0].name=${NOTATION_PEM_NAME} \
+    --set serviceAccount.name=${SERVICE_ACCOUNT_NAME} \
+    --set-string serviceAccount.annotations."azure\.workload\.identity/client-id"=${IDENTITY_CLIENT_ID}
 }
 
 save_logs() {
   echo "Saving logs"
   local LOG_SUFFIX="${KUBERNETES_VERSION}-${GATEKEEPER_VERSION}"
-  kubectl logs -n gatekeeper-system -l control-plane=controller-manager --tail=-1 >logs-externaldata-controller-aks-${LOG_SUFFIX}.json
-  kubectl logs -n gatekeeper-system -l control-plane=audit-controller --tail=-1 >logs-externaldata-audit-aks-${LOG_SUFFIX}.json
-  kubectl logs -n ${RATIFY_NAMESPACE} -l app=ratify --tail=-1 >logs-ratify-preinstall-aks-${LOG_SUFFIX}.json
-  kubectl logs -n ${RATIFY_NAMESPACE} -l app.kubernetes.io/name=ratify --tail=-1 >logs-ratify-aks-${LOG_SUFFIX}.json
+  kubectl logs -n gatekeeper-system -l control-plane=controller-manager --tail=-1 >logs-externaldata-controller-aks-${LOG_SUFFIX}.json || true
+  kubectl logs -n gatekeeper-system -l control-plane=audit-controller --tail=-1 >logs-externaldata-audit-aks-${LOG_SUFFIX}.json || true
+  kubectl logs -n ${RATIFY_NAMESPACE} -l app.kubernetes.io/name=ratify-gatekeeper-provider --tail=-1 >logs-ratify-gatekeeper-provider-aks-${LOG_SUFFIX}.json || true
 }
 
 cleanup() {
@@ -141,20 +165,31 @@ trap cleanup EXIT
 
 main() {
   ./scripts/create-azure-resources.sh
-  create_key_akv
+  # TODO(follow-up: cosign on AKV): create the AKV signing key for cosign.
+  # create_key_akv
 
   local ACR_USER_NAME="00000000-0000-0000-0000-000000000000"
   local ACR_PASSWORD=$(az acr login --name ${ACR_NAME} --expose-token --output tsv --query accessToken)
-  make e2e-azure-setup TEST_REGISTRY=$REGISTRY TEST_REGISTRY_USERNAME=${ACR_USER_NAME} TEST_REGISTRY_PASSWORD=${ACR_PASSWORD} KEYVAULT_KEY_NAME=${KEYVAULT_KEY_NAME} KEYVAULT_NAME=${KEYVAULT_NAME}
+
+  # Build and push the notation signed/unsigned test images to ACR and sign
+  # the signed image with the ratify-bats-test certificate. This replaces the
+  # v1 `make e2e-azure-setup` (which also provisioned the cosign key and KMP
+  # inputs); the full setup returns once those verifiers land in v2.
+  make e2e-create-all-image e2e-notation-setup \
+    TEST_REGISTRY=$REGISTRY \
+    TEST_REGISTRY_USERNAME=${ACR_USER_NAME} \
+    TEST_REGISTRY_PASSWORD=${ACR_PASSWORD}
 
   build_push_to_acr
   upload_cert_to_akv
   deploy_gatekeeper
   deploy_ratify
 
-  local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
-  local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
-  TEST_REGISTRY=$REGISTRY IDENTITY_CLIENT_ID=$IDENTITY_CLIENT_ID VAULT_URI=$VAULT_URI bats -t ./test/bats/azure-test.bats
+  # Consumed by test cases that configure AKV-backed verifiers through the
+  # bats env; re-enable together with those cases in the follow-up PRs.
+  # local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
+  # local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
+  TEST_REGISTRY=$REGISTRY bats -t ./test/bats/azure-test.bats
 }
 
 main

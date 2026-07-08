@@ -103,10 +103,12 @@ create_akv() {
     --role "Key Vault Crypto User" \
     --scope subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${GROUP_NAME}/providers/Microsoft.KeyVault/vaults/${KEYVAULT_NAME}
 
-  # Grant runner SP permissions to create keys and import certificates
+  # Grant runner principal permissions to create keys and import certificates.
+  # Defaults to ServicePrincipal (CI runner identity) but can be overridden to
+  # "User" via AZURE_SP_PRINCIPAL_TYPE for local runs authenticated as a user.
   az role assignment create \
     --assignee-object-id ${AZURE_SP_OBJECT_ID} \
-    --assignee-principal-type "ServicePrincipal" \
+    --assignee-principal-type "${AZURE_SP_PRINCIPAL_TYPE:-ServicePrincipal}" \
     --role "Key Vault Administrator" \
     --scope subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${GROUP_NAME}/providers/Microsoft.KeyVault/vaults/${KEYVAULT_NAME}
 }
