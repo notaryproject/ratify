@@ -19,7 +19,7 @@ spec:
           images_ephemeral := [img | img = input.review.object.spec.ephemeralContainers[_].image]
           other_images := array.concat(images_init, images_ephemeral)
           all_images := array.concat(other_images, images)
-          response := external_data({"provider": "ratify-provider", "keys": all_images})
+          response := external_data({"provider": "ratify-gatekeeper-provider", "keys": all_images})
         }
 
         # Base Gatekeeper violation
@@ -43,6 +43,6 @@ spec:
         # Check if the success criteria is true
         general_violation[{"result": result}] {
           subject_validation := remote_data.responses[_]
-          subject_validation[1].isSuccess == false
-          result := sprintf("Time=%s, failed to verify the artifact: %s, trace-id: %s", [subject_validation[1].timestamp, subject_validation[0], subject_validation[1].traceID])
+          subject_validation[1].succeeded == false
+          result := sprintf("Failed to verify the artifact: %s", [subject_validation[0]])
         }
