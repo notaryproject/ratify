@@ -13,6 +13,14 @@
 
 #!/usr/bin/env bats
 
+# AKS end-to-end tests for the Ratify v2 gatekeeper provider.
+# See scripts/azure-ci-test.sh for the deployment.
+#
+# Only the notation (AKV) and mutation cases run against v2 today. The remaining
+# cases are retained as `skip`-ped stubs (their original bodies are kept) so the
+# diff stays traceable and each can be re-enabled pr-by-pr as the corresponding
+# v2 capability lands. See the skip message on each for the specific reason.
+
 load helpers
 
 BATS_TESTS_DIR=${BATS_TESTS_DIR:-test/bats/tests}
@@ -20,6 +28,7 @@ WAIT_TIME=60
 SLEEP_TIME=1
 
 @test "dynamic plugins enabled test" {
+    skip "v2 gatekeeper provider has no dynamic plugin mechanism"
     # only run this test against a live cluster
 
     # ensure that the chart deployment is reset to a clean state for other tests
@@ -44,6 +53,7 @@ SLEEP_TIME=1
 }
 
 @test "validate image signed by leaf cert" {
+    skip "v2 notation verifier does not distinguish a leaf cert from a root cert in an inline trust store; pending notation cert migration"
     teardown() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementproviders.config.ratify.deislabs.io/keymanagementprovider-inline --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-leaf --namespace default --force --ignore-not-found=true'
@@ -80,26 +90,31 @@ SLEEP_TIME=1
     assert_failure
 }
 
-@test "notation test" {
+@test "notation akv test" {
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo1 --namespace default --force --ignore-not-found=true'
     }
 
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ./library/default/template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ./library/default/samples/constraint.yaml
     assert_success
     sleep 5
-    wait_for_process 20 10 'kubectl run demo --namespace default --image=${TEST_REGISTRY}/notation:signed'
+
+    # signed image, validated against the AKV notation certificate, should pass
+    run wait_for_process 20 10 'kubectl run demo --namespace default --image=${TEST_REGISTRY}/notation:signed'
     assert_success
+
+    # unsigned image should be rejected
     run kubectl run demo1 --namespace default --image=${TEST_REGISTRY}/notation:unsigned
     assert_failure
 }
 
 @test "cosign test" {
+    skip "cosign-on-AKV is not yet wired into the v2 AKS e2e; enabled in a follow-up PR"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo --namespace default --force --ignore-not-found=true'
@@ -123,6 +138,7 @@ SLEEP_TIME=1
 }
 
 @test "licensechecker test" {
+    skip "no licensechecker verifier in the v2 gatekeeper provider yet"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod license-checker --namespace default --force --ignore-not-found=true'
@@ -150,6 +166,7 @@ SLEEP_TIME=1
 }
 
 @test "sbom verifier test" {
+    skip "no sbom verifier in the v2 gatekeeper provider yet"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod sbom --namespace default --force --ignore-not-found=true'
@@ -177,6 +194,7 @@ SLEEP_TIME=1
 }
 
 @test "schemavalidator verifier test" {
+    skip "no schemavalidator verifier in the v2 gatekeeper provider yet"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete verifiers.config.ratify.deislabs.io/verifier-license-checker --ignore-not-found=true'
@@ -207,6 +225,7 @@ SLEEP_TIME=1
 }
 
 @test "sbom/notary/cosign/licensechecker/schemavalidator verifiers test" {
+    skip "depends on sbom/licensechecker/schemavalidator/cosign verifiers not yet in the v2 gatekeeper provider"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete verifiers.config.ratify.deislabs.io/verifier-license-checker --ignore-not-found=true'
@@ -235,6 +254,7 @@ SLEEP_TIME=1
 }
 
 @test "validate crd add, replace and delete" {
+    skip "v2 configures verifiers via the Executor CRD; runtime verifier CRD add/replace/delete is covered by the kind base-test.bats migration"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod crdtest --namespace default --force --ignore-not-found=true'
@@ -288,6 +308,7 @@ SLEEP_TIME=1
 }
 
 @test "dynamic plugins disabled test" {
+    skip "v2 gatekeeper provider has no dynamic plugin mechanism"
     teardown() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete verifiers.config.ratify.deislabs.io/verifier-dynamic --namespace default --ignore-not-found=true'
     }
@@ -307,19 +328,22 @@ SLEEP_TIME=1
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod mutate-demo --namespace default --ignore-not-found=true'
     }
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+
+    run kubectl apply -f ./library/default/template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ./library/default/samples/constraint.yaml
     assert_success
     sleep 5
-    wait_for_process 20 10 'kubectl run mutate-demo --namespace default --image=${TEST_REGISTRY}/notation:signed'
+
+    run wait_for_process 20 10 'kubectl run mutate-demo --namespace default --image=${TEST_REGISTRY}/notation:signed'
     assert_success
-    result=$(kubectl get pod mutate-demo --namespace default -o json | jq -r ".spec.containers[0].image" | grep @sha)
+    run bash -c 'kubectl get pod mutate-demo --namespace default -o json | jq -r ".spec.containers[0].image" | grep @sha'
     assert_mutate_success
 }
 
 @test "validate refresher reconcile count" {
+    skip "no KeyManagementProvider/refresher in the v2 gatekeeper provider"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementprovider kmp-akv-refresh --ignore-not-found=true'
@@ -341,6 +365,7 @@ SLEEP_TIME=1
 }
 
 @test "validate refresher updates kmp with latest certificate version" {
+    skip "no KeyManagementProvider/refresher in the v2 gatekeeper provider"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementprovider kmp-akv-refresh --ignore-not-found=true'
@@ -367,6 +392,7 @@ SLEEP_TIME=1
 }
 
 @test "validate certificate specified version" {
+    skip "no KeyManagementProvider/refresher in the v2 gatekeeper provider"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementprovider kmp-akv-refresh --ignore-not-found=true'
