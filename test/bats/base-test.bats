@@ -282,7 +282,7 @@ EOF
 }
 
 @test "cosign test" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 cosign verifier forces IgnoreTLog=false for key-based verification, needs code fix to respect user config"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
@@ -303,7 +303,7 @@ EOF
 }
 
 @test "cosign legacy keyed test" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 cosign verifier does not support legacy format; also blocked by IgnoreTLog=false for key-based verification"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
@@ -329,25 +329,31 @@ EOF
 }
 
 @test "cosign keyless test" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-keyless --namespace default --force --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/verifier/config_v1beta1_verifier_cosign.yaml'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/store/config_v1beta1_store_oras_http.yaml'
+
+        # restore the original executor for other tests
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-cosign-keyless.yaml'
+        rm -f original-executor-cosign-keyless.yaml
     }
 
-    run kubectl replace -f ./test/bats/tests/config/config_v1beta1_verifier_cosign_keyless.yaml
-    sleep 5
+    # save original executor state
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-cosign-keyless.yaml"
+    assert_success
 
-    run kubectl replace -f ./config/samples/clustered/store/config_v1beta1_store_oras.yaml
-    sleep 5
+    # apply keyless cosign executor
+    run kubectl apply --server-side --force-conflicts -f ${BATS_TESTS_DIR}/config/executor_cosign_keyless.yaml
+    assert_success
+
+    # wait for executor to be reconciled after config change
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     wait_for_process 20 10 'kubectl run cosign-demo-keyless --namespace default --image=wabbitnetworks.azurecr.io/test/cosign-image:signed-keyless'
 }
 
 @test "cosign legacy keyless test" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 cosign verifier does not support legacy format"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-keyless --namespace default --force --ignore-not-found=true'
