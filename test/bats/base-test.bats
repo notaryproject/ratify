@@ -59,7 +59,6 @@ EXECUTOR_NAME=ratify-gatekeeper-provider-executor-1
 }
 
 @test "test rendering notation verifier with modified trust policies settings" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         rm -f notation-file1.crt
@@ -75,71 +74,30 @@ EXECUTOR_NAME=ratify-gatekeeper-provider-executor-1
     echo "fake cert 3" > notation-file3.crt
 
     # Happy path:
-    # TODO: update helm template arguments to match v2 chart values schema
     # Capture Helm template output
-    rendered=$(helm template multiple-trust-policies ./deployments/ratify-gatekeeper-provider \
-        --set featureFlags.RATIFY_CERT_ROTATION=true \
-        --set-file notationCerts[0]="notation-file1.crt" \
-        --set-file notationCerts[1]="notation-file2.crt" \
-        --set-file notationCerts[2]="notation-file3.crt" \
-        --set notation.trustPolicies[0].registryScopes[0]="registry1.azurecr.io/" \
-        --set notation.trustPolicies[0].trustedIdentities[0]="x509.subject: cert identity 1" \
-        --set notation.trustPolicies[0].trustStores[0]=ca:notationCerts[0] \
-        --set notation.trustPolicies[0].trustStores[1]=tsa:notationCerts[1] \
-        --set notation.trustPolicies[0].trustStores[2]=signingAuthority:notationCerts[2] \
-        --set notation.trustPolicies[1].registryScopes[0]="registry2.azurecr.io/" \
-        --set notation.trustPolicies[1].trustStores[0]=ca:notationCerts[1])
+    run helm template multiple-trust-policies ./deployments/ratify-gatekeeper-provider \
+        --set executor.scopes[0]="registry1.azurecr.io/" \
+        --set notation.certs[0].provider=inline \
+        --set-file notation.certs[0].cert="notation-file1.crt" \
+        --set-file notation.certs[1].cert="notation-file2.crt" \
+        --set-file notation.certs[2].cert="notation-file3.crt" \
+        --set notation.scopes[0]="registry1.azurecr.io/" \
+        --set notation.trustedIdentities[0]="x509.subject: cert identity 1" \
+        --set stores[0].credential.provider=static
+    assert_success
+    rendered="$output"
 
-    # TODO: update expected_verifier_notation to match v2 Executor CRD format
     # the expected partial output
     expected_verifier_notation=$(cat <<EOF
-apiVersion: config.ratify.deislabs.io/v1beta1
-kind: Verifier
-metadata:
-  name: verifier-notation
-  annotations:
-    helm.sh/hook: pre-install,pre-upgrade
-    helm.sh/hook-weight: "5"
-spec:
-  name: notation
-  version: 1.0.0
-  artifactTypes: application/vnd.cncf.notary.signature
-  parameters:
-    verificationCertStores:
-      ca:
-        cert-0:
-          - multiple-trust-policies-ratify-notation-inline-cert-0
-        cert-3:
-          - multiple-trust-policies-ratify-notation-inline-cert-1
-      signingAuthority:
-        cert-2:
-          - multiple-trust-policies-ratify-notation-inline-cert-2
-      tsa:
-        cert-1:
-          - multiple-trust-policies-ratify-notation-inline-cert-1
-    trustPolicyDoc:
-      version: "1.0"
-      trustPolicies:
-        - name: trustPolicy-0
-          registryScopes:
-            - "registry1.azurecr.io/"
-          signatureVerification:
-            level: strict
-          trustStores:
-            - ca:cert-0
-            - tsa:cert-1
-            - signingAuthority:cert-2
-          trustedIdentities:
-            - "x509.subject: cert identity 1"
-        - name: trustPolicy-1
-          registryScopes:
-            - "registry2.azurecr.io/"
-          signatureVerification:
-            level: strict
-          trustStores:
-            - ca:cert-3
-          trustedIdentities:
-            - "*"
+    - name: notation-1
+      type: notation
+      parameters:
+        scopes:
+          - registry1.azurecr.io/
+        trustedIdentities:
+          - 'x509.subject: cert identity 1'
+        certificates:
+          - type: "ca"
 EOF
     )
 
@@ -154,20 +112,20 @@ EOF
     }
 
     # failure path:
-    # TODO: update helm template arguments to match v2 chart values schema
-    # Capture Helm template output
+    # Capture Helm template output with unsupported notation cert provider
     run helm template multiple-trust-policies ./deployments/ratify-gatekeeper-provider \
-        --set featureFlags.RATIFY_CERT_ROTATION=true \
-        --set-file notationCerts[0]="notation-file1.crt" \
-        --set notation.trustPolicies[0].registryScopes[0]="registry1.azurecr.io/" \
-        --set notation.trustPolicies[0].trustedIdentities[0]="cert identity 1" \
-        --set notation.trustPolicies[0].trustStores[0]=ca:unknownCert
+        --set executor.scopes[0]="registry1.azurecr.io/" \
+        --set notation.certs[0].provider=unknownProvider \
+        --set-file notation.certs[0].cert="notation-file1.crt" \
+        --set-file notation.certs[1].cert="notation-file2.crt" \
+        --set-file notation.certs[2].cert="notation-file3.crt" \
+        --set stores[0].credential.provider=static
 
     assert_failure
 
     # the expected error message
     expected_verifier_notation=$(cat <<EOF
-Unknown trust store reference: unknownCert
+Unsupported notation certificate provider: unknownProvider
 EOF
     )
 
@@ -245,7 +203,7 @@ EOF
 }
 
 @test "notation verification pass on CRL check with audit trust policy" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 notation verifier does not support configurable verification level (audit); hardcoded to strict"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
@@ -269,7 +227,7 @@ EOF
 }
 
 @test "notation test with certs across namespace" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 executor CRD is cluster-scoped only, namespace-scoped executor not yet supported (see #2672)"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
@@ -324,7 +282,7 @@ EOF
 }
 
 @test "cosign test" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 cosign verifier forces IgnoreTLog=false for key-based verification, needs code fix to respect user config"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
@@ -345,7 +303,7 @@ EOF
 }
 
 @test "cosign legacy keyed test" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 cosign verifier does not support legacy format; also blocked by IgnoreTLog=false for key-based verification"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
@@ -371,25 +329,31 @@ EOF
 }
 
 @test "cosign keyless test" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-keyless --namespace default --force --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/verifier/config_v1beta1_verifier_cosign.yaml'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/store/config_v1beta1_store_oras_http.yaml'
+
+        # restore the original executor for other tests
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-cosign-keyless.yaml'
+        rm -f original-executor-cosign-keyless.yaml
     }
 
-    run kubectl replace -f ./test/bats/tests/config/config_v1beta1_verifier_cosign_keyless.yaml
-    sleep 5
+    # save original executor state
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-cosign-keyless.yaml"
+    assert_success
 
-    run kubectl replace -f ./config/samples/clustered/store/config_v1beta1_store_oras.yaml
-    sleep 5
+    # apply keyless cosign executor
+    run kubectl apply --server-side --force-conflicts -f ${BATS_TESTS_DIR}/config/executor_cosign_keyless.yaml
+    assert_success
+
+    # wait for executor to be reconciled after config change
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     wait_for_process 20 10 'kubectl run cosign-demo-keyless --namespace default --image=wabbitnetworks.azurecr.io/test/cosign-image:signed-keyless'
 }
 
 @test "cosign legacy keyless test" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 cosign verifier does not support legacy format"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-keyless --namespace default --force --ignore-not-found=true'
