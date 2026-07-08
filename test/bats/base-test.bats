@@ -59,7 +59,6 @@ EXECUTOR_NAME=ratify-gatekeeper-provider-executor-1
 }
 
 @test "test rendering notation verifier with modified trust policies settings" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         rm -f notation-file1.crt
@@ -75,71 +74,30 @@ EXECUTOR_NAME=ratify-gatekeeper-provider-executor-1
     echo "fake cert 3" > notation-file3.crt
 
     # Happy path:
-    # TODO: update helm template arguments to match v2 chart values schema
     # Capture Helm template output
-    rendered=$(helm template multiple-trust-policies ./deployments/ratify-gatekeeper-provider \
-        --set featureFlags.RATIFY_CERT_ROTATION=true \
-        --set-file notationCerts[0]="notation-file1.crt" \
-        --set-file notationCerts[1]="notation-file2.crt" \
-        --set-file notationCerts[2]="notation-file3.crt" \
-        --set notation.trustPolicies[0].registryScopes[0]="registry1.azurecr.io/" \
-        --set notation.trustPolicies[0].trustedIdentities[0]="x509.subject: cert identity 1" \
-        --set notation.trustPolicies[0].trustStores[0]=ca:notationCerts[0] \
-        --set notation.trustPolicies[0].trustStores[1]=tsa:notationCerts[1] \
-        --set notation.trustPolicies[0].trustStores[2]=signingAuthority:notationCerts[2] \
-        --set notation.trustPolicies[1].registryScopes[0]="registry2.azurecr.io/" \
-        --set notation.trustPolicies[1].trustStores[0]=ca:notationCerts[1])
+    run helm template multiple-trust-policies ./deployments/ratify-gatekeeper-provider \
+        --set executor.scopes[0]="registry1.azurecr.io/" \
+        --set notation.certs[0].provider=inline \
+        --set-file notation.certs[0].cert="notation-file1.crt" \
+        --set-file notation.certs[1].cert="notation-file2.crt" \
+        --set-file notation.certs[2].cert="notation-file3.crt" \
+        --set notation.scopes[0]="registry1.azurecr.io/" \
+        --set notation.trustedIdentities[0]="x509.subject: cert identity 1" \
+        --set stores[0].credential.provider=static
+    assert_success
+    rendered="$output"
 
-    # TODO: update expected_verifier_notation to match v2 Executor CRD format
     # the expected partial output
     expected_verifier_notation=$(cat <<EOF
-apiVersion: config.ratify.deislabs.io/v1beta1
-kind: Verifier
-metadata:
-  name: verifier-notation
-  annotations:
-    helm.sh/hook: pre-install,pre-upgrade
-    helm.sh/hook-weight: "5"
-spec:
-  name: notation
-  version: 1.0.0
-  artifactTypes: application/vnd.cncf.notary.signature
-  parameters:
-    verificationCertStores:
-      ca:
-        cert-0:
-          - multiple-trust-policies-ratify-notation-inline-cert-0
-        cert-3:
-          - multiple-trust-policies-ratify-notation-inline-cert-1
-      signingAuthority:
-        cert-2:
-          - multiple-trust-policies-ratify-notation-inline-cert-2
-      tsa:
-        cert-1:
-          - multiple-trust-policies-ratify-notation-inline-cert-1
-    trustPolicyDoc:
-      version: "1.0"
-      trustPolicies:
-        - name: trustPolicy-0
-          registryScopes:
-            - "registry1.azurecr.io/"
-          signatureVerification:
-            level: strict
-          trustStores:
-            - ca:cert-0
-            - tsa:cert-1
-            - signingAuthority:cert-2
-          trustedIdentities:
-            - "x509.subject: cert identity 1"
-        - name: trustPolicy-1
-          registryScopes:
-            - "registry2.azurecr.io/"
-          signatureVerification:
-            level: strict
-          trustStores:
-            - ca:cert-3
-          trustedIdentities:
-            - "*"
+    - name: notation-1
+      type: notation
+      parameters:
+        scopes:
+          - registry1.azurecr.io/
+        trustedIdentities:
+          - 'x509.subject: cert identity 1'
+        certificates:
+          - type: "ca"
 EOF
     )
 
@@ -154,20 +112,20 @@ EOF
     }
 
     # failure path:
-    # TODO: update helm template arguments to match v2 chart values schema
-    # Capture Helm template output
+    # Capture Helm template output with unsupported notation cert provider
     run helm template multiple-trust-policies ./deployments/ratify-gatekeeper-provider \
-        --set featureFlags.RATIFY_CERT_ROTATION=true \
-        --set-file notationCerts[0]="notation-file1.crt" \
-        --set notation.trustPolicies[0].registryScopes[0]="registry1.azurecr.io/" \
-        --set notation.trustPolicies[0].trustedIdentities[0]="cert identity 1" \
-        --set notation.trustPolicies[0].trustStores[0]=ca:unknownCert
+        --set executor.scopes[0]="registry1.azurecr.io/" \
+        --set notation.certs[0].provider=unknownProvider \
+        --set-file notation.certs[0].cert="notation-file1.crt" \
+        --set-file notation.certs[1].cert="notation-file2.crt" \
+        --set-file notation.certs[2].cert="notation-file3.crt" \
+        --set stores[0].credential.provider=static
 
     assert_failure
 
     # the expected error message
     expected_verifier_notation=$(cat <<EOF
-Unknown trust store reference: unknownCert
+Unsupported notation certificate provider: unknownProvider
 EOF
     )
 
