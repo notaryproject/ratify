@@ -580,7 +580,7 @@ EOF
 }
 
 @test "validate K8s secrets ORAS auth provider" {
-    skip "v2 e2e uses static credential provider; k8s secret auth provider not configured in current executor"
+    skip "v2 only supports static and azure credential providers; k8sSecret provider not implemented"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --ignore-not-found=true'
