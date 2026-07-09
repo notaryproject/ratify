@@ -4,13 +4,13 @@
         {
             "name": "ratify-images",
             "registryScopes": [
-                "ghcr.io/ratify-project/ratify",
-                "ghcr.io/ratify-project/ratify-base",
-                "ghcr.io/ratify-project/ratify-crds",
-                "ghcr.io/ratify-project/ratify-dev",
-                "ghcr.io/ratify-project/ratify-base-dev",
-                "ghcr.io/ratify-project/ratify-crds-dev",
-                "ghcr.io/ratify-project/ratify-chart-dev/ratify"
+                "ghcr.io/notaryproject/ratify",
+                "ghcr.io/notaryproject/ratify-base",
+                "ghcr.io/notaryproject/ratify-crds",
+                "ghcr.io/notaryproject/ratify-dev",
+                "ghcr.io/notaryproject/ratify-base-dev",
+                "ghcr.io/notaryproject/ratify-crds-dev",
+                "ghcr.io/notaryproject/ratify-chart-dev/ratify"
             ],
             "signatureVerification": {
                 "level" : "strict" 
