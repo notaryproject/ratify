@@ -650,20 +650,36 @@ EOF
 }
 
 @test "validate ratify/gatekeeper tls cert rotation" {
-    skip "v2 e2e disables cert rotation (disableCertRotation=true)"
     teardown() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
     }
 
     # update Providers to use the new CA
-    run kubectl get Provider ratify-mutation-provider -o json | jq --arg ca "$(cat .staging/rotation/ca.crt | base64)" '.spec.caBundle=$ca' | kubectl replace -f -
-    run kubectl get Provider ratify-provider -o json | jq --arg ca "$(cat .staging/rotation/ca.crt | base64)" '.spec.caBundle=$ca' | kubectl replace -f -
+    run bash -c 'CA=$(cat .staging/rotation/ca.crt | base64 -w 0) && \
+        kubectl get Provider ratify-gatekeeper-mutation-provider -o json | \
+        jq --arg ca "$CA" ".spec.caBundle=\$ca" | kubectl replace -f -'
+    assert_success
+    run bash -c 'CA=$(cat .staging/rotation/ca.crt | base64 -w 0) && \
+        kubectl get Provider ratify-gatekeeper-provider -o json | \
+        jq --arg ca "$CA" ".spec.caBundle=\$ca" | kubectl replace -f -'
+    assert_success
 
     # update the ratify tls secret to use the new tls cert and key
-    run kubectl get secret ratify-tls -n ${RATIFY_NAMESPACE} -o json | jq --arg cert "$(cat .staging/rotation/server.crt | base64)" --arg key "$(cat .staging/rotation/server.key | base64)" '.data["tls.key"]=$key | .data["tls.crt"]=$cert' | kubectl replace -f -
+    run bash -c 'CERT=$(cat .staging/rotation/server.crt | base64 -w 0) && \
+        KEY=$(cat .staging/rotation/server.key | base64 -w 0) && \
+        kubectl get secret ratify-gatekeeper-provider-tls -n gatekeeper-system -o json | \
+        jq --arg cert "$CERT" --arg key "$KEY" ".data[\"tls.key\"]=\$key | .data[\"tls.crt\"]=\$cert" | kubectl replace -f -'
+    assert_success
 
     # update the gatekeeper webhook server tls secret to use the new cert bundle
-    run kubectl get Secret gatekeeper-webhook-server-cert -n ${RATIFY_NAMESPACE} -o json | jq --arg caCert "$(cat .staging/rotation/gatekeeper/ca.crt | base64)" --arg caKey "$(cat .staging/rotation/gatekeeper/ca.key | base64)" --arg tlsCert "$(cat .staging/rotation/gatekeeper/server.crt | base64)" --arg tlsKey "$(cat .staging/rotation/gatekeeper/server.key | base64)" '.data["ca.crt"]=$caCert | .data["ca.key"]=$caKey | .data["tls.crt"]=$tlsCert | .data["tls.key"]=$tlsKey' | kubectl replace -f -
+    run bash -c 'CA_CERT=$(cat .staging/rotation/gatekeeper/ca.crt | base64 -w 0) && \
+        CA_KEY=$(cat .staging/rotation/gatekeeper/ca.key | base64 -w 0) && \
+        TLS_CERT=$(cat .staging/rotation/gatekeeper/server.crt | base64 -w 0) && \
+        TLS_KEY=$(cat .staging/rotation/gatekeeper/server.key | base64 -w 0) && \
+        kubectl get Secret gatekeeper-webhook-server-cert -n gatekeeper-system -o json | \
+        jq --arg caCert "$CA_CERT" --arg caKey "$CA_KEY" --arg tlsCert "$TLS_CERT" --arg tlsKey "$TLS_KEY" \
+        ".data[\"ca.crt\"]=\$caCert | .data[\"ca.key\"]=\$caKey | .data[\"tls.crt\"]=\$tlsCert | .data[\"tls.key\"]=\$tlsKey" | kubectl replace -f -'
+    assert_success
 
     # volume projection can take up to 90 seconds
     sleep 100
