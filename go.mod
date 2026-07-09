@@ -20,7 +20,7 @@ require (
 	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/dgraph-io/ristretto/v2 v2.2.0
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v29.2.0+incompatible
+	github.com/docker/cli v29.2.1+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -49,9 +49,9 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.43.0
 	go.step.sm/crypto v0.81.0
 	golang.org/x/sync v0.21.0
-	k8s.io/api v0.33.6
+	k8s.io/api v0.33.13
 	k8s.io/apimachinery v0.33.13
-	k8s.io/client-go v0.33.5
+	k8s.io/client-go v0.33.13
 	oras.land/oras-go/v2 v2.6.1
 	sigs.k8s.io/controller-runtime v0.21.0
 )
