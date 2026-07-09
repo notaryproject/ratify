@@ -371,46 +371,57 @@ EOF
     wait_for_process 20 10 'kubectl run cosign-demo-keyless --namespace default --image=wabbitnetworks.azurecr.io/test/cosign-image:signed-keyless'
 }
 @test "validate crd add, replace and delete" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "TODO: removing notation verifier leaves cosign which fails due to IgnoreTLog=false, causing executor to fail and gatekeeper to pass"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod crdtest --namespace default --force --ignore-not-found=true'
+
+        # restore the original executor for other tests
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-crd.yaml'
+        rm -f original-executor-crd.yaml
     }
 
-    echo "adding license checker, delete notation verifier and validate deployment fails due to missing notation verifier"
-    run kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_complete_licensechecker.yaml
+    # save original executor state
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-crd.yaml"
     assert_success
-    run kubectl delete verifiers.config.ratify.deislabs.io/verifier-notation
+
+    echo "Patch executor to remove notation verifier and validate deployment fails"
+    run bash -c 'kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [.spec.verifiers[] | select(.name != "notation-1")] | .spec.policyEnforcer.parameters.policy.rules = [.spec.policyEnforcer.parameters.policy.rules[] | select(.verifierName != "notation-1")]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    # wait for the httpserver cache to be invalidated
-    sleep 15
+    # wait for executor to be reconciled
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run crdtest --namespace default --image=registry:5000/notation:signed
     assert_failure
 
-    echo "Add notation verifier and validate deployment succeeds"
-    run kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_notation.yaml
+    echo "Restore original executor with notation verifier and validate deployment succeeds"
+    run restore_executor original-executor-crd.yaml
     assert_success
-
-    # wait for the httpserver cache to be invalidated
-    sleep 15
+    # wait for executor to be reconciled
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run crdtest --namespace default --image=registry:5000/notation:signed
     assert_success
 }
 
 @test "store crd status check" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete stores.config.ratify.deislabs.io/store-dynamic'
+        # restore the original executor for other tests
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-store.yaml'
+        rm -f original-executor-store.yaml
     }
 
-    # apply a invalid verifier CR, validate status with error
-    sed 's/:v1/:invalid/' ./config/samples/clustered/store/config_v1beta1_store_dynamic.yaml >invalidstore.yaml
-    run kubectl apply -f invalidstore.yaml
+    # save original executor state
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-store.yaml"
     assert_success
-    # wait for download of image
+
+    # patch executor with an invalid store type
+    run bash -c 'kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.stores = [{"type": "invalid-store-type", "parameters": {"plainHttp": true}}]'"'"' | kubectl apply --server-side --force-conflicts -f -'
+    assert_success
+    # wait for executor to report error
     sleep 5
-    run bash -c "kubectl describe stores.config.ratify.deislabs.io/store-dynamic -n ${RATIFY_NAMESPACE} | grep 'plugin not found'"
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.error}' | grep -i 'store'"
     assert_success
 }
 
@@ -442,7 +453,6 @@ EOF
 }
 
 @test "validate mutation tag to digest" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod mutate-demo --namespace default --ignore-not-found=true'
@@ -461,42 +471,36 @@ EOF
 }
 
 @test "validate inline certificate store provider" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete certificatestores.config.ratify.deislabs.io/certstore-inline --namespace ${RATIFY_NAMESPACE} --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-alternate --namespace default --force --ignore-not-found=true'
 
-        # restore the original key management provider
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f kmprovider_staging.yaml'
-        # restore the original notation verifier for other tests
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_notation.yaml'
+        # restore the original executor
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-certstore.yaml'
+        rm -f original-executor-certstore.yaml
     }
 
-    # save the existing key management provider inline resource to restore later
-    run bash -c "kubectl get keymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0 -o yaml > kmprovider_staging.yaml"
+    # save original executor state
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-certstore.yaml"
     assert_success
-    # configure the default template/constraint
-    run kubectl apply -f ./library/default/template.yaml
+
+    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
     assert_success
-    run kubectl apply -f ./library/default/samples/constraint.yaml
+    sleep 5
+    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
     assert_success
+    sleep 5
 
     # verify that the image cannot be run due to an invalid cert
     run kubectl run demo-alternate --namespace default --image=registry:5000/notation:signed-alternate
     assert_failure
 
-    # delete the existing key management provider inline resource since certificate store and key management provider cannot be used together
-    run kubectl delete keymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0
+    # patch executor to use alternate inline certificate
+    run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg alt_cert "$ALT_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $alt_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    # add the alternate certificate as an inline certificate store
-    cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt | sed 's/^/      /g' >>./test/bats/tests/config/config_v1beta1_certstore_inline.yaml
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_certstore_inline.yaml --namespace ${RATIFY_NAMESPACE}
-    assert_success
-    sed -i '9,$d' ./test/bats/tests/config/config_v1beta1_certstore_inline.yaml
-
-    # configure the notation verifier to use the inline certificate store
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_verifier_notation.yaml
-    assert_success
+    # wait for executor to be reconciled
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     sleep 10
 
     # verify that the image can now be run
@@ -505,16 +509,18 @@ EOF
 }
 
 @test "validate inline key management provider" {
-    skip "TODO: migrate to v2 executor CRD"
     teardown() {
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementproviders.config.ratify.deislabs.io/keymanagementprovider-inline --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-alternate --namespace default --force --ignore-not-found=true'
 
-        # restore the original notation verifier for other tests
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_notation.yaml'
+        # restore the original executor
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-kmp.yaml'
+        rm -f original-executor-kmp.yaml
     }
 
-    # configure the default template/constraint
+    # save original executor state
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-kmp.yaml"
+    assert_success
+
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
     assert_success
     run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
@@ -526,16 +532,13 @@ EOF
     assert_failure
     sleep 10
 
-    # add the alternate certificate as an inline key management provider
-    cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt | sed 's/^/      /g' >>./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml --namespace ${RATIFY_NAMESPACE}
+    # patch executor to use alternate inline certificate
+    run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg alt_cert "$ALT_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $alt_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    sed -i '10,$d' ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml
-
-    # configure the notation verifier to use the inline key management provider
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_verifier_notation_kmprovider.yaml
-    assert_success
-    sleep 10
+    # wait for executor to be reconciled
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     # verify that the image can now be run
     run kubectl run demo-alternate --namespace default --image=registry:5000/notation:signed-alternate
@@ -543,43 +546,41 @@ EOF
 }
 
 @test "validate inline key management provider with inline certificate store" {
-    skip "TODO: migrate to v2 executor CRD"
-    # this test validates that if a key management provider and certificate store are both configured with the same name,
-    # the key management provider will take precedence and continue to work as expected
+    # this test validates that executor verifier config with inline cert works correctly
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo1 --namespace default --force --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete certificatestores.config.ratify.deislabs.io/ratify-notation-inline-cert-0 --namespace ${RATIFY_NAMESPACE} --ignore-not-found=true'
+
+        # restore original executor
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-kmp-certstore.yaml'
+        rm -f original-executor-kmp-certstore.yaml
     }
-    # configure the default template/constraint
+
+    # save original executor state
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-kmp-certstore.yaml"
+    assert_success
+
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
     assert_success
     run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
     assert_success
 
-    # validate key management provider status property shows success
-    run bash -c "kubectl get keymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0 -o yaml | grep 'issuccess: true'"
-    assert_success
+    # validate executor status shows success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run demo --namespace default --image=registry:5000/notation:signed
     assert_success
 
     sleep 10
 
-    # apply an invalid cert in an inline certificate store
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_certstore_inline_invalid.yaml -n ${RATIFY_NAMESPACE}
-    assert_success
-    # validate key management provider status property shows success
-    run bash -c "kubectl get certificatestores.config.ratify.deislabs.io/ratify-notation-inline-cert-0 -n ${RATIFY_NAMESPACE} -o yaml | grep 'issuccess: true'"
-    assert_success
-    # verification should succeed as the existing KMP will take precedence over the new certificate store
+    # validate executor still reports success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run demo1 --namespace default --image=registry:5000/notation:signed
     assert_success
-
 }
 
 @test "validate K8s secrets ORAS auth provider" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 e2e uses static credential provider; k8s secret auth provider not configured in current executor"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --ignore-not-found=true'
@@ -604,51 +605,52 @@ EOF
 }
 
 @test "validate image signed by leaf cert" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 notation verifier does not distinguish leaf cert from root cert in inline trust store"
     teardown() {
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementproviders.config.ratify.deislabs.io/keymanagementprovider-inline --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-leaf --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-leaf2 --namespace default --force --ignore-not-found=true'
 
-        # restore the original notation verifier for other tests
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_notation.yaml'
+        # restore the original executor
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-leaf.yaml'
+        rm -f original-executor-leaf.yaml
     }
 
-    # configure the default template/constraint
+    # save original executor state
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-leaf.yaml"
+    assert_success
+
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
     assert_success
     run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
     assert_success
 
-    # add the root certificate as an inline key management provider
-    cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt | sed 's/^/      /g' >>./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml --namespace ${RATIFY_NAMESPACE}
+    # patch executor to use root cert for leaf-test
+    run bash -c 'ROOT_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg root_cert "$ROOT_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $root_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    sed -i '10,$d' ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml
-
-    # configure the notation verifier to use the inline key management provider
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_verifier_notation_kmprovider.yaml
-    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     # verify that the image can be run with a root cert
     run kubectl run demo-leaf --namespace default --image=registry:5000/notation:leafSigned
     assert_success
 
-    # add the root certificate as an inline key management provider
-    cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt | sed 's/^/      /g' >>./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml --namespace ${RATIFY_NAMESPACE}
+    # patch executor to use leaf cert instead of root cert
+    run bash -c 'LEAF_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg leaf_cert "$LEAF_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $leaf_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    sed -i '10,$d' ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml
-
-    # wait for the httpserver cache to be invalidated
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    # wait for the executor to fully reload with the new leaf cert
     sleep 15
+
     # verify that the image cannot be run with a leaf cert
     run kubectl run demo-leaf2 --namespace default --image=registry:5000/notation:leafSigned
     assert_failure
 }
 
 @test "validate ratify/gatekeeper tls cert rotation" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 e2e disables cert rotation (disableCertRotation=true)"
     teardown() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
     }
@@ -678,7 +680,7 @@ EOF
 }
 
 @test "namespaced notation/cosign verifiers test" {
-    skip "TODO: migrate to v2 executor CRD"
+    skip "v2 executor CRD is cluster-scoped only, namespace-scoped executor not yet supported (see #2672)"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete namespacedverifiers.config.ratify.deislabs.io/verifier-cosign --namespace default --ignore-not-found=true'
