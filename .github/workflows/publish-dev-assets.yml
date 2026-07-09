@@ -110,8 +110,8 @@ jobs:
             --push .
       - name: replace version
         run: |
-          sed -i '/^  repository:/c\  repository: ghcr.io/ratify-project/ratify-dev' charts/ratify/values.yaml
-          sed -i '/^  crdRepository:/c\  crdRepository: ghcr.io/ratify-project/ratify-crds-dev' charts/ratify/values.yaml
+          sed -i '/^  repository:/c\  repository: ghcr.io/notaryproject/ratify-dev' charts/ratify/values.yaml
+          sed -i '/^  crdRepository:/c\  crdRepository: ghcr.io/notaryproject/ratify-crds-dev' charts/ratify/values.yaml
           sed -i '/^  tag:/c\  tag: ${{ steps.prepare.outputs.version }}' charts/ratify/values.yaml
       - name: helm package
         run: |
@@ -158,27 +158,27 @@ jobs:
           cosign verify \
             --certificate-identity-regexp "https://github.com/notaryproject/ratify/.github/workflows/publish-dev-assets.yml@*" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-github-workflow-repository ratify-project/ratify \
+            --certificate-github-workflow-repository notaryproject/ratify \
             ${{ steps.prepare.outputs.crdref }}:${{ steps.prepare.outputs.version }}
           cosign verify \
             --certificate-identity-regexp "https://github.com/notaryproject/ratify/.github/workflows/publish-dev-assets.yml@*" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-github-workflow-repository ratify-project/ratify \
+            --certificate-github-workflow-repository notaryproject/ratify \
             ${{ steps.prepare.outputs.baseref }}:${{ steps.prepare.outputs.version }}
           cosign verify \
             --certificate-identity-regexp "https://github.com/notaryproject/ratify/.github/workflows/publish-dev-assets.yml@*" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-github-workflow-repository ratify-project/ratify \
+            --certificate-github-workflow-repository notaryproject/ratify \
             ${{ steps.prepare.outputs.ref }}:${{ steps.prepare.outputs.version }}
           cosign verify \
             --certificate-identity-regexp "https://github.com/notaryproject/ratify/.github/workflows/publish-dev-assets.yml@*" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-github-workflow-repository ratify-project/ratify \
+            --certificate-github-workflow-repository notaryproject/ratify \
             ${{ steps.prepare.outputs.chartrepo }}/ratify:${{ steps.prepare.outputs.semversionrolling }}
           cosign verify \
             --certificate-identity-regexp "https://github.com/notaryproject/ratify/.github/workflows/publish-dev-assets.yml@*" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-github-workflow-repository ratify-project/ratify \
+            --certificate-github-workflow-repository notaryproject/ratify \
             ${{ steps.prepare.outputs.chartrepo }}/ratify:${{ steps.prepare.outputs.semversion }}
       - name: clear
         if: always()
