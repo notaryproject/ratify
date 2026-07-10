@@ -45,7 +45,7 @@ jobs:
       - name: prepare
         id: prepare
         run: |
-          VERSION=${GITHUB_REF#refs/*/}
+          VERSION="dev"
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           REPOSITORY=ghcr.io/${{ github.repository }}
           REPOSITORYBASE=ghcr.io/${{ github.repository }}-base
@@ -59,7 +59,7 @@ jobs:
           echo ::set-output name=crdref::${REPOSITORYCRD}:${VERSION}
       - name: Get tag
         run: |
-          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "TAG=dev" >> $GITHUB_ENV
       - name: docker login
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:

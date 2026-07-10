@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)",
+      "Bash(git -c commit.gpgsign=false commit -m ' *)"
+    ]
+  }
+}
