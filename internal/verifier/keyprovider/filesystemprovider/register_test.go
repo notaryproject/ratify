@@ -21,6 +21,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -166,6 +167,30 @@ func TestGetCertificatesFromCache(t *testing.T) {
 	// Verify both calls return the same certificate
 	if !certs1[0].Equal(certs2[0]) {
 		t.Fatalf("cached certificate doesn't match original")
+	}
+}
+
+func TestAllowsLeafCertificate(t *testing.T) {
+	tempDir := t.TempDir()
+	certFile := filepath.Join(tempDir, "leaf-cert.pem")
+	certContent, err := createLeafCert()
+	if err != nil {
+		t.Fatalf("failed to create leaf certificate: %v", err)
+	}
+	if err := os.WriteFile(certFile, certContent, 0600); err != nil {
+		t.Fatalf("failed to create temp cert file: %v", err)
+	}
+
+	provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, []string{tempDir})
+	if err != nil {
+		t.Fatalf("unexpected error constructing provider with leaf certificate: %v", err)
+	}
+	certs, err := provider.GetCertificates(context.Background())
+	if err != nil {
+		t.Fatalf("failed to get certificates: %v", err)
+	}
+	if len(certs) != 1 {
+		t.Fatalf("expected 1 certificate, got %d", len(certs))
 	}
 }
 
@@ -336,4 +361,40 @@ func createCert() ([]byte, error) {
 
 	// Self-sign the certificate (for demonstration)
 	return x509.CreateCertificate(rand.Reader, &certTemplate, &certTemplate, &priv.PublicKey, priv)
+}
+
+func createLeafCert() ([]byte, error) {
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	leafKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(time.Now().UnixNano()),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	leafTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(time.Now().UnixNano() + 1),
+		Subject:               pkix.Name{CommonName: "test-leaf"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, leafTemplate, caTemplate, &leafKey.PublicKey, caKey)
+	if err != nil {
+		return nil, err
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), nil
 }

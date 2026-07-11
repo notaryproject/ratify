@@ -55,7 +55,6 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "validate image signed by leaf cert" {
-    skip "blocked by notaryproject/ratify#2693: the v2 notation verifier admits a leaf-only inline trust store, so the leaf-signed image is not rejected"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-leaf --namespace default --force --ignore-not-found=true'
@@ -90,16 +89,22 @@ RATIFY_NAMESPACE=gatekeeper-system
     run wait_for_process 20 10 'kubectl run demo-leaf --namespace default --image=${TEST_REGISTRY}/notation:leafSigned'
     assert_success
 
-    # patch the notation verifier to trust ONLY the LEAF certificate (inline)
+    # patch the notation verifier to trust ONLY the LEAF certificate (inline); leaf certs are rejected as trust anchors
     run bash -c 'LEAF_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg cert "$LEAF_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep false"
 
-    # The provider caches verification results by image digest and does not
-    # drop them when the Executor trust store changes, so restart the provider
-    # to serve the leaf-only trust store with a clean cache.
+    # the executor status must explain why the leaf-only trust store was rejected
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.error}' | grep 'is not a CA certificate or self-signed signing certificate'"
+    assert_success
+
+    # the provider keeps serving the last-known-good (root cert) config after an
+    # invalid update, so restart it to force a fresh load of the leaf-only trust
+    # store. The leaf cert is rejected as a trust anchor, leaving no valid
+    # executor, so admission must fail closed. The restart is a workaround for
+    # notaryproject/ratify#2798 (invalid config is not enforced until restart).
     run kubectl get deploy --namespace ${RATIFY_NAMESPACE} -l app.kubernetes.io/name=ratify-gatekeeper-provider -o jsonpath='{.items[0].metadata.name}'
     assert_success
     ratify_deploy="$output"
@@ -111,7 +116,6 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_success
     run kubectl rollout status deployment/${ratify_deploy} --namespace ${RATIFY_NAMESPACE} --timeout=180s
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     sleep 5
 
     # with only the leaf cert as the trust anchor, the same image must be rejected
