@@ -1,6 +1,6 @@
 image:
-  repository: ghcr.io/ratify-project/ratify
-  crdRepository: ghcr.io/ratify-project/ratify-crds
+  repository: ghcr.io/notaryproject/ratify
+  crdRepository: ghcr.io/notaryproject/ratify-crds
   tag: v1.4.3
   pullPolicy: IfNotPresent
 

@@ -2,7 +2,7 @@ repositories:
   - name: gatekeeper
     url: https://open-policy-agent.github.io/gatekeeper/charts
   - name: ratify
-    url: https://ratify-project.github.io/ratify
+    url: https://notaryproject.github.io/ratify
 
 releases:
   - name: gatekeeper
@@ -23,7 +23,7 @@ releases:
   - name: ratify
     namespace: gatekeeper-system
     chart: ratify/ratify
-    version: 1.15.2 # Make sure this matches Chart.yaml
+    version: 1.15.4 # Make sure this matches Chart.yaml
     wait: true
     needs:
       - gatekeeper
@@ -33,14 +33,14 @@ releases:
         command: "bash"
         args:
           - "-c"
-          - "kubectl apply -f https://ratify-project.github.io/ratify/library/default/template.yaml && kubectl apply -f https://ratify-project.github.io/ratify/library/default/samples/constraint.yaml"
+          - "kubectl apply -f https://notaryproject.github.io/ratify/library/default/template.yaml && kubectl apply -f https://notaryproject.github.io/ratify/library/default/samples/constraint.yaml"
       - events: ["postuninstall"]
         showlogs: true
         command: "kubectl"
         args:
           - "delete"
           - "-f"
-          - "https://ratify-project.github.io/ratify/library/default/template.yaml"
+          - "https://notaryproject.github.io/ratify/library/default/template.yaml"
           - "--ignore-not-found=true"
       - events: ["postuninstall"]
         showlogs: true
@@ -48,7 +48,7 @@ releases:
         args:
           - "delete"
           - "-f"
-          - "https://ratify-project.github.io/ratify/library/default/samples/constraint.yaml"
+          - "https://notaryproject.github.io/ratify/library/default/samples/constraint.yaml"
           - "--ignore-not-found=true"
       - events: ["postuninstall"]
         showlogs: true
@@ -76,6 +76,6 @@ releases:
           - "gatekeeper-system"
     set:
       - name: notationCerts[0]
-        value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/deislabs/ratify/main/test/testdata/notation.crt") | quote }}
+        value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/notaryproject/ratify/main/test/testdata/notation.crt") | quote }}
       - name: featureFlags.RATIFY_CERT_ROTATION
         value: true
