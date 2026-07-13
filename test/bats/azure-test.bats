@@ -26,6 +26,8 @@ load helpers
 BATS_TESTS_DIR=${BATS_TESTS_DIR:-test/bats/tests}
 WAIT_TIME=60
 SLEEP_TIME=1
+EXECUTOR_NAME=ratify-gatekeeper-provider-executor-1
+RATIFY_NAMESPACE=gatekeeper-system
 
 @test "dynamic plugins enabled test" {
     skip "v2 gatekeeper provider has no dynamic plugin mechanism"
@@ -53,39 +55,66 @@ SLEEP_TIME=1
 }
 
 @test "validate image signed by leaf cert" {
-    skip "v2 notation verifier does not distinguish a leaf cert from a root cert in an inline trust store; pending notation cert migration"
+    skip "blocked by notaryproject/ratify#2693: the v2 notation verifier admits a leaf-only inline trust store, so the leaf-signed image is not rejected"
     teardown() {
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementproviders.config.ratify.deislabs.io/keymanagementprovider-inline --ignore-not-found=true'
+        echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-leaf --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-leaf2 --namespace default --force --ignore-not-found=true'
-
-        # restore the original notation verifier for other tests
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f ./test/bats/tests/config/config_v1beta1_verifier_notation_akv.yaml'
+        # restore the original executor (AKV notation cert) for the other tests,
+        # best-effort: only if it was actually saved
+        if [ -s original-executor-leaf.yaml ]; then
+            wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-leaf.yaml'
+            rm -f original-executor-leaf.yaml
+        fi
     }
 
-    # configure the default template/constraint
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ./library/default/template.yaml
     assert_success
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    sleep 5
+    run kubectl apply -f ./library/default/samples/constraint.yaml
+    assert_success
+    sleep 5
+
+    # save the original executor so the AKV notation cert can be restored afterwards
+    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-leaf.yaml"
     assert_success
 
-    # verify that the image can be run with a root cert, root verification cert should have been configured on deployment
-    wait_for_process 20 10 'kubectl run demo-leaf --namespace default --image=${TEST_REGISTRY}/notation:leafSigned'
+    # patch the notation verifier to trust the leaf-test ROOT certificate (inline)
+    run bash -c 'ROOT_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg cert "$ROOT_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
+    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+
+    # a leaf-signed image chains up to the root cert, so admission should pass
+    run wait_for_process 20 10 'kubectl run demo-leaf --namespace default --image=${TEST_REGISTRY}/notation:leafSigned'
     assert_success
 
-    # add the leaf certificate as an inline certificate store
-    cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt | sed 's/^/      /g' >>./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml
+    # patch the notation verifier to trust ONLY the LEAF certificate (inline)
+    run bash -c 'LEAF_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt) && \
+        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg cert "$LEAF_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    sed -i '10,$d' ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
-    # configure the notation verifier to use the inline key management provider
-    run kubectl replace -f ./test/bats/tests/config/config_v1beta1_verifier_notation_kmprovider.yaml
+    # The provider caches verification results by image digest and does not
+    # drop them when the Executor trust store changes, so restart the provider
+    # to serve the leaf-only trust store with a clean cache.
+    run kubectl get deploy --namespace ${RATIFY_NAMESPACE} -l app.kubernetes.io/name=ratify-gatekeeper-provider -o jsonpath='{.items[0].metadata.name}'
     assert_success
+    ratify_deploy="$output"
+    if [ -z "$ratify_deploy" ]; then
+        echo "no ratify-gatekeeper-provider deployment found in namespace ${RATIFY_NAMESPACE}" >&2
+        return 1
+    fi
+    run kubectl rollout restart deployment/${ratify_deploy} --namespace ${RATIFY_NAMESPACE}
+    assert_success
+    run kubectl rollout status deployment/${ratify_deploy} --namespace ${RATIFY_NAMESPACE} --timeout=180s
+    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    sleep 5
 
-    # wait for the httpserver cache to be invalidated
-    sleep 15
-    # verify that the image cannot be run with a leaf cert
+    # with only the leaf cert as the trust anchor, the same image must be rejected
     run kubectl run demo-leaf2 --namespace default --image=${TEST_REGISTRY}/notation:leafSigned
     assert_failure
 }
