@@ -143,7 +143,7 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "cosign test" {
-    skip "cosign-on-AKV is not yet wired into the v2 AKS e2e; enabled in a follow-up PR"
+    skip "blocked by notaryproject/ratify#2712: v2 cosign key-based verification requires a tlog/timestamp, so an offline AKV-key-signed image is rejected"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo --namespace default --force --ignore-not-found=true'
