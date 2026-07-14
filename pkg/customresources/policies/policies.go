@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"github.com/notaryproject/ratify/v2/internal/constants"
-	"github.com/ratify-project/ratify/pkg/policyprovider"
+	"github.com/notaryproject/ratify/v2/pkg/policyprovider"
 )
 
 // PolicyWrapper wraps policy provider with its policy name.

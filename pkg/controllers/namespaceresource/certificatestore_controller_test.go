@@ -19,12 +19,12 @@ import (
 	"context"
 	"testing"
 
+	configv1beta1 "github.com/notaryproject/ratify/v2/api/v1beta1"
 	"github.com/notaryproject/ratify/v2/internal/constants"
-	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
-	"github.com/ratify-project/ratify/pkg/certificateprovider"
-	"github.com/ratify-project/ratify/pkg/certificateprovider/inline"
-	"github.com/ratify-project/ratify/pkg/controllers"
-	test "github.com/ratify-project/ratify/pkg/utils"
+	"github.com/notaryproject/ratify/v2/pkg/certificateprovider"
+	"github.com/notaryproject/ratify/v2/pkg/certificateprovider/inline"
+	"github.com/notaryproject/ratify/v2/pkg/controllers"
+	test "github.com/notaryproject/ratify/v2/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 

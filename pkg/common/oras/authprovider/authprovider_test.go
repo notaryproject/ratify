@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	re "github.com/ratify-project/ratify/errors"
+	re "github.com/notaryproject/ratify/v2/errors"
 )
 
 const (

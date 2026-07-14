@@ -27,8 +27,8 @@ import (
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
+	re "github.com/notaryproject/ratify/v2/errors"
 	"github.com/notaryproject/ratify/v2/internal/logger"
-	re "github.com/ratify-project/ratify/errors"
 )
 
 // This config represents the credentials that should be used

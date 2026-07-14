@@ -16,7 +16,7 @@ limitations under the License.
 package referrerstores
 
 import (
-	"github.com/ratify-project/ratify/pkg/referrerstore"
+	"github.com/notaryproject/ratify/v2/pkg/referrerstore"
 )
 
 // ReferrerStoreManager is an interface that defines the methods for managing referrer stores across different scopes.

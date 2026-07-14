@@ -17,14 +17,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
-	re "github.com/ratify-project/ratify/errors"
-	vc "github.com/ratify-project/ratify/pkg/verifier/config"
-	vf "github.com/ratify-project/ratify/pkg/verifier/factory"
-	"github.com/ratify-project/ratify/pkg/verifier/types"
+	configv1beta1 "github.com/notaryproject/ratify/v2/api/v1beta1"
+	re "github.com/notaryproject/ratify/v2/errors"
+	vc "github.com/notaryproject/ratify/v2/pkg/verifier/config"
+	vf "github.com/notaryproject/ratify/v2/pkg/verifier/factory"
+	"github.com/notaryproject/ratify/v2/pkg/verifier/types"
 
-	"github.com/ratify-project/ratify/config"
-	"github.com/ratify-project/ratify/pkg/controllers"
+	"github.com/notaryproject/ratify/v2/config"
+	"github.com/notaryproject/ratify/v2/pkg/controllers"
 	"github.com/sirupsen/logrus"
 )
 

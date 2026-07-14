@@ -20,11 +20,11 @@ import (
 	"testing"
 
 	"github.com/notaryproject/ratify/v2/internal/constants"
+	"github.com/notaryproject/ratify/v2/pkg/common"
+	"github.com/notaryproject/ratify/v2/pkg/ocispecs"
+	rs "github.com/notaryproject/ratify/v2/pkg/referrerstore"
+	"github.com/notaryproject/ratify/v2/pkg/referrerstore/config"
 	"github.com/opencontainers/go-digest"
-	"github.com/ratify-project/ratify/pkg/common"
-	"github.com/ratify-project/ratify/pkg/ocispecs"
-	rs "github.com/ratify-project/ratify/pkg/referrerstore"
-	"github.com/ratify-project/ratify/pkg/referrerstore/config"
 )
 
 type mockStore struct {

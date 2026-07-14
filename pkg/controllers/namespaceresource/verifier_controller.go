@@ -19,12 +19,12 @@ import (
 	"context"
 	"fmt"
 
+	configv1beta1 "github.com/notaryproject/ratify/v2/api/v1beta1"
 	"github.com/notaryproject/ratify/v2/internal/constants"
-	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
-	"github.com/ratify-project/ratify/pkg/controllers"
+	"github.com/notaryproject/ratify/v2/pkg/controllers"
 
-	re "github.com/ratify-project/ratify/errors"
-	cutils "github.com/ratify-project/ratify/pkg/controllers/utils"
+	re "github.com/notaryproject/ratify/v2/errors"
+	cutils "github.com/notaryproject/ratify/v2/pkg/controllers/utils"
 	"github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"

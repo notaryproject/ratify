@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"github.com/notaryproject/ratify/v2/internal/constants"
-	vr "github.com/ratify-project/ratify/pkg/verifier"
+	vr "github.com/notaryproject/ratify/v2/pkg/verifier"
 )
 
 // ActiveVerifiers implements VerifierManger interface.

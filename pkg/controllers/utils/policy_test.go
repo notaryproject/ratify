@@ -17,10 +17,10 @@ import (
 	"reflect"
 	"testing"
 
-	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
-	_ "github.com/ratify-project/ratify/pkg/policyprovider/configpolicy"
+	configv1beta1 "github.com/notaryproject/ratify/v2/api/v1beta1"
+	_ "github.com/notaryproject/ratify/v2/pkg/policyprovider/configpolicy"
 
-	"github.com/ratify-project/ratify/pkg/policyprovider/config"
+	"github.com/notaryproject/ratify/v2/pkg/policyprovider/config"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 

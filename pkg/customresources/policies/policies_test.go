@@ -20,9 +20,9 @@ import (
 	"testing"
 
 	"github.com/notaryproject/ratify/v2/internal/constants"
-	"github.com/ratify-project/ratify/pkg/common"
-	"github.com/ratify-project/ratify/pkg/executor/types"
-	"github.com/ratify-project/ratify/pkg/ocispecs"
+	"github.com/notaryproject/ratify/v2/pkg/common"
+	"github.com/notaryproject/ratify/v2/pkg/executor/types"
+	"github.com/notaryproject/ratify/v2/pkg/ocispecs"
 )
 
 type mockPolicy struct{}

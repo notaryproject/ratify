@@ -17,8 +17,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/config"
-	_ "github.com/ratify-project/ratify/pkg/keymanagementprovider/inline"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/config"
+	_ "github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/inline"
 )
 
 func TestSpecToKeyManagementProviderProvider(t *testing.T) {

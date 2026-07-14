@@ -16,8 +16,8 @@ limitations under the License.
 package refresh
 
 import (
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/factory"
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/mocks"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/factory"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/mocks"
 )
 
 func init() {

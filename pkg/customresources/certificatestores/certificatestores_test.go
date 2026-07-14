@@ -27,7 +27,7 @@ import (
 
 	"github.com/notaryproject/ratify/v2/internal/constants"
 	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
-	"github.com/ratify-project/ratify/pkg/utils"
+	"github.com/notaryproject/ratify/v2/pkg/utils"
 )
 
 const (

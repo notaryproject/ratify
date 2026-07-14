@@ -23,9 +23,9 @@ import (
 	_ "crypto/sha256" // required package for digest.Parse
 
 	"github.com/distribution/reference"
+	"github.com/notaryproject/ratify/v2/errors"
+	"github.com/notaryproject/ratify/v2/pkg/common"
 	"github.com/opencontainers/go-digest"
-	"github.com/ratify-project/ratify/errors"
-	"github.com/ratify-project/ratify/pkg/common"
 )
 
 const (

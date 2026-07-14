@@ -18,7 +18,7 @@ package authprovider
 import (
 	"fmt"
 
-	"github.com/ratify-project/ratify/errors"
+	"github.com/notaryproject/ratify/v2/errors"
 	"github.com/sirupsen/logrus"
 )
 

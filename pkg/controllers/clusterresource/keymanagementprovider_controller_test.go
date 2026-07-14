@@ -22,14 +22,14 @@ import (
 	"reflect"
 	"testing"
 
-	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/mocks"
-	test "github.com/ratify-project/ratify/pkg/utils"
+	configv1beta1 "github.com/notaryproject/ratify/v2/api/v1beta1"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/mocks"
+	test "github.com/notaryproject/ratify/v2/pkg/utils"
 	"github.com/sirupsen/logrus"
 
-	re "github.com/ratify-project/ratify/errors"
-	kmp "github.com/ratify-project/ratify/pkg/keymanagementprovider"
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/refresh"
+	re "github.com/notaryproject/ratify/v2/errors"
+	kmp "github.com/notaryproject/ratify/v2/pkg/keymanagementprovider"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/refresh"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

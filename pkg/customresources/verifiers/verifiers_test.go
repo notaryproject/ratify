@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	"github.com/notaryproject/ratify/v2/internal/constants"
-	"github.com/ratify-project/ratify/pkg/common"
-	"github.com/ratify-project/ratify/pkg/ocispecs"
-	"github.com/ratify-project/ratify/pkg/referrerstore"
-	"github.com/ratify-project/ratify/pkg/verifier"
+	"github.com/notaryproject/ratify/v2/pkg/common"
+	"github.com/notaryproject/ratify/v2/pkg/ocispecs"
+	"github.com/notaryproject/ratify/v2/pkg/referrerstore"
+	"github.com/notaryproject/ratify/v2/pkg/verifier"
 )
 
 type mockVerifier struct {

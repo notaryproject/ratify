@@ -17,12 +17,12 @@ import (
 	"os"
 	"testing"
 
-	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
-	"github.com/ratify-project/ratify/pkg/controllers"
-	"github.com/ratify-project/ratify/pkg/customresources/verifiers"
-	test "github.com/ratify-project/ratify/pkg/utils"
-	vc "github.com/ratify-project/ratify/pkg/verifier/config"
-	"github.com/ratify-project/ratify/pkg/verifier/types"
+	configv1beta1 "github.com/notaryproject/ratify/v2/api/v1beta1"
+	"github.com/notaryproject/ratify/v2/pkg/controllers"
+	"github.com/notaryproject/ratify/v2/pkg/customresources/verifiers"
+	test "github.com/notaryproject/ratify/v2/pkg/utils"
+	vc "github.com/notaryproject/ratify/v2/pkg/verifier/config"
+	"github.com/notaryproject/ratify/v2/pkg/verifier/types"
 )
 
 const (

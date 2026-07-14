@@ -17,12 +17,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	c "github.com/ratify-project/ratify/config"
-	re "github.com/ratify-project/ratify/errors"
-	kmp "github.com/ratify-project/ratify/pkg/keymanagementprovider"
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/config"
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/factory"
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/types"
+	c "github.com/notaryproject/ratify/v2/config"
+	re "github.com/notaryproject/ratify/v2/errors"
+	kmp "github.com/notaryproject/ratify/v2/pkg/keymanagementprovider"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/config"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/factory"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/types"
 )
 
 // SpecToKeyManagementProvider creates KeyManagementProvider from  KeyManagementProviderSpec config

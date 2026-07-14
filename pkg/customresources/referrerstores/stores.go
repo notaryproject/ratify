@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"github.com/notaryproject/ratify/v2/internal/constants"
-	"github.com/ratify-project/ratify/pkg/referrerstore"
+	"github.com/notaryproject/ratify/v2/pkg/referrerstore"
 )
 
 // ActiveStores implements the ReferrerStoreManager interface.

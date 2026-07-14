@@ -18,13 +18,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	configv1beta1 "github.com/notaryproject/ratify/v2/api/v1beta1"
 	"github.com/notaryproject/ratify/v2/internal/constants"
-	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
-	"github.com/ratify-project/ratify/pkg/certificateprovider"
-	_ "github.com/ratify-project/ratify/pkg/certificateprovider/azurekeyvault" // register azure keyvault certificate provider
-	_ "github.com/ratify-project/ratify/pkg/certificateprovider/inline"        // register inline certificate provider
-	"github.com/ratify-project/ratify/pkg/controllers"
-	"github.com/ratify-project/ratify/pkg/utils"
+	"github.com/notaryproject/ratify/v2/pkg/certificateprovider"
+	_ "github.com/notaryproject/ratify/v2/pkg/certificateprovider/azurekeyvault" // register azure keyvault certificate provider
+	_ "github.com/notaryproject/ratify/v2/pkg/certificateprovider/inline"        // register inline certificate provider
+	"github.com/notaryproject/ratify/v2/pkg/controllers"
+	"github.com/notaryproject/ratify/v2/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

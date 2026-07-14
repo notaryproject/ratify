@@ -21,13 +21,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	re "github.com/notaryproject/ratify/v2/errors"
 	"github.com/notaryproject/ratify/v2/internal/constants"
-	re "github.com/ratify-project/ratify/errors"
-	cutils "github.com/ratify-project/ratify/pkg/controllers/utils"
-	kmp "github.com/ratify-project/ratify/pkg/keymanagementprovider"
-	_ "github.com/ratify-project/ratify/pkg/keymanagementprovider/azurekeyvault" // register azure key vault key management provider
-	_ "github.com/ratify-project/ratify/pkg/keymanagementprovider/inline"        // register inline key management provider
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/refresh"
+	cutils "github.com/notaryproject/ratify/v2/pkg/controllers/utils"
+	kmp "github.com/notaryproject/ratify/v2/pkg/keymanagementprovider"
+	_ "github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/azurekeyvault" // register azure key vault key management provider
+	_ "github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/inline"        // register inline key management provider
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/refresh"
 	"github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
+	configv1beta1 "github.com/notaryproject/ratify/v2/api/v1beta1"
 )
 
 // KeyManagementProviderReconciler reconciles a KeyManagementProvider object

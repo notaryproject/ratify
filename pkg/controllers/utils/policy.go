@@ -17,9 +17,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ratify-project/ratify/pkg/policyprovider"
-	"github.com/ratify-project/ratify/pkg/policyprovider/config"
-	pf "github.com/ratify-project/ratify/pkg/policyprovider/factory"
+	"github.com/notaryproject/ratify/v2/pkg/policyprovider"
+	"github.com/notaryproject/ratify/v2/pkg/policyprovider/config"
+	pf "github.com/notaryproject/ratify/v2/pkg/policyprovider/factory"
 )
 
 func SpecToPolicyEnforcer(raw []byte, policyType string) (policyprovider.PolicyProvider, error) {

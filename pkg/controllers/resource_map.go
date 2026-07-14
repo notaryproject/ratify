@@ -14,10 +14,10 @@ limitations under the License.
 package controllers
 
 import (
-	cs "github.com/ratify-project/ratify/pkg/customresources/certificatestores"
-	"github.com/ratify-project/ratify/pkg/customresources/policies"
-	rs "github.com/ratify-project/ratify/pkg/customresources/referrerstores"
-	"github.com/ratify-project/ratify/pkg/customresources/verifiers"
+	cs "github.com/notaryproject/ratify/v2/pkg/customresources/certificatestores"
+	"github.com/notaryproject/ratify/v2/pkg/customresources/policies"
+	rs "github.com/notaryproject/ratify/v2/pkg/customresources/referrerstores"
+	"github.com/notaryproject/ratify/v2/pkg/customresources/verifiers"
 )
 
 var (
