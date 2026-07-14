@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ratify-project/ratify/pkg/homedir"
+	"github.com/notaryproject/ratify/v2/pkg/homedir"
 )
 
 const (

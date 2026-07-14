@@ -20,14 +20,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	re "github.com/ratify-project/ratify/errors"
-	"github.com/ratify-project/ratify/pkg/common"
-	"github.com/ratify-project/ratify/pkg/ocispecs"
-	"github.com/ratify-project/ratify/pkg/referrerstore"
-	_ "github.com/ratify-project/ratify/pkg/referrerstore/oras"
-	"github.com/ratify-project/ratify/pkg/verifier"
-	"github.com/ratify-project/ratify/pkg/verifier/plugin/skel"
-	"github.com/ratify-project/ratify/plugins/verifier/schemavalidator/schemavalidation"
+	re "github.com/notaryproject/ratify/v2/errors"
+	"github.com/notaryproject/ratify/v2/pkg/common"
+	"github.com/notaryproject/ratify/v2/pkg/ocispecs"
+	"github.com/notaryproject/ratify/v2/pkg/referrerstore"
+	_ "github.com/notaryproject/ratify/v2/pkg/referrerstore/oras"
+	"github.com/notaryproject/ratify/v2/pkg/verifier"
+	"github.com/notaryproject/ratify/v2/pkg/verifier/plugin/skel"
+	"github.com/notaryproject/ratify/v2/plugins/verifier/schemavalidator/schemavalidation"
 )
 
 type PluginConfig struct {

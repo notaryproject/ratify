@@ -18,9 +18,9 @@ package factory
 import (
 	"testing"
 
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider"
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/config"
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider/mocks"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/config"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider/mocks"
 )
 
 type TestKeyManagementProviderFactory struct{}

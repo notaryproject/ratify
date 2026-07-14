@@ -22,13 +22,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/notaryproject/ratify/v2/pkg/common"
+	"github.com/notaryproject/ratify/v2/pkg/ocispecs"
+	"github.com/notaryproject/ratify/v2/pkg/referrerstore/mocks"
+	"github.com/notaryproject/ratify/v2/pkg/verifier/plugin/skel"
+	"github.com/notaryproject/ratify/v2/plugins/verifier/sbom/utils"
 	"github.com/opencontainers/go-digest"
 	oci "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/ratify-project/ratify/pkg/common"
-	"github.com/ratify-project/ratify/pkg/ocispecs"
-	"github.com/ratify-project/ratify/pkg/referrerstore/mocks"
-	"github.com/ratify-project/ratify/pkg/verifier/plugin/skel"
-	"github.com/ratify-project/ratify/plugins/verifier/sbom/utils"
 )
 
 const mediaType string = "application/vnd.syft+json"
