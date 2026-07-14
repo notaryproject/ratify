@@ -67,7 +67,7 @@ func GetAADAccessToken(ctx context.Context, tenantID, clientID, scope string) (c
 // readJWTFromFS reads the jwt from file system
 // Source: https://github.com/Azure/azure-workload-identity/blob/d126293e3c7c669378b225ad1b1f29cf6af4e56d/examples/msal-go/token_credential.go#L88
 func readJWTFromFS(tokenFilePath string) (string, error) {
-	token, err := os.ReadFile(tokenFilePath)
+	token, err := os.ReadFile(tokenFilePath) // #nosec G703 tokenFilePath is configured by the workload identity token file path
 	if err != nil {
 		return "", err
 	}

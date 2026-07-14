@@ -367,7 +367,7 @@ func TestAzureWIEnabled_ExpectedResults(t *testing.T) {
 func TestGetEarliestExpiration(t *testing.T) {
 	var aadExpiry = time.Now().Add(12 * time.Hour)
 
-	if getACRExpiryIfEarlier(aadExpiry) == aadExpiry {
+	if getACRExpiryIfEarlier(aadExpiry).Equal(aadExpiry) {
 		t.Fatal("expected acr token expiry time")
 	}
 

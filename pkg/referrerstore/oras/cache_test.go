@@ -89,12 +89,14 @@ func (m *mockBase) GetConfig() *config.StoreConfig {
 }
 
 func (m *mockBase) ListReferrers(_ context.Context, _ common.Reference, _ []string, nextToken string, _ *ocispecs.SubjectDescriptor) (referrerstore.ListReferrersResult, error) {
-	if nextToken == testNextToken1 {
+	switch nextToken {
+	case testNextToken1:
 		return testResult1, nil
-	} else if nextToken == testNextToken2 {
+	case testNextToken2:
 		return testResult2, nil
+	default:
+		return referrerstore.ListReferrersResult{}, nil
 	}
-	return referrerstore.ListReferrersResult{}, nil
 }
 
 func (m *mockBase) GetBlobContent(_ context.Context, _ common.Reference, _ digest.Digest) ([]byte, error) {

@@ -31,7 +31,6 @@ import (
 	"github.com/notaryproject/ratify/v2/pkg/policyprovider"
 	policyConfig "github.com/notaryproject/ratify/v2/pkg/policyprovider/configpolicy"
 	policyTypes "github.com/notaryproject/ratify/v2/pkg/policyprovider/types"
-	pt "github.com/notaryproject/ratify/v2/pkg/policyprovider/types"
 	"github.com/notaryproject/ratify/v2/pkg/referrerstore"
 	storeConfig "github.com/notaryproject/ratify/v2/pkg/referrerstore/config"
 	"github.com/notaryproject/ratify/v2/pkg/referrerstore/mocks"
@@ -72,9 +71,9 @@ func (p *mockPolicyProvider) OverallVerifyResult(_ context.Context, _ []interfac
 
 func (p *mockPolicyProvider) GetPolicyType(_ context.Context) string {
 	if p.policyType == "" {
-		return pt.ConfigPolicy
+		return policyTypes.ConfigPolicy
 	}
-	return pt.RegoPolicy
+	return policyTypes.RegoPolicy
 }
 
 type mockStore struct {
@@ -723,7 +722,7 @@ func TestVerifySubject(t *testing.T) {
 		{
 			name: "verify subject with invalid subject",
 			policyEnforcer: &mockPolicyProvider{
-				policyType: pt.RegoPolicy,
+				policyType: policyTypes.RegoPolicy,
 			},
 			params:    e.VerifyParameters{},
 			expectErr: true,
@@ -739,7 +738,7 @@ func TestVerifySubject(t *testing.T) {
 				},
 			},
 			policyEnforcer: &mockPolicyProvider{
-				policyType: pt.RegoPolicy,
+				policyType: policyTypes.RegoPolicy,
 			},
 			expectErr:      true,
 			expectedResult: types.VerifyResult{},
@@ -755,7 +754,7 @@ func TestVerifySubject(t *testing.T) {
 				},
 			},
 			policyEnforcer: &mockPolicyProvider{
-				policyType: pt.RegoPolicy,
+				policyType: policyTypes.RegoPolicy,
 			},
 			expectErr:      true,
 			expectedResult: types.VerifyResult{},
@@ -786,7 +785,7 @@ func TestVerifySubject(t *testing.T) {
 			},
 			policyEnforcer: &mockPolicyProvider{
 				result:     true,
-				policyType: pt.RegoPolicy,
+				policyType: policyTypes.RegoPolicy,
 			},
 			expectErr: false,
 			expectedResult: types.VerifyResult{
@@ -822,7 +821,7 @@ func TestVerifySubject(t *testing.T) {
 			},
 			policyEnforcer: &mockPolicyProvider{
 				result:     false,
-				policyType: pt.RegoPolicy,
+				policyType: policyTypes.RegoPolicy,
 			},
 			expectErr:      false,
 			expectedResult: types.VerifyResult{IsSuccess: false},
@@ -856,7 +855,7 @@ func TestVerifySubject(t *testing.T) {
 			},
 			policyEnforcer: &mockPolicyProvider{
 				result:     true,
-				policyType: pt.RegoPolicy,
+				policyType: policyTypes.RegoPolicy,
 			},
 			expectErr: false,
 			expectedResult: types.VerifyResult{

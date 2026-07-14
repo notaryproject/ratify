@@ -320,7 +320,7 @@ func (store *orasStore) GetReferenceManifest(ctx context.Context, subjectReferen
 	// check if manifest exists in local ORAS cache
 	isCached, err := store.localCache.Exists(ctx, referenceDesc.Descriptor)
 	if err != nil {
-		logger.GetLogger(ctx, logOpt).Warnf("failed to check if manifest [%s] exists in cache: %v", referenceDesc.Descriptor.Digest, err)
+		logger.GetLogger(ctx, logOpt).Warnf("failed to check if manifest [%s] exists in cache: %v", referenceDesc.Digest, err)
 	}
 	metrics.ReportBlobCacheCount(ctx, isCached)
 
@@ -328,7 +328,7 @@ func (store *orasStore) GetReferenceManifest(ctx context.Context, subjectReferen
 		manifestBytes, err = store.getRawContentFromCache(ctx, referenceDesc.Descriptor)
 		if err != nil {
 			isCached = false
-			logger.GetLogger(ctx, logOpt).Warnf("failed to get manifest [%s] from cache: %v", referenceDesc.Descriptor.Digest, err)
+			logger.GetLogger(ctx, logOpt).Warnf("failed to get manifest [%s] from cache: %v", referenceDesc.Digest, err)
 		}
 	}
 
@@ -348,28 +348,29 @@ func (store *orasStore) GetReferenceManifest(ctx context.Context, subjectReferen
 		// push fetched manifest to local ORAS cache
 		// If multiple goroutines try to push the same manifest to the cache, oras-go
 		// may return `ErrAlreadyExists` error. This is expected and can be ignored.
-		orasExistsExpectedError := fmt.Errorf("%s: %s: %w", referenceDesc.Descriptor.Digest, referenceDesc.Descriptor.MediaType, errdef.ErrAlreadyExists)
+		orasExistsExpectedError := fmt.Errorf("%s: %s: %w", referenceDesc.Digest, referenceDesc.MediaType, errdef.ErrAlreadyExists)
 		err = store.localCache.Push(ctx, referenceDesc.Descriptor, bytes.NewReader(manifestBytes))
 		if err != nil && err.Error() != orasExistsExpectedError.Error() {
-			logger.GetLogger(ctx, logOpt).Warnf("failed to save manifest [%s] in cache: %v", referenceDesc.Descriptor.Digest, err)
+			logger.GetLogger(ctx, logOpt).Warnf("failed to save manifest [%s] in cache: %v", referenceDesc.Digest, err)
 		}
 	}
 
 	referenceManifest := ocispecs.ReferenceManifest{}
 
 	// marshal manifest bytes into reference manifest descriptor
-	if referenceDesc.Descriptor.MediaType == oci.MediaTypeImageManifest {
+	switch referenceDesc.MediaType {
+	case oci.MediaTypeImageManifest:
 		var imageManifest oci.Manifest
 		if err := json.Unmarshal(manifestBytes, &imageManifest); err != nil {
 			return ocispecs.ReferenceManifest{}, re.ErrorCodeDataDecodingFailure.WithDetail("Failed to parse artifact metadata of mediatype `application/vnd.oci.image.manifest.v1+json`").WithError(err).WithRemediation("Please check if the artifact metadata was created correctly.")
 		}
 		referenceManifest = commonutils.OciManifestToReferenceManifest(imageManifest)
-	} else if referenceDesc.Descriptor.MediaType == ocispecs.MediaTypeArtifactManifest {
+	case ocispecs.MediaTypeArtifactManifest:
 		if err := json.Unmarshal(manifestBytes, &referenceManifest); err != nil {
 			return ocispecs.ReferenceManifest{}, re.ErrorCodeDataDecodingFailure.WithDetail("Failed to parse artifact metadata of mediatype `application/vnd.oci.artifact.manifest.v1+json`").WithError(err).WithRemediation("Please check if the artifact metadata was created correctly.")
 		}
-	} else {
-		return ocispecs.ReferenceManifest{}, re.ErrorCodeGetReferenceManifestFailure.WithDetail(fmt.Sprintf("Unsupported artifact metadata of media type %s", referenceDesc.Descriptor.MediaType)).WithRemediation("Please check if the artifact metadata was created correctly.")
+	default:
+		return ocispecs.ReferenceManifest{}, re.ErrorCodeGetReferenceManifestFailure.WithDetail(fmt.Sprintf("Unsupported artifact metadata of media type %s", referenceDesc.MediaType)).WithRemediation("Please check if the artifact metadata was created correctly.")
 	}
 
 	return referenceManifest, nil

@@ -93,7 +93,7 @@ func TestOciDescriptorToReferenceDescriptor(t *testing.T) {
 		ArtifactType: "test_type",
 	}
 	output := OciDescriptorToReferenceDescriptor(input)
-	if output.ArtifactType != expected.ArtifactType || output.Descriptor.Digest.String() != expected.Descriptor.Digest.String() {
+	if output.ArtifactType != expected.ArtifactType || output.Digest.String() != expected.Digest.String() {
 		t.Fatalf("mismatch of reference descriptor: expected %v, actual %v", expected, output)
 	}
 }
