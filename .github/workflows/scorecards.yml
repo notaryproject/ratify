@@ -7,13 +7,9 @@ on:
   push:
     branches:
       - main
-      - v1-dev
-      - v1
       - release-*
   pull_request:
     branches:
-      - v1-dev
-      - v1
       - main
       - release-*
     paths-ignore:

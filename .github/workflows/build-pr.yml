@@ -4,8 +4,6 @@ on:
   pull_request:
     branches:
       - main
-      - v1-dev
-      - v1
     paths-ignore:
       - "**.md"
   workflow_dispatch:
@@ -13,12 +11,6 @@ on:
 permissions: read-all
 
 jobs:
-  call_test_cli:
-    if: github.base_ref == 'v1-dev' || github.base_ref == 'v1'
-    uses: ./.github/workflows/e2e-cli.yml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
   call_test_e2e_basic:
     name: "run e2e on basic matrix"
     if: ${{ ! (contains(github.event.pull_request.labels.*.name, 'safe to test') || github.event_name == 'workflow_dispatch') }}
@@ -49,7 +41,7 @@ jobs:
 
   build_test_aks_e2e_conditional:
     name: "Build and run e2e Test on AKS with conditions"
-    if: contains(github.event.pull_request.labels.*.name, 'safe to test') || github.event_name == 'workflow_dispatch' || github.event_name == 'push' && github.ref == 'refs/heads/v1'
+    if: contains(github.event.pull_request.labels.*.name, 'safe to test') || github.event_name == 'workflow_dispatch'
     permissions:
       id-token: write
       contents: read
@@ -63,35 +55,3 @@ jobs:
       k8s_version: ${{ matrix.KUBERNETES_VERSION }}
       gatekeeper_version: ${{ matrix.GATEKEEPER_VERSION }}
     secrets: inherit
-
-  aks-test-cleanup:
-    if: github.ref == 'refs/heads/v1'
-    needs: ["build_test_aks_e2e_conditional"]
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    environment: azure-test
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
-        with:
-          egress-policy: audit
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - name: Set up Go 1.22
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          go-version: "1.22"
-
-      - name: Az CLI login
-        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: clean up
-        run: |
-          make e2e-cleanup AZURE_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}
