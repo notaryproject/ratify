@@ -21,8 +21,8 @@ import (
 )
 
 func SanitizeString(input string) string {
-	sanitized := strings.Replace(input, "\n", "", -1)
-	sanitized = strings.Replace(sanitized, "\r", "", -1)
+	sanitized := strings.ReplaceAll(input, "\n", "")
+	sanitized = strings.ReplaceAll(sanitized, "\r", "")
 	return sanitized
 }
 
