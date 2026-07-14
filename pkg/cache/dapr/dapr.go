@@ -48,7 +48,7 @@ func init() {
 
 func (factory *factory) Create(_ context.Context, cacheName string, _ int) (cache.CacheProvider, error) {
 	if !featureflag.HighAvailability.Enabled {
-		return nil, fmt.Errorf("Dapr cache provider is not enabled. Please set the environment variable RATIFY_EXPERIMENTAL_HIGH_AVAILABILITY to enable it")
+		return nil, fmt.Errorf("dapr cache provider is not enabled. please set the environment variable RATIFY_EXPERIMENTAL_HIGH_AVAILABILITY to enable it")
 	}
 	daprClient, err := client.NewClient()
 	if err != nil {

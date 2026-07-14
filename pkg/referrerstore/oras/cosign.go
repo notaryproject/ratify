@@ -34,7 +34,7 @@ const CosignArtifactType = "application/vnd.dev.cosign.artifact.sig.v1+json"
 const CosignSignatureTagSuffix = ".sig"
 
 func getCosignReferences(ctx context.Context, subjectReference common.Reference, repository registry.Repository) (*[]ocispecs.ReferenceDescriptor, error) {
-	var references []ocispecs.ReferenceDescriptor
+	references := make([]ocispecs.ReferenceDescriptor, 0, 1)
 	signatureTag, err := attachedImageTag(subjectReference, CosignSignatureTagSuffix)
 	if err != nil {
 		return nil, err
