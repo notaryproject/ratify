@@ -20,7 +20,7 @@ import (
 	"errors"
 	"testing"
 
-	ratifyerrors "github.com/ratify-project/ratify/errors"
+	ratifyerrors "github.com/notaryproject/ratify/v2/errors"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"

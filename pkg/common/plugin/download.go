@@ -25,10 +25,10 @@ import (
 	"time"
 
 	"github.com/notaryproject/ratify/v2/internal/version"
+	"github.com/notaryproject/ratify/v2/pkg/common/oras/authprovider"
+	commonutils "github.com/notaryproject/ratify/v2/pkg/common/utils"
+	"github.com/notaryproject/ratify/v2/pkg/ocispecs"
 	oci "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/ratify-project/ratify/pkg/common/oras/authprovider"
-	commonutils "github.com/ratify-project/ratify/pkg/common/utils"
-	"github.com/ratify-project/ratify/pkg/ocispecs"
 	"github.com/sirupsen/logrus"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"

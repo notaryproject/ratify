@@ -19,7 +19,7 @@ import (
 	"context"
 	"testing"
 
-	query "github.com/ratify-project/ratify/pkg/policyprovider/policyquery/rego"
+	query "github.com/notaryproject/ratify/v2/pkg/policyprovider/policyquery/rego"
 )
 
 const (

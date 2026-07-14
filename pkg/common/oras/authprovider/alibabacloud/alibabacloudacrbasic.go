@@ -27,10 +27,10 @@ import (
 	util "github.com/alibabacloud-go/tea-utils/v2/service"
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/aliyun/credentials-go/credentials"
-	re "github.com/ratify-project/ratify/errors"
+	re "github.com/notaryproject/ratify/v2/errors"
 
+	provider "github.com/notaryproject/ratify/v2/pkg/common/oras/authprovider"
 	"github.com/pkg/errors"
-	provider "github.com/ratify-project/ratify/pkg/common/oras/authprovider"
 	"github.com/sirupsen/logrus"
 )
 
