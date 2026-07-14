@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	configv1beta1 "github.com/ratify-project/ratify/api/v1beta1"
+	configv1beta1 "github.com/notaryproject/ratify/v2/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

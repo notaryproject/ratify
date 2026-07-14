@@ -19,7 +19,7 @@ package refresh
 import (
 	"context"
 
-	"github.com/ratify-project/ratify/pkg/keymanagementprovider"
+	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider"
 )
 
 const (

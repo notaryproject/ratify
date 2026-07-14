@@ -16,12 +16,12 @@ limitations under the License.
 package main
 
 import (
+	"github.com/notaryproject/ratify/v2/pkg/common"
+	"github.com/notaryproject/ratify/v2/pkg/ocispecs"
+	"github.com/notaryproject/ratify/v2/pkg/referrerstore"
+	"github.com/notaryproject/ratify/v2/pkg/referrerstore/plugin/skel"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/ratify-project/ratify/pkg/common"
-	"github.com/ratify-project/ratify/pkg/ocispecs"
-	"github.com/ratify-project/ratify/pkg/referrerstore"
-	"github.com/ratify-project/ratify/pkg/referrerstore/plugin/skel"
 )
 
 func main() {

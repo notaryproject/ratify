@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ratify-project/ratify/pkg/common"
-	"github.com/ratify-project/ratify/pkg/common/plugin/logger"
-	"github.com/ratify-project/ratify/pkg/ocispecs"
-	"github.com/ratify-project/ratify/pkg/referrerstore"
-	"github.com/ratify-project/ratify/pkg/verifier"
-	"github.com/ratify-project/ratify/pkg/verifier/plugin/skel"
+	"github.com/notaryproject/ratify/v2/pkg/common"
+	"github.com/notaryproject/ratify/v2/pkg/common/plugin/logger"
+	"github.com/notaryproject/ratify/v2/pkg/ocispecs"
+	"github.com/notaryproject/ratify/v2/pkg/referrerstore"
+	"github.com/notaryproject/ratify/v2/pkg/verifier"
+	"github.com/notaryproject/ratify/v2/pkg/verifier/plugin/skel"
 )
 
 type PluginConfig struct {
