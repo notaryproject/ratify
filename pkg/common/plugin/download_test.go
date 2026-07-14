@@ -18,8 +18,6 @@ package plugin
 import (
 	"encoding/json"
 	"testing"
-
-	"github.com/notaryproject/ratify/v2/api/v1beta1"
 )
 
 func TestParsePluginSource_HandlesJSON(t *testing.T) {
@@ -56,10 +54,10 @@ func TestParsePluginSource_HandlesJSON(t *testing.T) {
 }
 
 func TestParsePluginSource_HandlesCRD(t *testing.T) {
-	verifierConfig := v1beta1.VerifierSpec{
-		Name:          "dynamic",
-		ArtifactTypes: "sbom/example",
-		Source: &v1beta1.PluginSource{
+	verifierConfig := struct {
+		Source *PluginSource
+	}{
+		Source: &PluginSource{
 			Artifact: "wabbitnetworks.azurecr.io/test/sample-plugin:v1",
 		},
 	}
