@@ -24,7 +24,6 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	re "github.com/notaryproject/ratify/v2/errors"
 	"github.com/notaryproject/ratify/v2/internal/logger"
-	"github.com/notaryproject/ratify/v2/pkg/controllers"
 	"github.com/notaryproject/ratify/v2/pkg/keymanagementprovider"
 	"github.com/notaryproject/ratify/v2/pkg/utils"
 )
@@ -75,24 +74,11 @@ func (s *trustStore) getCertificatesInternal(ctx context.Context, storeType trus
 				logger.GetLogger(ctx, logOpt).Infof("unable to fetch certificates for Key Management Provider %+v: %v", certStore, kmpErr)
 			}
 			result := keymanagementprovider.FlattenKMPMap(certMap)
-			var certStoreErr error
-			// notation verifier does not consider specific named/versioned certificates within a key management provider resource
 			if len(result) == 0 {
 				logger.GetLogger(ctx, logOpt).Infof("no certificate fetched for Key Management Provider %+v", certStore)
-				// check certificate store if key management provider does not have certificates.
-				// NOTE: certificate store and key management provider should not be configured together.
-				// User will be warned by the controller/CLI
-				if result, certStoreErr = controllers.NamespacedCertStores.GetCertsFromStore(ctx, certStore); certStoreErr != nil {
-					logger.GetLogger(ctx, logOpt).Warnf("unable to fetch certificates for Certificate Store %+v: %v", certStore, certStoreErr)
-				}
-				if len(result) == 0 {
-					logger.GetLogger(ctx, logOpt).Warnf("no certificate fetched for Certificate Store %+v", certStore)
-				} else {
-					logger.GetLogger(ctx, logOpt).Info("Certificate Store has been deprecated since v1.2.0, please migrate to Key Management Provider following: https://ratify.dev/docs/reference/custom%20resources/key-management-providers#migrating-from-certificatestore-to-kmp")
-				}
 			}
-			if err := parseErrFromKmpAndCertStore(kmpErr, certStoreErr); err != nil {
-				return []*x509.Certificate{}, re.ErrorCodeCertInvalid.WithError(err).WithDetail(fmt.Sprintf("unable to fetch certificates from Key Management Provider and Certificate Store: %s", certStore))
+			if kmpErr != nil {
+				return []*x509.Certificate{}, re.ErrorCodeCertInvalid.WithError(kmpErr).WithDetail(fmt.Sprintf("unable to fetch certificates from Key Management Provider: %s", certStore))
 			}
 			certs = append(certs, result...)
 		}
@@ -128,34 +114,4 @@ func (s *trustStore) filterValidCerts(certs []*x509.Certificate) ([]*x509.Certif
 		return nil, errors.New("valid certificates must be provided, only CA certificates or self-signed signing certificates are supported")
 	}
 	return filteredCerts, nil
-}
-
-// parseErrFromKmpAndCertStore prioritizes and returns the appropriate error from either KMP or CertStore.
-// If the certStoreErr is a reconcile error while kmpErr is not, it returns certStoreErr,
-// otherwise it returns kmpErr.
-// A reconcile error occurs during CR reconciliation, indicating that the resource
-// was applied by users.
-// Since key management provider and certificate store are mutually exclusive,
-// a reconcile error will only originate from one of them.
-// Consequently, the reconcile error from one resource takes precedence over
-// errors from the other.
-// Note: this method should be deleted once certificate store is completely removed.
-func parseErrFromKmpAndCertStore(kmpErr, certStoreErr error) error {
-	if kmpErr == nil || certStoreErr == nil {
-		return nil
-	}
-	if isReconcileError(certStoreErr) && !isReconcileError(kmpErr) {
-		return certStoreErr
-	}
-	return kmpErr
-}
-
-// isReconcileError checks if the error is a reconcile error.
-// If the error is not NotFound or Forbidden, it is considered as an error from KMP/CertStore reconciliation.
-func isReconcileError(err error) bool {
-	ratifyErr := &re.Error{}
-	if errors.As(err, ratifyErr) {
-		return ratifyErr.ErrorCode() != re.ErrorCodeNotFound && ratifyErr.ErrorCode() != re.ErrorCodeForbidden
-	}
-	return true
 }
