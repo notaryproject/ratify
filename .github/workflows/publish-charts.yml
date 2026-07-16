@@ -1,8 +1,6 @@
 name: publishChart
 on:
-  push:
-    tags:
-      - v*
+  workflow_dispatch:
 
 permissions: read-all
 
