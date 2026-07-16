@@ -58,6 +58,17 @@ RATIFY_NAME = ratify-gatekeeper-provider
 
 TIMESTAMP_URL = http://timestamp.digicert.com
 
+# E2E Ratify Image Setup
+E2E_RATIFY_IMAGE_REPOSITORY ?= localbuild
+E2E_RATIFY_IMAGE_TAG ?= test
+E2E_RATIFY_IMAGE_PULL_POLICY ?= Never
+BUILD_E2E_RATIFY_IMAGE ?= e2e-build-local-ratify-image load-local-ratify-image
+
+ifneq ($(E2E_RATIFY_IMAGE_REPOSITORY):$(E2E_RATIFY_IMAGE_TAG),localbuild:test)
+  E2E_RATIFY_IMAGE_PULL_POLICY = IfNotPresent
+  BUILD_E2E_RATIFY_IMAGE =
+endif
+
 # Local Registry Setup
 LOCAL_REGISTRY_IMAGE ?= ghcr.io/project-zot/zot-linux-amd64:v2.0.2
 TEST_REGISTRY = localhost:5000
@@ -613,7 +624,7 @@ e2e-deploy-base-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosi
 
 	rm mount_config.json
 
-e2e-deploy-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup e2e-inlinecert-setup e2e-build-local-ratify-image load-local-ratify-image e2e-helm-deploy-ratify
+e2e-deploy-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup e2e-inlinecert-setup $(BUILD_E2E_RATIFY_IMAGE) e2e-helm-deploy-ratify
 
 e2e-build-local-ratify-base-image:
 	docker build --progress=plain --no-cache \
@@ -624,7 +635,7 @@ e2e-build-local-ratify-base-image:
 e2e-build-local-ratify-image:
 	docker build --progress=plain --no-cache \
 	-f ./Dockerfile \
-	-t localbuild:test .
+	-t ${E2E_RATIFY_IMAGE_REPOSITORY}:${E2E_RATIFY_IMAGE_TAG} .
 
 build-local-ratify-gatekeeper-provider-image:
 	docker build --progress=plain --no-cache \
@@ -632,7 +643,7 @@ build-local-ratify-gatekeeper-provider-image:
 	-t localbuild:test .
 
 load-local-ratify-image:
-	kind load docker-image --name kind localbuild:test
+	kind load docker-image --name kind ${E2E_RATIFY_IMAGE_REPOSITORY}:${E2E_RATIFY_IMAGE_TAG}
 
 e2e-helmfile-deploy-released-ratify:
 	./.staging/helmfilebin/helmfile sync -f git::https://github.com/notaryproject/ratify.git@helmfile.yaml
@@ -643,9 +654,9 @@ e2e-helm-deploy-ratify:
 
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
 		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
-	--set image.repository=localbuild \
-	--set image.tag=test \
-	--set image.pullPolicy=Never \
+	--set image.repository=${E2E_RATIFY_IMAGE_REPOSITORY} \
+	--set image.tag=${E2E_RATIFY_IMAGE_TAG} \
+	--set image.pullPolicy=${E2E_RATIFY_IMAGE_PULL_POLICY} \
 	--set executor.scopes[0]=registry:5000 \
 	--set stores[0].credential.provider=static \
 	--set stores[0].credential.username=${TEST_REGISTRY_USERNAME} \
@@ -670,9 +681,9 @@ e2e-helm-deploy-ratify-without-tls-certs:
 
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
 		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
-	--set image.repository=localbuild \
-	--set image.tag=test \
-	--set image.pullPolicy=Never \
+	--set image.repository=${E2E_RATIFY_IMAGE_REPOSITORY} \
+	--set image.tag=${E2E_RATIFY_IMAGE_TAG} \
+	--set image.pullPolicy=${E2E_RATIFY_IMAGE_PULL_POLICY} \
 	--set executor.scopes[0]=registry:5000 \
 	--set stores[0].credential.provider=static \
 	--set stores[0].credential.username=${TEST_REGISTRY_USERNAME} \
@@ -705,14 +716,14 @@ e2e-helm-deploy-redis: e2e-helm-deploy-dapr
 	kubectl apply -f test/testdata/dapr/dapr-redis.yaml -n ${GATEKEEPER_NAMESPACE}
  
 # TODO: add logger.level, resources.requests, and provider.cache (HA) once the chart supports them
-e2e-helm-deploy-ratify-replica: e2e-helm-deploy-redis e2e-notation-setup e2e-build-local-ratify-image load-local-ratify-image
+e2e-helm-deploy-ratify-replica: e2e-helm-deploy-redis e2e-notation-setup $(BUILD_E2E_RATIFY_IMAGE)
 	printf "{\n\t\"auths\": {\n\t\t\"registry:5000\": {\n\t\t\t\"auth\": \"`echo "${TEST_REGISTRY_USERNAME}:${TEST_REGISTRY_PASSWORD}" | tr -d '\n' | base64 -i -w 0`\"\n\t\t}\n\t}\n}" > mount_config.json
 
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
 		./deployments/ratify-gatekeeper-provider --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
-	--set image.repository=localbuild \
-	--set image.tag=test \
-	--set image.pullPolicy=Never \
+	--set image.repository=${E2E_RATIFY_IMAGE_REPOSITORY} \
+	--set image.tag=${E2E_RATIFY_IMAGE_TAG} \
+	--set image.pullPolicy=${E2E_RATIFY_IMAGE_PULL_POLICY} \
 	--set executor.scopes[0]=registry:5000 \
 	--set stores[0].credential.provider=static \
 	--set stores[0].credential.username=${TEST_REGISTRY_USERNAME} \
