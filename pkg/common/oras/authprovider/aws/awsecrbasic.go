@@ -27,9 +27,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
+	provider "github.com/notaryproject/ratify/v2/pkg/common/oras/authprovider"
+	"github.com/notaryproject/ratify/v2/pkg/utils/awsauth"
 	"github.com/pkg/errors"
-	provider "github.com/ratify-project/ratify/pkg/common/oras/authprovider"
-	"github.com/ratify-project/ratify/pkg/utils/awsauth"
 	"github.com/sirupsen/logrus"
 )
 

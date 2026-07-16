@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 
 	notationx509 "github.com/notaryproject/notation-core-go/x509"
+	"github.com/notaryproject/ratify/v2/pkg/homedir"
 	"github.com/pkg/errors"
-	"github.com/ratify-project/ratify/pkg/homedir"
 	"github.com/sirupsen/logrus"
 )
 

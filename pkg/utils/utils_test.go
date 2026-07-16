@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/notaryproject/ratify/v2/pkg/common"
 	"github.com/opencontainers/go-digest"
-	"github.com/ratify-project/ratify/pkg/common"
 )
 
 const (

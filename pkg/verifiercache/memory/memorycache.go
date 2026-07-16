@@ -19,7 +19,7 @@ import (
 	"context"
 	"time"
 
-	et "github.com/ratify-project/ratify/pkg/executor/types"
+	et "github.com/notaryproject/ratify/v2/pkg/executor/types"
 )
 
 // Cache describes an in-memory cache with automatic expiration

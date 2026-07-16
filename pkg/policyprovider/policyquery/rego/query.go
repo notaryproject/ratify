@@ -19,10 +19,9 @@ import (
 	"context"
 	"fmt"
 
-	//nolint:staticcheck // SA1019 OPA rego package is deprecated but still in use for compatibility
-	"github.com/open-policy-agent/opa/rego"
+	"github.com/notaryproject/ratify/v2/pkg/policyprovider/policyquery"
+	"github.com/open-policy-agent/opa/rego" //nolint:staticcheck // SA1019 OPA rego package is deprecated but still in use for compatibility
 	"github.com/pkg/errors"
-	"github.com/ratify-project/ratify/pkg/policyprovider/policyquery"
 )
 
 const (

@@ -24,10 +24,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/notaryproject/ratify/v2/errors"
 	"github.com/notaryproject/ratify/v2/internal/constants"
 	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
-	"github.com/ratify-project/ratify/errors"
-	vu "github.com/ratify-project/ratify/pkg/verifier/utils"
+	vu "github.com/notaryproject/ratify/v2/pkg/verifier/utils"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
