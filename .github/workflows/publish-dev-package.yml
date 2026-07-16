@@ -11,6 +11,10 @@ permissions: read-all
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      image_ref: ${{ steps.prepare.outputs.ref }}
+      image_repository: ${{ steps.prepare.outputs.repository }}
+      image_tag: ${{ steps.prepare.outputs.version }}
     permissions:
       packages: write
       contents: read
@@ -45,6 +49,8 @@ jobs:
         run: |
           ORG_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
           REPOSITORY=ghcr.io/${ORG_NAME}/ratify-gatekeeper-provider
+          echo "version=dev" >> $GITHUB_OUTPUT
+          echo "repository=${REPOSITORY}" >> $GITHUB_OUTPUT
           echo "ref=${REPOSITORY}:dev" >> $GITHUB_OUTPUT
       - name: docker login
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
@@ -82,3 +88,34 @@ jobs:
         if: always()
         run: |
           rm -f ${HOME}/.docker/config.json
+
+  e2e:
+    name: Run e2e with published image and current chart
+    needs: build
+    uses: ./.github/workflows/e2e-k8s.yml
+    with:
+      k8s_version: "1.31.2"
+      gatekeeper_version: "3.18.0"
+      ratify_image_repository: ${{ needs.build.outputs.image_repository }}
+      ratify_image_tag: ${{ needs.build.outputs.image_tag }}
+
+  publish-chart:
+    name: Publish Helm charts
+    needs: e2e
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - name: Publish Helm charts
+        uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 # v1.7.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          charts_dir: deployments
