@@ -6,6 +6,7 @@ on:
       - main
       - v1-dev
       - v1
+      - v2
     paths-ignore:
       - "**.md"
   workflow_dispatch:
