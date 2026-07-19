@@ -62,7 +62,11 @@ releases:
           - "-n"
           - "gatekeeper-system"
     set:
-      - name: notation.Certs[0]
+      - name: notation.certs[0].cert
         value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.1/test/testdata/notation.crt") | quote }}
-      - name: stores[0].scope
+      - name: notation.certs[0].provider
+        value: "inline"
+      - name: stores[0].credential.provider
+        value: "static"
+      - name: executor.scopes[0]
         value: "ghcr.io"
