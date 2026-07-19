@@ -23,7 +23,7 @@ releases:
   - name: ratify
     namespace: gatekeeper-system
     chart: ratify/ratify-gatekeeper-provider
-    version: 2.0.0-alpha.1 # Make sure this matches Chart.yaml
+    version: 2.0.0-alpha.2 # Make sure this matches Chart.yaml
     wait: true
     needs:
       - gatekeeper
@@ -33,14 +33,14 @@ releases:
         command: "bash"
         args:
           - "-c"
-          - "kubectl apply -f https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.1/configs/constrainttemplates/default/template.yaml && kubectl apply -f https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.1/configs/constrainttemplates/default/constraint.yaml"
+          - "kubectl apply -f https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.2/configs/constrainttemplates/default/template.yaml && kubectl apply -f https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.2/configs/constrainttemplates/default/constraint.yaml"
       - events: ["postuninstall"]
         showlogs: true
         command: "kubectl"
         args:
           - "delete"
           - "-f"
-          - "https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.1/configs/constrainttemplates/default/template.yaml"
+          - "https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.2/configs/constrainttemplates/default/template.yaml"
           - "--ignore-not-found=true"
       - events: ["postuninstall"]
         showlogs: true
@@ -48,7 +48,7 @@ releases:
         args:
           - "delete"
           - "-f"
-          - "https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.1/configs/constrainttemplates/default/constraint.yaml"
+          - "https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.2/configs/constrainttemplates/default/constraint.yaml"
           - "--ignore-not-found=true"
       - events: ["postuninstall"]
         showlogs: true
@@ -63,7 +63,7 @@ releases:
           - "gatekeeper-system"
     set:
       - name: notation.certs[0].cert
-        value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.1/test/testdata/notation.crt") | quote }}
+        value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/notaryproject/ratify/v2.0.0-alpha.2/test/testdata/notation.crt") | quote }}
       - name: notation.certs[0].provider
         value: "inline"
       - name: stores[0].credential.provider
