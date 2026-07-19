@@ -71,7 +71,7 @@ releases:
           - "--ignore-not-found=true"
     set:
       - name: notation.certs[0].cert
-        value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/ratify-project/ratify/main/test/testdata/notation.crt") | quote }}
+        value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/notaryproject/ratify/main/test/testdata/notation.crt") | quote }}
       - name: notation.certs[0].provider
         value: "inline"
       - name: stores[0].credential.provider
