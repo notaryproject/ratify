@@ -5,7 +5,7 @@ on:
     branches:
       - v1
       - v1-dev
-      - release*
+      - release-*
     paths-ignore:
       - "**.md"
   push:
