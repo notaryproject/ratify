@@ -19,7 +19,7 @@ permissions: read-all
 
 jobs:
   call-e2e-cli:
-    if: ${{ !startsWith(github.head_ref || github.ref_name, 'release-2') }}
+    if: ${{ !startsWith(github.base_ref  || github.ref_name, 'release-2') }}
     uses: ./.github/workflows/e2e-cli.yml
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
