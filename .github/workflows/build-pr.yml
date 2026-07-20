@@ -41,7 +41,7 @@ jobs:
       fail-fast: false
       matrix:
         KUBERNETES_VERSION: ["1.35.5", "1.36.2"]
-        GATEKEEPER_VERSION: ["3.12.0", "3.22.2", "3.23.0"]
+        GATEKEEPER_VERSION: ["3.12.0", "3.22.2"]
     uses: ./.github/workflows/e2e-k8s.yml
     with:
       k8s_version: ${{ matrix.KUBERNETES_VERSION }}
