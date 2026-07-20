@@ -58,7 +58,7 @@ updates:
     labels:
       - "v2"
 
-  # ---------- release-1.4 branch ----------
+  # ---------- v1-dev branch ----------
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "v1-dev"
