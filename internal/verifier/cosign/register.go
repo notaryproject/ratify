@@ -90,6 +90,13 @@ type ScopedOptions struct {
 	// during verification. Optional.
 	IgnoreCTLog bool `json:"ignoreCTLog,omitempty"`
 
+	// IgnoreObserverTimestamps indicates whether to skip observer timestamp
+	// verification (an RFC3161 timestamp or a transparency-log
+	// SignedEntryTimestamp) for key-based verification. This allows verifying
+	// offline, key-signed images that carry no transparency-log entry and no
+	// timestamp. Only applies to key-based verification. Optional.
+	IgnoreObserverTimestamps bool `json:"ignoreObserverTimestamps,omitempty"`
+
 	// Keys provides public keys to be used for signature verification.
 	// Optional. If not provided, keyless verification is used. If both keys and
 	// keyless options are provided, only keys are used.
@@ -326,12 +333,14 @@ func toVerifierOptions(s *ScopedOptions, name string) (*cosign.VerifierOptions, 
 		}
 		return opts, nil
 	}
-	// If keys are provided, use key-based verification and ignore CTLog.
-	// And [verify.Verifier] requires timestamps from either an RFC3161
-	// timestamp authority or a log's SignedEntryTimestamp. So IgnoreTlog must
-	// be false.
+	// If keys are provided, use key-based verification and ignore CTLog, since
+	// public keys cannot carry signed certificate timestamps. Transparency-log
+	// and observer-timestamp checks are honored per the trust policy so that
+	// offline, key-signed images (no tlog entry and no RFC3161 timestamp) can be
+	// verified when the caller opts in via IgnoreObserverTimestamps.
 	opts.IgnoreCTLog = true
-	opts.IgnoreTLog = false
+	opts.IgnoreTLog = s.IgnoreTLog
+	opts.IgnoreObserverTimestamps = s.IgnoreObserverTimestamps
 	opts.IdentityPolicies = []verify.PolicyOption{
 		verify.WithKey(),
 	}

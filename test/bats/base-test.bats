@@ -282,7 +282,6 @@ EOF
 }
 
 @test "cosign test" {
-    skip "v2 cosign verifier forces IgnoreTLog=false for key-based verification, needs code fix to respect user config"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
@@ -303,7 +302,7 @@ EOF
 }
 
 @test "cosign legacy keyed test" {
-    skip "v2 cosign verifier does not support legacy format; also blocked by IgnoreTLog=false for key-based verification"
+    skip "v2 cosign verifier does not support the v1beta1 legacy verifier config format"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'

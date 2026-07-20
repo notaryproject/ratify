@@ -671,6 +671,7 @@ e2e-helm-deploy-ratify:
 	--set cosign.keys.provider=inline \
 	--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
 	--set cosign.ignoreTLog=true \
+	--set cosign.ignoreObserverTimestamps=true \
 	--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 	rm mount_config.json
@@ -694,6 +695,7 @@ e2e-helm-deploy-ratify-without-tls-certs:
 	--set cosign.keys.provider=inline \
 	--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
 	--set cosign.ignoreTLog=true \
+	--set cosign.ignoreObserverTimestamps=true \
 	--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 	rm mount_config.json
