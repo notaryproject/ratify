@@ -10,7 +10,7 @@ on:
       - "**.md"
   push:
     branches:
-      - release*
+      - release-*
       - v1
       - v1-dev
   workflow_dispatch:
