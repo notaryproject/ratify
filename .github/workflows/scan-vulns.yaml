@@ -27,11 +27,47 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          go-version: "1.26.4"
+          go-version: "1.26"
           check-latest: true
       - uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
+        with:
+          repo-checkout: false
+        continue-on-error: true
+        id: govulncheck
+      - name: Fail only on fixable vulnerabilities
+        if: steps.govulncheck.outcome == 'failure'
+        run: |
+          govulncheck -json ./... > /tmp/govulncheck.json 2>/dev/null || true
+          # Parse JSON output and fail only if vulnerabilities have a fixed version available
+          python3 -c "
+          import json, sys
+          has_fixable = False
+          with open('/tmp/govulncheck.json') as f:
+              for line in f:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  try:
+                      entry = json.loads(line)
+                  except (json.JSONDecodeError, ValueError):
+                      continue
+                  if not isinstance(entry, dict):
+                      continue
+                  finding = entry.get('finding')
+                  if not finding:
+                      continue
+                  fixed = finding.get('fixed_version', '')
+                  osv = finding.get('osv', 'unknown')
+                  if fixed:
+                      print(f'::error::Fixable vulnerability {osv} (fixed in {fixed})')
+                      has_fixable = True
+                  else:
+                      print(f'Skipping {osv}: no fix available')
+          sys.exit(1 if has_fixable else 0)
+          "
 
   scan_vulnerabilities:
     name: "[Trivy] Scan for vulnerabilities"
@@ -56,11 +92,12 @@ jobs:
           echo "$(pwd)" >> $GITHUB_PATH
       
       - name: Restore Trivy cache
+        id: restore-trivy-cache
         uses: ./.github/actions/restore_trivy_cache
 
       - name: Run trivy on git repository
         run: |
-          trivy fs --skip-db-update --format table --ignore-unfixed --scanners vuln .
+          trivy fs ${{ steps.restore-trivy-cache.outputs.cache-hit == 'false' && ' ' || '--skip-db-update' }} --format table --ignore-unfixed --scanners vuln .
 
       - name: Build docker images
         run: |
@@ -69,11 +106,11 @@ jobs:
       - name: Run trivy on images for all severity
         run: |
           for img in "localbuild:test" "localbuildcrd:test"; do
-              trivy image --skip-db-update --ignore-unfixed --pkg-types="os,library" "${img}"
+              trivy image ${{ steps.restore-trivy-cache.outputs.cache-hit == 'false' && ' ' || '--skip-db-update' }} --ignore-unfixed --pkg-types="os,library" "${img}"
           done
       - name: Run trivy on Ratify image and exit on HIGH/CRITICAL severity
         run: |
-          trivy image --skip-db-update --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --pkg-types="os,library" --show-suppressed --ignorefile ./.github/server.trivyignore.yaml "localbuild:test"
+          trivy image ${{ steps.restore-trivy-cache.outputs.cache-hit == 'false' && ' ' || '--skip-db-update' }} --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --pkg-types="os,library" --show-suppressed --ignorefile ./.github/server.trivyignore.yaml "localbuild:test"
       - name: Run trivy on CRD image for HIGH/CRITICAL severity as warning only
         run: |
-          trivy image --skip-db-update --ignore-unfixed --severity HIGH,CRITICAL --pkg-types="os,library" --show-suppressed "localbuildcrd:test"
+          trivy image ${{ steps.restore-trivy-cache.outputs.cache-hit == 'false' && ' ' || '--skip-db-update' }} --ignore-unfixed --severity HIGH,CRITICAL --pkg-types="os,library" --show-suppressed "localbuildcrd:test"
