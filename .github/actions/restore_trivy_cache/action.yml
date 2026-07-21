@@ -1,6 +1,11 @@
 name: "Steps to restore trivy cache"
 description: "Steps to restore Trivy cache under ~/.cache/trivy"
 
+outputs:
+  cache-hit:
+    description: "Whether the trivy cache was restored"
+    value: ${{ steps.cache-status.outputs.cache-hit }}
+
 runs:
   using: "composite"
   steps:
@@ -9,12 +14,17 @@ runs:
       run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
       shell: bash
     - name: Restore trivy cache directory
-      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ github.workspace }}/.cache/trivy
         key: cache-trivy-${{ steps.date.outputs.date }}
     - name: Set up trivy cache directory
       run: |
         mkdir -p ~/.cache/trivy
-        cp -r ${{ github.workspace }}/.cache/trivy/db ~/.cache/trivy
+        if [[ -d "${{ github.workspace }}/.cache/trivy/db" ]]; then
+          cp -r ${{ github.workspace }}/.cache/trivy/db ~/.cache/trivy
+        else
+          echo "cache-hit=false" >> $GITHUB_OUTPUT
+        fi
       shell: bash
+      id: cache-status
