@@ -8,6 +8,8 @@ updates:
       interval: "daily"
     commit-message:
       prefix: "chore"
+    labels:
+      - "v2"
 
   - package-ecosystem: "gomod"
     directory: "/"
@@ -15,6 +17,8 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore"
+    labels:
+      - "v2"
     ignore:
       - dependency-name: "*"
         update-types:
@@ -27,6 +31,8 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore"
+    labels:
+      - "v2"
 
   - package-ecosystem: "docker"
     directory: "/httpserver"
@@ -37,6 +43,8 @@ updates:
         versions: '> 1.22'
     commit-message:
       prefix: "chore"
+    labels:
+      - "v2"
 
   - package-ecosystem: "docker"
     directory: "/.devcontainer"
@@ -47,29 +55,31 @@ updates:
         versions: '> 1.22'
     commit-message:
       prefix: "chore"
+    labels:
+      - "v2"
 
-  # ---------- release-1.4 branch ----------
+  # ---------- v1-dev branch ----------
   - package-ecosystem: "github-actions"
     directory: "/"
-    target-branch: "release-1.4"
+    target-branch: "v1-dev"
     schedule:
       interval: "daily"
     commit-message:
       prefix: "chore"
     labels:
       - "dependencies"
-      - "release-1.4"
+      - "v1"
 
   - package-ecosystem: "gomod"
     directory: "/"
-    target-branch: "release-1.4"
+    target-branch: "v1-dev"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "chore"
     labels:
       - "dependencies"
-      - "release-1.4"
+      - "v1"
     ignore:
       - dependency-name: "*"
         update-types:
@@ -78,18 +88,18 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/"
-    target-branch: "release-1.4"
+    target-branch: "v1-dev"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "chore"
     labels:
       - "dependencies"
-      - "release-1.4"
+      - "v1"
 
   - package-ecosystem: "docker"
     directory: "/httpserver"
-    target-branch: "release-1.4"
+    target-branch: "v1-dev"
     schedule:
       interval: "weekly"
     ignore:
@@ -99,11 +109,11 @@ updates:
       prefix: "chore"
     labels:
       - "dependencies"
-      - "release-1.4"
+      - "v1"
 
   - package-ecosystem: "docker"
     directory: "/.devcontainer"
-    target-branch: "release-1.4"
+    target-branch: "v1-dev"
     schedule:
       interval: "weekly"
     ignore:
@@ -113,4 +123,4 @@ updates:
       prefix: "chore"
     labels:
       - "dependencies"
-      - "release-1.4"
+      - "v1"

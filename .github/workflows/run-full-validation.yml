@@ -5,12 +5,12 @@ on:
     branches:
       - v1
       - v1-dev
-      - release-1.*
+      - release-*
     paths-ignore:
       - "**.md"
   push:
     branches:
-      - release-1.*
+      - release-*
       - v1
       - v1-dev
   workflow_dispatch:
@@ -19,6 +19,7 @@ permissions: read-all
 
 jobs:
   call-e2e-cli:
+    if: ${{ !startsWith(github.base_ref  || github.ref_name, 'release-2') }}
     uses: ./.github/workflows/e2e-cli.yml
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -30,8 +31,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        KUBERNETES_VERSION: ["1.30.6", "1.31.2"]
-        GATEKEEPER_VERSION: ["3.16.0", "3.17.0", "3.18.0"]
+        KUBERNETES_VERSION: ["1.35.5", "1.36.2"]
+        GATEKEEPER_VERSION: ["3.12.0", "3.22.2"]
     uses: ./.github/workflows/e2e-k8s.yml
     with:
       k8s_version: ${{ matrix.KUBERNETES_VERSION }}
