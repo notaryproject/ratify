@@ -1,0 +1,11 @@
+# Configuration for actions/labeler
+# Labels PRs based on the branch they target (base branch).
+# See: https://github.com/actions/labeler
+
+# PRs targeting the v1-dev branch are labeled "v1"
+v1:
+  - base-branch: ['^v1-dev$']
+
+# PRs targeting the main branch are labeled "v2"
+v2:
+  - base-branch: ['^main$']
