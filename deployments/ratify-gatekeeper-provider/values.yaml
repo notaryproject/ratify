@@ -62,10 +62,6 @@ provider:
     disableCertRotation: false
   disableMutation: false
   disableCRDManager: false
-  # Additional namespaces to exclude from Ratify's mutation webhook (Assign objects).
-  # The chart always excludes gatekeeper-system, kube-system, and the release namespace.
-  # Add any other namespaces whose pods must not be intercepted by the mutation webhook
-  # (e.g. CNI namespaces like "cilium" whose DaemonSets would deadlock if Ratify is unavailable).
   mutationExcludedNamespaces: []
   timeout:
     # timeout values must match gatekeeper webhook timeouts
