@@ -485,6 +485,12 @@ e2e-trivy-setup:
 	curl -L https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz --output .staging/trivy/trivy.tar.gz
 	tar -zxf .staging/trivy/trivy.tar.gz -C .staging/trivy
 
+	# Download Trivy DB if not already cached
+	if [ ! -d "${HOME}/.cache/trivy/db" ]; then \
+		echo "Trivy DB not found in cache, downloading..."; \
+		.staging/trivy/trivy image --download-db-only; \
+	fi
+
 e2e-schemavalidator-setup:
 	rm -rf .staging/schemavalidator
 	mkdir -p .staging/schemavalidator
