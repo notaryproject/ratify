@@ -38,6 +38,7 @@ func main() {
 type options struct {
 	configFilePath       string
 	httpServerAddress    string
+	healthServerAddress  string
 	certFile             string
 	keyFile              string
 	gatekeeperCACertFile string
@@ -52,6 +53,7 @@ func parse() *options {
 	opts := &options{}
 	flag.StringVar(&opts.configFilePath, "config", "", "Path to the Ratify configuration file")
 	flag.StringVar(&opts.httpServerAddress, "address", "", "HTTP server address")
+	flag.StringVar(&opts.healthServerAddress, "health-address", ":9099", "Health check (liveness/readiness) server address")
 	flag.StringVar(&opts.certFile, "cert-file", "", "Path to the TLS certificate file")
 	flag.StringVar(&opts.keyFile, "key-file", "", "Path to the TLS key file")
 	flag.StringVar(&opts.gatekeeperCACertFile, "gatekeeper-ca-cert-file", "", "Path to the Gatekeeper CA certificate file")
@@ -87,5 +89,17 @@ func startRatify(opts *options) error {
 	}
 
 	go startManagerFunc(certRotatorReady, serverOpts.DisableMutation, serverOpts.DisableCRDManager)
+
+	if len(opts.healthServerAddress) > 0 {
+		go func() {
+			if err := httpserver.StartHealthCheckServer(httpserver.HealthCheckOptions{
+				Address:          opts.healthServerAddress,
+				CertRotatorReady: certRotatorReady,
+			}); err != nil {
+				logrus.Errorf("health check server stopped with error: %v", err)
+			}
+		}()
+	}
+
 	return httpserver.StartServer(serverOpts, opts.configFilePath)
 }

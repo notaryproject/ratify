@@ -5,6 +5,9 @@ image:
 
 replicaCount: 1
 
+# Port used by the liveness (/healthz) and readiness (/readyz) probes.
+healthPort: 9099
+
 executor:
   scopes: []
   concurrency: 3
