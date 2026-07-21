@@ -31,12 +31,12 @@ on:
       k8s_version:
         description: "Kubernetes version"
         required: true
-        default: "1.31.2"
+        default: "1.35.5"
         type: string
       gatekeeper_version:
         description: "Gatekeeper version"
         required: true
-        default: "3.18.0"
+        default: "3.22.2"
         type: string
       ratify_image_repository:
         description: "Ratify image repository used by the Helm chart"
