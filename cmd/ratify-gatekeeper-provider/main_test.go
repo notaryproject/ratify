@@ -61,12 +61,13 @@ func TestParse(t *testing.T) {
 				"-verify-timeout=10s",
 			},
 			expected: &options{
-				configFilePath:    "config.json",
-				httpServerAddress: ":8080",
-				certFile:          "cert.pem",
-				keyFile:           "key.pem",
-				verifyTimeout:     10 * time.Second,
-				mutateTimeout:     2 * time.Second,
+				configFilePath:      "config.json",
+				httpServerAddress:   ":8080",
+				healthServerAddress: ":9099",
+				certFile:            "cert.pem",
+				keyFile:             "key.pem",
+				verifyTimeout:       10 * time.Second,
+				mutateTimeout:       2 * time.Second,
 			},
 		},
 		{
@@ -76,16 +77,18 @@ func TestParse(t *testing.T) {
 				"-mutate-timeout=10s",
 			},
 			expected: &options{
-				verifyTimeout: 30 * time.Second,
-				mutateTimeout: 10 * time.Second,
+				healthServerAddress: ":9099",
+				verifyTimeout:       30 * time.Second,
+				mutateTimeout:       10 * time.Second,
 			},
 		},
 		{
 			name: "default values",
 			args: []string{},
 			expected: &options{
-				verifyTimeout: 5 * time.Second,
-				mutateTimeout: 2 * time.Second,
+				healthServerAddress: ":9099",
+				verifyTimeout:       5 * time.Second,
+				mutateTimeout:       2 * time.Second,
 			},
 		},
 	}

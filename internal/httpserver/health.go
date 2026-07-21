@@ -17,6 +17,7 @@ package httpserver
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -59,35 +60,15 @@ type HealthCheckOptions struct {
 // plaintext HTTP (no mTLS) because the kubelet performing the probes cannot
 // present a client certificate. It blocks until the server stops.
 func StartHealthCheckServer(opts HealthCheckOptions) error {
-	var ready atomic.Bool
-	if opts.CertRotatorReady == nil {
-		// Cert rotation is disabled: the pod is ready as soon as it starts.
-		ready.Store(true)
-	} else {
-		go func() {
-			<-opts.CertRotatorReady
-			ready.Store(true)
-			logrus.Info("readiness probe: TLS cert rotator is ready")
-		}()
+	if opts.Address == "" {
+		return errors.New("health check server address is required")
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc(livenessPath, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-	mux.HandleFunc(readinessPath, func(w http.ResponseWriter, _ *http.Request) {
-		if !ready.Load() {
-			http.Error(w, "not ready", http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
+	isReady := newReadinessTracker(opts.CertRotatorReady)
 
 	srv := &http.Server{
 		Addr:         opts.Address,
-		Handler:      mux,
+		Handler:      healthHandler(isReady),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,
@@ -110,4 +91,42 @@ func StartHealthCheckServer(opts HealthCheckOptions) error {
 		return err
 	}
 	return nil
+}
+
+// newReadinessTracker returns a function reporting whether the server is ready.
+// If certRotatorReady is nil, cert rotation is disabled and the server is ready
+// immediately. Otherwise readiness flips to true once certRotatorReady closes.
+func newReadinessTracker(certRotatorReady chan struct{}) func() bool {
+	var ready atomic.Bool
+	if certRotatorReady == nil {
+		// Cert rotation is disabled: the pod is ready as soon as it starts.
+		ready.Store(true)
+	} else {
+		go func() {
+			<-certRotatorReady
+			ready.Store(true)
+			logrus.Info("readiness probe: TLS cert rotator is ready")
+		}()
+	}
+	return ready.Load
+}
+
+// healthHandler builds the HTTP handler serving the liveness (/healthz) and
+// readiness (/readyz) probe endpoints. Liveness always succeeds while the
+// process is running; readiness succeeds only when isReady reports true.
+func healthHandler(isReady func() bool) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc(livenessPath, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	mux.HandleFunc(readinessPath, func(w http.ResponseWriter, _ *http.Request) {
+		if !isReady() {
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	return mux
 }
