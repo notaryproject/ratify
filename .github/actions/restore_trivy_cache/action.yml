@@ -24,6 +24,8 @@ runs:
         if [[ -d "${{ github.workspace }}/.cache/trivy/db" ]]; then
           cp -r ${{ github.workspace }}/.cache/trivy/db ~/.cache/trivy
         else
+          echo "Cache miss, downloading trivy DB..."
+          trivy fs --download-db-only --cache-dir ~/.cache/trivy 2>/dev/null || true
           echo "cache-hit=false" >> $GITHUB_OUTPUT
         fi
       shell: bash
