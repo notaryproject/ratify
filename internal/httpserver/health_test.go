@@ -16,6 +16,8 @@ limitations under the License.
 package httpserver
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,8 +25,65 @@ import (
 )
 
 func TestStartHealthCheckServer_RequiresAddress(t *testing.T) {
-	if err := StartHealthCheckServer(HealthCheckOptions{}); err == nil {
+	if err := StartHealthCheckServer(context.Background(), HealthCheckOptions{}); err == nil {
 		t.Fatal("expected error when Address is empty, got nil")
+	}
+}
+
+func TestStartHealthCheckServer(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to reserve a port: %v", err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- StartHealthCheckServer(ctx, HealthCheckOptions{Address: addr})
+	}()
+
+	base := "http://" + addr
+	waitForServer(t, base+livenessPath)
+
+	for _, path := range []string{livenessPath, readinessPath} {
+		resp, err := http.Get(base + path)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET %s: got status %d, want %d", path, resp.StatusCode, http.StatusOK)
+		}
+	}
+
+	cancel()
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("StartHealthCheckServer returned error: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("server did not shut down after context cancel")
+	}
+}
+
+// waitForServer polls url until it responds or the timeout elapses.
+func waitForServer(t *testing.T, url string) {
+	t.Helper()
+	deadline := time.After(3 * time.Second)
+	for {
+		resp, err := http.Get(url)
+		if err == nil {
+			_ = resp.Body.Close()
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("server did not start listening at %s", url)
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
 

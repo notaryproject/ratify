@@ -16,7 +16,9 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
+	"net"
 	"os"
 	"reflect"
 	"testing"
@@ -149,4 +151,40 @@ func TestStartRatify(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunHealthServer(t *testing.T) {
+	t.Run("empty address is a no-op", func(t *testing.T) {
+		// Should return immediately without starting a server.
+		runHealthServer(context.Background(), "", nil)
+	})
+
+	t.Run("stops when context is cancelled", func(t *testing.T) {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("failed to reserve a port: %v", err)
+		}
+		addr := ln.Addr().String()
+		_ = ln.Close()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			runHealthServer(ctx, addr, nil)
+			close(done)
+		}()
+
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatal("runHealthServer did not stop after context cancel")
+		}
+	})
+
+	t.Run("returns on invalid address", func(t *testing.T) {
+		// An out-of-range port makes the server fail to listen and return,
+		// exercising the error-logging branch.
+		runHealthServer(context.Background(), "127.0.0.1:99999", nil)
+	})
 }

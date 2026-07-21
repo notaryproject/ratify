@@ -19,10 +19,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"os"
-	"os/signal"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -58,8 +55,9 @@ type HealthCheckOptions struct {
 // StartHealthCheckServer starts a plaintext HTTP server that exposes the
 // liveness (/healthz) and readiness (/readyz) probe endpoints. The server uses
 // plaintext HTTP (no mTLS) because the kubelet performing the probes cannot
-// present a client certificate. It blocks until the server stops.
-func StartHealthCheckServer(opts HealthCheckOptions) error {
+// present a client certificate. It blocks until the provided context is
+// cancelled or the server fails to serve.
+func StartHealthCheckServer(ctx context.Context, opts HealthCheckOptions) error {
 	if opts.Address == "" {
 		return errors.New("health check server address is required")
 	}
@@ -75,13 +73,10 @@ func StartHealthCheckServer(opts HealthCheckOptions) error {
 	}
 
 	go func() {
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-		<-quit
-
-		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
+		if err := srv.Shutdown(shutdownCtx); err != nil {
 			logrus.Errorf("failed to shutdown health check server: %v", err)
 		}
 	}()

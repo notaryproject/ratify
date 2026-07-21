@@ -16,8 +16,12 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/notaryproject/ratify/v2/internal/httpserver"
@@ -90,16 +94,23 @@ func startRatify(opts *options) error {
 
 	go startManagerFunc(certRotatorReady, serverOpts.DisableMutation, serverOpts.DisableCRDManager)
 
-	if len(opts.healthServerAddress) > 0 {
-		go func() {
-			if err := httpserver.StartHealthCheckServer(httpserver.HealthCheckOptions{
-				Address:          opts.healthServerAddress,
-				CertRotatorReady: certRotatorReady,
-			}); err != nil {
-				logrus.Errorf("health check server stopped with error: %v", err)
-			}
-		}()
-	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go runHealthServer(ctx, opts.healthServerAddress, certRotatorReady)
 
 	return httpserver.StartServer(serverOpts, opts.configFilePath)
+}
+
+// runHealthServer starts the liveness/readiness health check server. It is a
+// no-op when address is empty. It blocks until the context is cancelled.
+func runHealthServer(ctx context.Context, address string, certRotatorReady chan struct{}) {
+	if address == "" {
+		return
+	}
+	if err := httpserver.StartHealthCheckServer(ctx, httpserver.HealthCheckOptions{
+		Address:          address,
+		CertRotatorReady: certRotatorReady,
+	}); err != nil {
+		logrus.Errorf("health check server stopped with error: %v", err)
+	}
 }
