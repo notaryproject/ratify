@@ -74,7 +74,9 @@ func StartHealthCheckServer(ctx context.Context, opts HealthCheckOptions) error 
 
 	go func() {
 		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		// Detach from the (now-cancelled) request context so the graceful
+		// shutdown still gets its full timeout budget.
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			logrus.Errorf("failed to shutdown health check server: %v", err)

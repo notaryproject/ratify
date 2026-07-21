@@ -154,7 +154,7 @@ func TestStartRatify(t *testing.T) {
 }
 
 func TestRunHealthServer(t *testing.T) {
-	t.Run("empty address is a no-op", func(t *testing.T) {
+	t.Run("empty address is a no-op", func(_ *testing.T) {
 		// Should return immediately without starting a server.
 		runHealthServer(context.Background(), "", nil)
 	})
@@ -182,7 +182,7 @@ func TestRunHealthServer(t *testing.T) {
 		}
 	})
 
-	t.Run("returns on invalid address", func(t *testing.T) {
+	t.Run("returns on invalid address", func(_ *testing.T) {
 		// An out-of-range port makes the server fail to listen and return,
 		// exercising the error-logging branch.
 		runHealthServer(context.Background(), "127.0.0.1:99999", nil)
