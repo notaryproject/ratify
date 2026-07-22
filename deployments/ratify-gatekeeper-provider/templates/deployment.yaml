@@ -40,6 +40,8 @@ spec:
           args:
             - "--address"
             - ":6001"
+            - "--health-address"
+            - ":9099"
             - "--config"
             - "/usr/local/config.json"
             {{- if .Values.provider.timeout.validationTimeoutSeconds }}
@@ -66,6 +68,21 @@ spec:
             {{- end }}
           ports:
             - containerPort: 6001
+            - containerPort: 9099
+              name: healthz
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: healthz
+            initialDelaySeconds: 5
+            periodSeconds: 10
           volumeMounts:
             - mountPath: "/usr/local/tls"
               name: tls

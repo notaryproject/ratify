@@ -16,8 +16,12 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/notaryproject/ratify/v2/internal/httpserver"
@@ -38,6 +42,7 @@ func main() {
 type options struct {
 	configFilePath       string
 	httpServerAddress    string
+	healthServerAddress  string
 	certFile             string
 	keyFile              string
 	gatekeeperCACertFile string
@@ -52,6 +57,7 @@ func parse() *options {
 	opts := &options{}
 	flag.StringVar(&opts.configFilePath, "config", "", "Path to the Ratify configuration file")
 	flag.StringVar(&opts.httpServerAddress, "address", "", "HTTP server address")
+	flag.StringVar(&opts.healthServerAddress, "health-address", ":9099", "Health check (liveness/readiness) server address")
 	flag.StringVar(&opts.certFile, "cert-file", "", "Path to the TLS certificate file")
 	flag.StringVar(&opts.keyFile, "key-file", "", "Path to the TLS key file")
 	flag.StringVar(&opts.gatekeeperCACertFile, "gatekeeper-ca-cert-file", "", "Path to the Gatekeeper CA certificate file")
@@ -87,5 +93,24 @@ func startRatify(opts *options) error {
 	}
 
 	go startManagerFunc(certRotatorReady, serverOpts.DisableMutation, serverOpts.DisableCRDManager)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go runHealthServer(ctx, opts.healthServerAddress, certRotatorReady)
+
 	return httpserver.StartServer(serverOpts, opts.configFilePath)
+}
+
+// runHealthServer starts the liveness/readiness health check server. It is a
+// no-op when address is empty. It blocks until the context is cancelled.
+func runHealthServer(ctx context.Context, address string, certRotatorReady chan struct{}) {
+	if address == "" {
+		return
+	}
+	if err := httpserver.StartHealthCheckServer(ctx, httpserver.HealthCheckOptions{
+		Address:          address,
+		CertRotatorReady: certRotatorReady,
+	}); err != nil {
+		logrus.Errorf("health check server stopped with error: %v", err)
+	}
 }

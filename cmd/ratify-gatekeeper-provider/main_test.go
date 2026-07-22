@@ -16,7 +16,9 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
+	"net"
 	"os"
 	"reflect"
 	"testing"
@@ -61,12 +63,13 @@ func TestParse(t *testing.T) {
 				"-verify-timeout=10s",
 			},
 			expected: &options{
-				configFilePath:    "config.json",
-				httpServerAddress: ":8080",
-				certFile:          "cert.pem",
-				keyFile:           "key.pem",
-				verifyTimeout:     10 * time.Second,
-				mutateTimeout:     2 * time.Second,
+				configFilePath:      "config.json",
+				httpServerAddress:   ":8080",
+				healthServerAddress: ":9099",
+				certFile:            "cert.pem",
+				keyFile:             "key.pem",
+				verifyTimeout:       10 * time.Second,
+				mutateTimeout:       2 * time.Second,
 			},
 		},
 		{
@@ -76,16 +79,18 @@ func TestParse(t *testing.T) {
 				"-mutate-timeout=10s",
 			},
 			expected: &options{
-				verifyTimeout: 30 * time.Second,
-				mutateTimeout: 10 * time.Second,
+				healthServerAddress: ":9099",
+				verifyTimeout:       30 * time.Second,
+				mutateTimeout:       10 * time.Second,
 			},
 		},
 		{
 			name: "default values",
 			args: []string{},
 			expected: &options{
-				verifyTimeout: 5 * time.Second,
-				mutateTimeout: 2 * time.Second,
+				healthServerAddress: ":9099",
+				verifyTimeout:       5 * time.Second,
+				mutateTimeout:       2 * time.Second,
 			},
 		},
 	}
@@ -146,4 +151,40 @@ func TestStartRatify(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunHealthServer(t *testing.T) {
+	t.Run("empty address is a no-op", func(_ *testing.T) {
+		// Should return immediately without starting a server.
+		runHealthServer(context.Background(), "", nil)
+	})
+
+	t.Run("stops when context is cancelled", func(t *testing.T) {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("failed to reserve a port: %v", err)
+		}
+		addr := ln.Addr().String()
+		_ = ln.Close()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			runHealthServer(ctx, addr, nil)
+			close(done)
+		}()
+
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatal("runHealthServer did not stop after context cancel")
+		}
+	})
+
+	t.Run("returns on invalid address", func(_ *testing.T) {
+		// An out-of-range port makes the server fail to listen and return,
+		// exercising the error-logging branch.
+		runHealthServer(context.Background(), "127.0.0.1:99999", nil)
+	})
 }
