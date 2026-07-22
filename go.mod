@@ -47,7 +47,7 @@ require (
 	go.opentelemetry.io/otel/exporters/prometheus v0.66.0
 	go.opentelemetry.io/otel/metric v1.44.0
 	go.opentelemetry.io/otel/sdk/metric v1.44.0
-	go.step.sm/crypto v0.81.0
+	go.step.sm/crypto v0.81.1
 	golang.org/x/sync v0.22.0
 	k8s.io/api v0.33.13
 	k8s.io/apimachinery v0.33.13
