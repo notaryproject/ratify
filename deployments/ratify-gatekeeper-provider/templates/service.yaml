@@ -7,7 +7,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 6001
-      targetPort: 6001
+    - name: https
+      port: 6001
+      targetPort: https
   selector:
     {{- include "ratify.selectorLabels" . | nindent 4 }}
