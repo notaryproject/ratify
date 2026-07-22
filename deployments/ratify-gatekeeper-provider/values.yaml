@@ -62,6 +62,7 @@ provider:
     disableCertRotation: false
   disableMutation: false
   disableCRDManager: false
+  mutationExcludedNamespaces: []
   timeout:
     # timeout values must match gatekeeper webhook timeouts
     validationTimeoutSeconds: 5
