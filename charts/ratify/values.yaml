@@ -131,6 +131,7 @@ provider:
     ttl: 10s # cache ttl duration
     name: "" # state-store name for dapr cache, defaults to redis
   enableMutation: true # enableMutation allows ratify to mutate image tag to image digest. It is highly recommended to enable mutation since the verified digest may be different from the one run.
+  mutationExcludedNamespaces: []
 
 podAnnotations: {}
 podLabels: {}
