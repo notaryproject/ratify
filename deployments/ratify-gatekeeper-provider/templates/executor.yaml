@@ -63,6 +63,7 @@ spec:
             certificateOIDCIssuerRegex: "{{ .Values.cosign.certificateOIDCIssuerRegex }}"
             ignoreTLog: {{ .Values.cosign.ignoreTLog }}
             ignoreCTLog: {{ .Values.cosign.ignoreCTLog }}
+            ignoreObserverTimestamps: {{ .Values.cosign.ignoreObserverTimestamps }}
             {{- if .Values.cosign.keys }}
             {{- if eq .Values.cosign.keys.provider "inline" }}
             {{- if .Values.cosign.keys.key }}

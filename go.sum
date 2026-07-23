@@ -465,8 +465,8 @@ github.com/notaryproject/notation-plugin-framework-go v1.0.0 h1:6Qzr7DGXoCgXEQN+
 github.com/notaryproject/notation-plugin-framework-go v1.0.0/go.mod h1:RqWSrTOtEASCrGOEffq0n8pSg2KOgKYiWqFWczRSics=
 github.com/notaryproject/ratify-go v0.0.0-20250912144645-8f7f89aff329 h1:QPU718mRBUw+RLgU8uN55Y3IbUUWdcy0A5BUrHNI6wU=
 github.com/notaryproject/ratify-go v0.0.0-20250912144645-8f7f89aff329/go.mod h1:skeFG5In355I3GUZj25V5glopSbWDcbY8u/fhwgX+E0=
-github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20250912090755-582a09910433 h1:BSt96EvpwQo5ca4SRIbeUSfO5+zOEuyXraVpQOdFEGg=
-github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20250912090755-582a09910433/go.mod h1:4+5h2tJp96UF2jNqaK6SV1ne5+kweyREtaRrN2oXrvM=
+github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20260721013108-c13c6f24698b h1:Mi3SGnMzECmsb9czHYIuh41u5jIB8FsTXcE0n1ULkcc=
+github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20260721013108-c13c6f24698b/go.mod h1:hy8/AZeha9lr+1E/WFgYALRAluT1yIr2E9lDAP6rAIM=
 github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a h1:Q4B+c5a2hSk93D6d1qteXhMAZnHaWxfJ5A6gefDRF94=
 github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a/go.mod h1:mXQTrTrQvOov3awSbT0jEdpf76l8SSfYPyGKDQdq5KY=
 github.com/notaryproject/tspclient-go v1.0.0 h1:AwQ4x0gX8IHnyiZB1tggpn5NFqHpTEm1SDX8YNv4Dg4=
