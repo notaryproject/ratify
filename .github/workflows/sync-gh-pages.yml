@@ -21,7 +21,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: everlytic/branch-merge@c4a244dc23143f824ae6c022a10732566cb8e973
         with:
           github_token: ${{ github.token }}
