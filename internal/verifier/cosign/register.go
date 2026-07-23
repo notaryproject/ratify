@@ -87,14 +87,20 @@ type ScopedOptions struct {
 	IgnoreTLog bool `json:"ignoreTLog,omitempty"`
 
 	// IgnoreCTLog indicates whether to ignore the certificate transparency log
-	// during verification. Optional.
+	// during verification. Only applies to keyless (certificate-based)
+	// verification. Key-based verification always ignores the certificate
+	// transparency log because public keys carry no Fulcio certificate and
+	// therefore no signed certificate timestamps. Optional.
 	IgnoreCTLog bool `json:"ignoreCTLog,omitempty"`
 
 	// IgnoreObserverTimestamps indicates whether to skip observer timestamp
 	// verification (an RFC3161 timestamp or a transparency-log
 	// SignedEntryTimestamp) for key-based verification. This allows verifying
 	// offline, key-signed images that carry no transparency-log entry and no
-	// timestamp. Only applies to key-based verification. Optional.
+	// timestamp. Only applies to key-based verification. To verify a fully
+	// offline image (signed with `cosign sign --tlog-upload=false`), combine this
+	// with IgnoreTLog=true, otherwise the transparency-log check still requires a
+	// log entry. Optional.
 	IgnoreObserverTimestamps bool `json:"ignoreObserverTimestamps,omitempty"`
 
 	// Keys provides public keys to be used for signature verification.
@@ -333,11 +339,14 @@ func toVerifierOptions(s *ScopedOptions, name string) (*cosign.VerifierOptions, 
 		}
 		return opts, nil
 	}
-	// If keys are provided, use key-based verification and ignore CTLog, since
-	// public keys cannot carry signed certificate timestamps. Transparency-log
+	// Key-based verification: always ignore the certificate transparency log
+	// regardless of s.IgnoreCTLog. Public-key signatures carry no Fulcio
+	// certificate, so they have no signed certificate timestamps; requiring SCTs
+	// (IgnoreCTLog=false) makes the underlying verifier reject the bundle with
+	// "SCTs required but bundle is signed with a public key". The transparency-log
 	// and observer-timestamp checks are honored per the trust policy so that
 	// offline, key-signed images (no tlog entry and no RFC3161 timestamp) can be
-	// verified when the caller opts in via IgnoreObserverTimestamps.
+	// verified when the caller opts in via IgnoreTLog and IgnoreObserverTimestamps.
 	opts.IgnoreCTLog = true
 	opts.IgnoreTLog = s.IgnoreTLog
 	opts.IgnoreObserverTimestamps = s.IgnoreObserverTimestamps
