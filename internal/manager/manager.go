@@ -36,6 +36,9 @@ import (
 const (
 	caOrganization = "Ratify"
 	certDir        = "/usr/local/tls"
+	// leaderElectionID is the name of the Lease used to coordinate leader
+	// election among ratify-gatekeeper-provider replicas.
+	leaderElectionID = "ratify-gatekeeper-provider.ratify.dev"
 )
 
 var (
@@ -50,10 +53,13 @@ func init() {
 
 // StartManager creates a new Manager which is responsible for creating
 // Controllers.
-func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableCRDManager bool) {
+func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableCRDManager bool, enableLeaderElection bool) {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
+		Scheme:                  scheme,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        leaderElectionID,
+		LeaderElectionNamespace: pod.Namespace(),
 	})
 	if err != nil {
 		setupLog.Error(err, "could not create ratify manager")

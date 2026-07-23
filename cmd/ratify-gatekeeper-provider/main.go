@@ -49,6 +49,7 @@ type options struct {
 	disableCertRotation  bool
 	disableMutation      bool
 	disableCRDManager    bool
+	enableLeaderElection bool
 	verifyTimeout        time.Duration
 	mutateTimeout        time.Duration
 }
@@ -66,6 +67,7 @@ func parse() *options {
 	flag.BoolVar(&opts.disableCertRotation, "disable-cert-rotation", false, "Disable certificate rotation")
 	flag.BoolVar(&opts.disableMutation, "disable-mutation", false, "Disable mutation wehbook")
 	flag.BoolVar(&opts.disableCRDManager, "disable-crd-manager", false, "Disable CRD manager for Gatekeeper provider")
+	flag.BoolVar(&opts.enableLeaderElection, "leader-elect", false, "Enable leader election for the controller manager to ensure only one active instance when running multiple replicas")
 
 	flag.Parse()
 	logrus.Infof("Starting Ratify with options: %+v", opts)
@@ -92,7 +94,7 @@ func startRatify(opts *options) error {
 		CertRotatorReady:     certRotatorReady,
 	}
 
-	go startManagerFunc(certRotatorReady, serverOpts.DisableMutation, serverOpts.DisableCRDManager)
+	go startManagerFunc(certRotatorReady, serverOpts.DisableMutation, serverOpts.DisableCRDManager, opts.enableLeaderElection)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

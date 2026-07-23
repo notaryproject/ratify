@@ -63,6 +63,9 @@ spec:
             {{- if .Values.provider.disableCRDManager }}
             - "--disable-crd-manager"
             {{- end }}
+            {{- if .Values.provider.leaderElection.enabled }}
+            - "--leader-elect"
+            {{- end }}
             {{- if (lookup "v1" "Secret" .Release.Namespace "gatekeeper-webhook-server-cert") }}
             - "--gatekeeper-ca-cert-file=/usr/local/tls/client-ca/ca.crt"
             {{- end }}
