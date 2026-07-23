@@ -25,7 +25,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.20
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.19
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.55.3
-	github.com/carabiner-dev/signer v0.3.2
+	github.com/carabiner-dev/signer v0.3.7
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dapr/go-sdk v1.8.0
 	github.com/dgraph-io/ristretto v0.2.0
