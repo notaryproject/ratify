@@ -36,9 +36,6 @@ import (
 const (
 	caOrganization = "Ratify"
 	certDir        = "/usr/local/tls"
-	// leaderElectionID is the name of the Lease used to coordinate leader
-	// election among ratify-gatekeeper-provider replicas.
-	leaderElectionID = "ratify-gatekeeper-provider.ratify.dev"
 )
 
 var (
@@ -55,12 +52,7 @@ func init() {
 // Controllers.
 func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableCRDManager bool, enableLeaderElection bool) {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                  scheme,
-		LeaderElection:          enableLeaderElection,
-		LeaderElectionID:        leaderElectionID,
-		LeaderElectionNamespace: pod.Namespace(),
-	})
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions(enableLeaderElection))
 	if err != nil {
 		setupLog.Error(err, "could not create ratify manager")
 		os.Exit(1)
@@ -72,6 +64,29 @@ func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableC
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "could not start manager")
 		os.Exit(1)
+	}
+}
+
+// leaderElectionID returns the name of the Lease used to coordinate leader
+// election. It is derived from the provider's service name so that multiple
+// installations in the same namespace acquire distinct leader-election locks.
+func leaderElectionID() string {
+	return fmt.Sprintf("%s.ratify.dev", pod.ServiceName())
+}
+
+// managerOptions builds the controller-runtime manager options.
+//
+// When leader election is enabled it only gates leader-elected runnables such
+// as the CRD controllers. Cert rotation is registered without
+// RequireLeaderElection (see setupCertRotator) and therefore runs on every
+// replica, so each pod obtains its own TLS material and the readiness signal
+// (certRotatorReady) is independent of leader election.
+func managerOptions(enableLeaderElection bool) ctrl.Options {
+	return ctrl.Options{
+		Scheme:                  scheme,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        leaderElectionID(),
+		LeaderElectionNamespace: pod.Namespace(),
 	}
 }
 
