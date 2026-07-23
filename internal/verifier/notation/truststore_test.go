@@ -17,10 +17,14 @@ package notation
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
@@ -48,11 +52,78 @@ func (t *testKeyProvider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, 
 	return nil, nil
 }
 
+func generateTestCACertificate(t *testing.T, commonName string) *x509.Certificate {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(time.Now().UnixNano()),
+		Subject:               pkix.Name{CommonName: commonName},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("failed to parse certificate: %v", err)
+	}
+	return cert
+}
+
+func generateTestLeafCertificate(t *testing.T, commonName string) *x509.Certificate {
+	t.Helper()
+
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate CA key: %v", err)
+	}
+	leafKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate leaf key: %v", err)
+	}
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(time.Now().UnixNano()),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	leafTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(time.Now().UnixNano() + 1),
+		Subject:               pkix.Name{CommonName: commonName},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, leafTemplate, caTemplate, &leafKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("failed to parse certificate: %v", err)
+	}
+	return cert
+}
+
 func TestTrustStore(t *testing.T) {
 	trustStore := newTrustStore()
 
-	cert1 := &x509.Certificate{Subject: pkix.Name{CommonName: "cert1"}}
-	cert2 := &x509.Certificate{Subject: pkix.Name{CommonName: "cert2"}}
+	cert1 := generateTestCACertificate(t, "cert1")
+	cert2 := generateTestCACertificate(t, "cert2")
 
 	// Create a test key provider with the certificates
 	keyProvider := &testKeyProvider{
@@ -81,9 +152,9 @@ func TestTrustStore(t *testing.T) {
 func TestTrustStoreMultipleKeyProviders(t *testing.T) {
 	trustStore := newTrustStore()
 
-	cert1 := &x509.Certificate{Subject: pkix.Name{CommonName: "cert1"}}
-	cert2 := &x509.Certificate{Subject: pkix.Name{CommonName: "cert2"}}
-	cert3 := &x509.Certificate{Subject: pkix.Name{CommonName: "cert3"}}
+	cert1 := generateTestCACertificate(t, "cert1")
+	cert2 := generateTestCACertificate(t, "cert2")
+	cert3 := generateTestCACertificate(t, "cert3")
 
 	// Create two key providers
 	keyProvider1 := &testKeyProvider{
@@ -118,6 +189,24 @@ func TestTrustStoreMultipleKeyProviders(t *testing.T) {
 		if !commonNames[name] {
 			t.Errorf("expected certificate with common name %s", name)
 		}
+	}
+}
+
+func TestTrustStoreReturnsLeafCertificate(t *testing.T) {
+	trustStore := newTrustStore()
+	leafCert := generateTestLeafCertificate(t, "leaf")
+	keyProvider := &testKeyProvider{
+		certificates: []*x509.Certificate{leafCert},
+	}
+
+	trustStore.addKeyProvider(truststore.TypeCA, storeName1, keyProvider)
+
+	certs, err := trustStore.GetCertificates(context.Background(), truststore.TypeCA, storeName1)
+	if err != nil {
+		t.Fatalf("failed to get certificates: %v", err)
+	}
+	if len(certs) != 1 || !certs[0].Equal(leafCert) {
+		t.Fatal("expected trust store to return the leaf certificate")
 	}
 }
 

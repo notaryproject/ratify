@@ -16,6 +16,7 @@ limitations under the License.
 package notation
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -110,6 +111,9 @@ func initTrustStore(opts []trustStoreOptions) (truststore.X509TrustStore, []trus
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to get key provider %s: %w", key, err)
 			}
+			if err := validateTrustStoreCertificates(provider); err != nil {
+				return nil, nil, fmt.Errorf("failed to validate key provider %s certificates: %w", key, err)
+			}
 
 			trustStore.addKeyProvider(storeType, trustStoreName, provider)
 		}
@@ -119,6 +123,17 @@ func initTrustStore(opts []trustStoreOptions) (truststore.X509TrustStore, []trus
 		names = append(names, storeType)
 	}
 	return trustStore, names, nil
+}
+
+func validateTrustStoreCertificates(provider keyprovider.KeyProvider) error {
+	certs, err := provider.GetCertificates(context.Background())
+	if err != nil {
+		return err
+	}
+	if len(certs) == 0 {
+		return nil
+	}
+	return truststore.ValidateCertificates(certs)
 }
 
 func getTrustStoreType(val any) (truststore.Type, error) {
