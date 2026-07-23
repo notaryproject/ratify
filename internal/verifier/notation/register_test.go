@@ -32,17 +32,20 @@ const mockKeyProviderName = "mock-key-provider"
 
 type mockKeyProvider struct {
 	returnErr bool
+	leafCert  bool
 }
 
 func (m *mockKeyProvider) GetCertificates(_ context.Context) ([]*x509.Certificate, error) {
 	if m.returnErr {
 		return nil, fmt.Errorf("mock error")
 	}
+	isCA := !m.leafCert
 	return []*x509.Certificate{
 		{
 			Subject: pkix.Name{
 				CommonName: "test-cert",
 			},
+			IsCA: isCA,
 		}}, nil
 }
 
@@ -58,9 +61,11 @@ func createMockKeyProvider(options any) (keyprovider.KeyProvider, error) {
 	if !ok {
 		return nil, fmt.Errorf("invalid options type")
 	}
-	_, ok = val["returnErr"]
+	_, returnErr := val["returnErr"]
+	_, leafCert := val["leafCert"]
 	return &mockKeyProvider{
-		returnErr: ok,
+		returnErr: returnErr,
+		leafCert:  leafCert,
 	}, nil
 }
 
@@ -152,7 +157,7 @@ func TestNewVerifier(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name: "Key provider that would fail on GetCertificates (lazy loading)",
+			name: "Key provider that fails on GetCertificates during notation trust store validation",
 			opts: verifier.NewOptions{
 				Type: verifierTypeNotation,
 				Name: testName,
@@ -167,7 +172,25 @@ func TestNewVerifier(t *testing.T) {
 					},
 				},
 			},
-			expectErr: false, // Should not fail during initialization with lazy loading
+			expectErr: true,
+		},
+		{
+			name: "Leaf certificate rejected as notation trust anchor",
+			opts: verifier.NewOptions{
+				Type: verifierTypeNotation,
+				Name: testName,
+				Parameters: options{
+					Certificates: []trustStoreOptions{
+						{
+							"type": "ca",
+							mockKeyProviderName: map[string]any{
+								"leafCert": true,
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
 		},
 		{
 			name: "Valid notation options",

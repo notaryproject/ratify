@@ -1,0 +1,26 @@
+name: target_branch_labeler
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    name: Label PR by target branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Label based on target branch
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          sync-labels: true

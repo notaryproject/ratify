@@ -78,10 +78,8 @@ upload_cert_to_akv() {
     -n ${NOTATION_PEM_NAME} \
     -f notation.pem
 
-  # TODO(follow-up: notation leaf-cert chain): the v2 notation verifier does
-  # not yet distinguish a leaf cert from a root cert in an inline trust store,
-  # so the leaf-cert chain is not uploaded yet. Re-enable this together with
-  # the "validate image signed by leaf cert" bats case.
+  # The leaf-cert test configures the generated certs as inline trust stores,
+  # so the leaf signing chain does not need to be uploaded to AKV.
   # rm -f notationchain.pem
   # cat .staging/notation/leaf-test/leaf.key >>notationchain.pem
   # cat .staging/notation/leaf-test/leaf.crt >>notationchain.pem
