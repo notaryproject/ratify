@@ -102,7 +102,7 @@ jobs:
         with:
           submodules: recursive
       - name: Run link check
-        uses: gaurav-nelson/github-action-markdown-link-check@1b916f2cf6c36510a6059943104e3c42ce6c16bc #3.10.3
+        uses: gaurav-nelson/github-action-markdown-link-check@3c3b66f1f7d0900e37b71eca45b63ea9eedfce31 #3.10.3
         with:
           use-quiet-mode: "no"
           use-verbose-mode: "yes"
