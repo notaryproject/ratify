@@ -152,6 +152,9 @@ Set the namespace exclusions for Assign
 {{- if and (ne .Release.Namespace $gkNamespace) (ne .Release.Namespace "kube-system") }}
 - {{ .Release.Namespace | quote}}
 {{- end }}
+{{- range .Values.provider.mutationExcludedNamespaces }}
+- {{ . | quote }}
+{{- end }}
 {{- end }}
 
 {{/*
