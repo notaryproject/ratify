@@ -76,11 +76,12 @@ func leaderElectionID() string {
 
 // managerOptions builds the controller-runtime manager options.
 //
-// When leader election is enabled it only gates leader-elected runnables such
-// as the CRD controllers. Cert rotation is registered without
-// RequireLeaderElection (see setupCertRotator) and therefore runs on every
-// replica, so each pod obtains its own TLS material and the readiness signal
-// (certRotatorReady) is independent of leader election.
+// Leader election, when enabled, is only used to elect a single replica to
+// write Executor status. Both cert rotation and the Executor reconciler are
+// registered to run on every replica (see setupCertRotator and the reconciler's
+// SetupWithManager), so every pod obtains its own TLS material, keeps its
+// in-memory executor up to date, and serves verification traffic regardless of
+// which replica holds the lease.
 func managerOptions(enableLeaderElection bool) ctrl.Options {
 	return ctrl.Options{
 		Scheme:                  scheme,
@@ -140,8 +141,9 @@ func setupCRDControllers(mgr ctrl.Manager, disableCRDManager bool) {
 
 	setupLog.Info("setting up CRD controllers")
 	if err := (&controller.ExecutorReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Elected: mgr.Elected(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "could not set up Executor reconciler")
 		os.Exit(1)

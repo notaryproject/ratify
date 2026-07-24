@@ -67,7 +67,7 @@ func parse() *options {
 	flag.BoolVar(&opts.disableCertRotation, "disable-cert-rotation", false, "Disable certificate rotation")
 	flag.BoolVar(&opts.disableMutation, "disable-mutation", false, "Disable mutation wehbook")
 	flag.BoolVar(&opts.disableCRDManager, "disable-crd-manager", false, "Disable CRD manager for Gatekeeper provider")
-	flag.BoolVar(&opts.enableLeaderElection, "leader-elect", false, "Enable leader election for the controller manager to ensure only one active instance when running multiple replicas")
+	flag.BoolVar(&opts.enableLeaderElection, "leader-elect", false, "Enable leader election so that, when running multiple replicas, only one replica writes Executor CRD status. All replicas still serve verification and reconcile their own executor configuration.")
 
 	flag.Parse()
 	logrus.Infof("Starting Ratify with options: %+v", opts)
