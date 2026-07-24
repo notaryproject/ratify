@@ -21,4 +21,25 @@ rules:
   - list
   - update
   - watch
+{{- if .Values.provider.leaderElection.enabled }}
+# Leases and events are used by the controller manager for leader election.
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+{{- end }}
 {{- end }}

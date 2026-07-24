@@ -61,15 +61,17 @@ func TestParse(t *testing.T) {
 				"-cert-file=cert.pem",
 				"-key-file=key.pem",
 				"-verify-timeout=10s",
+				"-leader-elect",
 			},
 			expected: &options{
-				configFilePath:      "config.json",
-				httpServerAddress:   ":8080",
-				healthServerAddress: ":9099",
-				certFile:            "cert.pem",
-				keyFile:             "key.pem",
-				verifyTimeout:       10 * time.Second,
-				mutateTimeout:       2 * time.Second,
+				configFilePath:       "config.json",
+				httpServerAddress:    ":8080",
+				healthServerAddress:  ":9099",
+				certFile:             "cert.pem",
+				keyFile:              "key.pem",
+				enableLeaderElection: true,
+				verifyTimeout:        10 * time.Second,
+				mutateTimeout:        2 * time.Second,
 			},
 		},
 		{
@@ -114,7 +116,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestStartRatify(t *testing.T) {
-	startManagerFunc = func(_ chan struct{}, _, _ bool) {}
+	startManagerFunc = func(_ chan struct{}, _, _, _ bool) {}
 	tests := []struct {
 		name        string
 		opts        *options

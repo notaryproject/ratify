@@ -50,11 +50,9 @@ func init() {
 
 // StartManager creates a new Manager which is responsible for creating
 // Controllers.
-func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableCRDManager bool) {
+func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableCRDManager bool, enableLeaderElection bool) {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-	})
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions(enableLeaderElection))
 	if err != nil {
 		setupLog.Error(err, "could not create ratify manager")
 		os.Exit(1)
@@ -66,6 +64,30 @@ func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableC
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "could not start manager")
 		os.Exit(1)
+	}
+}
+
+// leaderElectionID returns the name of the Lease used to coordinate leader
+// election. It is derived from the provider's service name so that multiple
+// installations in the same namespace acquire distinct leader-election locks.
+func leaderElectionID() string {
+	return fmt.Sprintf("%s.ratify.dev", pod.ServiceName())
+}
+
+// managerOptions builds the controller-runtime manager options.
+//
+// Leader election, when enabled, is only used to elect a single replica to
+// write Executor status. Both cert rotation and the Executor reconciler are
+// registered to run on every replica (see setupCertRotator and the reconciler's
+// SetupWithManager), so every pod obtains its own TLS material, keeps its
+// in-memory executor up to date, and serves verification traffic regardless of
+// which replica holds the lease.
+func managerOptions(enableLeaderElection bool) ctrl.Options {
+	return ctrl.Options{
+		Scheme:                  scheme,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        leaderElectionID(),
+		LeaderElectionNamespace: pod.Namespace(),
 	}
 }
 
@@ -119,8 +141,9 @@ func setupCRDControllers(mgr ctrl.Manager, disableCRDManager bool) {
 
 	setupLog.Info("setting up CRD controllers")
 	if err := (&controller.ExecutorReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Elected: mgr.Elected(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "could not set up Executor reconciler")
 		os.Exit(1)

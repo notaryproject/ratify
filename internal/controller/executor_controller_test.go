@@ -19,11 +19,14 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -203,6 +206,44 @@ var _ = Describe("Executor Controller", func() {
 			Expect(updatedExecutor.Status.Succeeded).To(BeFalse())
 			// an error message from the failed upsert should be recorded
 			Expect(updatedExecutor.Status.Error).NotTo(BeEmpty())
+		})
+		It("should update the local executor but not write status on a non-leader replica", func() {
+			By("reconciling as a non-leader (leadership not yet acquired)")
+			notElected := make(chan struct{})
+			controllerReconciler := &ExecutorReconciler{
+				Client:  k8sClient,
+				Scheme:  k8sClient.Scheme(),
+				Elected: notElected,
+			}
+
+			result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("verifying the local executor was still updated on the non-leader")
+			Expect(GlobalExecutorManager.GetExecutor()).NotTo(BeNil())
+
+			By("verifying status was not written by the non-leader")
+			updatedExecutor := &configv2alpha1.Executor{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updatedExecutor)).To(Succeed())
+			Expect(updatedExecutor.Status.Succeeded).To(BeFalse())
+
+			By("verifying the non-leader requeues so the elected leader writes status later")
+			Expect(result.RequeueAfter).To(BeNumerically(">", time.Duration(0)))
+		})
+		It("should register the controller with the manager", func() {
+			mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+				Scheme:  k8sClient.Scheme(),
+				Metrics: metricsserver.Options{BindAddress: "0"},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			reconciler := &ExecutorReconciler{
+				Client: mgr.GetClient(),
+				Scheme: mgr.GetScheme(),
+			}
+			Expect(reconciler.SetupWithManager(mgr)).To(Succeed())
 		})
 	})
 })

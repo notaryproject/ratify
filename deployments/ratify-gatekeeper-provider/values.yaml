@@ -63,6 +63,11 @@ provider:
     disableCertRotation: false
   disableMutation: false
   disableCRDManager: false
+  # Enable leader election so that, when running multiple replicas, only one
+  # replica writes Executor CRD status. All replicas still serve verification
+  # and reconcile their own executor configuration.
+  leaderElection:
+    enabled: false
   mutationExcludedNamespaces: []
   timeout:
     # timeout values must match gatekeeper webhook timeouts
