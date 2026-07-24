@@ -16,7 +16,12 @@ limitations under the License.
 
 package controller
 
-import "testing"
+import (
+	"errors"
+	"testing"
+
+	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
+)
 
 func TestExecutorReconciler_isLeader(t *testing.T) {
 	closed := make(chan struct{})
@@ -49,6 +54,50 @@ func TestExecutorReconciler_isLeader(t *testing.T) {
 			r := &ExecutorReconciler{Elected: tt.elected}
 			if got := r.isLeader(); got != tt.want {
 				t.Errorf("isLeader() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStatusUpToDate(t *testing.T) {
+	errBoom := errors.New("boom")
+
+	tests := []struct {
+		name     string
+		executor *configv2alpha1.Executor
+		err      error
+		want     bool
+	}{
+		{
+			name:     "success reflected",
+			executor: &configv2alpha1.Executor{Status: configv2alpha1.ExecutorStatus{Succeeded: true}},
+			err:      nil,
+			want:     true,
+		},
+		{
+			name:     "success not yet reflected",
+			executor: &configv2alpha1.Executor{},
+			err:      nil,
+			want:     false,
+		},
+		{
+			name:     "error reflected",
+			executor: &configv2alpha1.Executor{Status: configv2alpha1.ExecutorStatus{Succeeded: false, Error: "boom"}},
+			err:      errBoom,
+			want:     true,
+		},
+		{
+			name:     "error not yet reflected",
+			executor: &configv2alpha1.Executor{},
+			err:      errBoom,
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := statusUpToDate(tt.executor, tt.err); got != tt.want {
+				t.Errorf("statusUpToDate() = %v, want %v", got, tt.want)
 			}
 		})
 	}

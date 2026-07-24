@@ -19,6 +19,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -215,7 +216,7 @@ var _ = Describe("Executor Controller", func() {
 				Elected: notElected,
 			}
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+			result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -227,6 +228,9 @@ var _ = Describe("Executor Controller", func() {
 			updatedExecutor := &configv2alpha1.Executor{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, updatedExecutor)).To(Succeed())
 			Expect(updatedExecutor.Status.Succeeded).To(BeFalse())
+
+			By("verifying the non-leader requeues so the elected leader writes status later")
+			Expect(result.RequeueAfter).To(BeNumerically(">", time.Duration(0)))
 		})
 		It("should register the controller with the manager", func() {
 			mgr, err := ctrl.NewManager(cfg, ctrl.Options{
