@@ -282,7 +282,6 @@ EOF
 }
 
 @test "cosign test" {
-    skip "v2 cosign verifier forces IgnoreTLog=false for key-based verification, needs code fix to respect user config"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
@@ -303,7 +302,7 @@ EOF
 }
 
 @test "cosign legacy keyed test" {
-    skip "v2 cosign verifier does not support legacy format; also blocked by IgnoreTLog=false for key-based verification"
+    skip "v2 cosign verifier does not support the v1beta1 legacy verifier config format"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
@@ -605,7 +604,6 @@ EOF
 }
 
 @test "validate image signed by leaf cert" {
-    skip "v2 notation verifier does not distinguish leaf cert from root cert in inline trust store"
     teardown() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-leaf --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-leaf2 --namespace default --force --ignore-not-found=true'
@@ -635,14 +633,30 @@ EOF
     run kubectl run demo-leaf --namespace default --image=registry:5000/notation:leafSigned
     assert_success
 
-    # patch executor to use leaf cert instead of root cert
+    # patch executor to use the leaf cert instead of the root cert; leaf certs are rejected as trust anchors
     run bash -c 'LEAF_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt) && \
         kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg leaf_cert "$LEAF_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $leaf_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
-    # wait for the executor to fully reload with the new leaf cert
-    sleep 15
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep false"
+
+    # the provider keeps serving the last-known-good (root cert) config after an
+    # invalid update, so restart it to force a fresh load of the leaf-only trust
+    # store. The leaf cert is rejected as a trust anchor, leaving no valid
+    # executor, so admission must fail closed. The restart is a workaround for
+    # notaryproject/ratify#2798 (invalid config is not enforced until restart).
+    run kubectl get deploy --namespace ${RATIFY_NAMESPACE} -l app.kubernetes.io/name=ratify-gatekeeper-provider -o jsonpath='{.items[0].metadata.name}'
+    assert_success
+    ratify_deploy="$output"
+    if [ -z "$ratify_deploy" ]; then
+        echo "no ratify-gatekeeper-provider deployment found in namespace ${RATIFY_NAMESPACE}" >&2
+        return 1
+    fi
+    run kubectl rollout restart deployment/${ratify_deploy} --namespace ${RATIFY_NAMESPACE}
+    assert_success
+    run kubectl rollout status deployment/${ratify_deploy} --namespace ${RATIFY_NAMESPACE} --timeout=180s
+    assert_success
+    sleep 5
 
     # verify that the image cannot be run with a leaf cert
     run kubectl run demo-leaf2 --namespace default --image=registry:5000/notation:leafSigned
