@@ -37,7 +37,7 @@ EXECUTOR_NAME=ratify-gatekeeper-provider-executor-1
     assert_success
     sleep 5
     # wait for executor to be reconciled by controller
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev -n ${RATIFY_NAMESPACE} -o jsonpath='{.items[0].status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh -n ${RATIFY_NAMESPACE} -o jsonpath='{.items[0].status.succeeded}' | grep true"
     run kubectl run demo --namespace default --image=registry:5000/notation:signed
     assert_success
     run kubectl run demo1 --namespace default --image=registry:5000/notation:unsigned
@@ -164,7 +164,7 @@ EOF
     sleep 5
 
     # validate executor status shows success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run demo --namespace default --image=registry:5000/notation:signed
     assert_success
 
@@ -183,19 +183,19 @@ EOF
     }
 
     # save original executor state
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-tsa.yaml"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-tsa.yaml"
     assert_success
 
     # validate executor status shows success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     # apply executor with TSA trust store certificate using JSON to avoid YAML document separator issues with PEM certs
     run bash -c 'TSA_CERT=$(cat ./test/bats/tests/certificates/tsarootca.cer) && \
-        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg tsa_cert "$TSA_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates += [{"type": "tsa", "inline": {"certs": $tsa_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     # wait for executor to be reconciled after patch
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     # verify that the image can now be run
     run kubectl run demo-tsa --namespace default --image=registry:5000/notation:tsa
@@ -338,7 +338,7 @@ EOF
     }
 
     # save original executor state
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-cosign-keyless.yaml"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-cosign-keyless.yaml"
     assert_success
 
     # apply keyless cosign executor
@@ -346,7 +346,7 @@ EOF
     assert_success
 
     # wait for executor to be reconciled after config change
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     wait_for_process 20 10 'kubectl run cosign-demo-keyless --namespace default --image=wabbitnetworks.azurecr.io/test/cosign-image:signed-keyless'
 }
@@ -381,15 +381,15 @@ EOF
     }
 
     # save original executor state
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-crd.yaml"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-crd.yaml"
     assert_success
 
     echo "Patch executor to remove notation verifier and validate deployment fails"
-    run bash -c 'kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+    run bash -c 'kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [.spec.verifiers[] | select(.name != "notation-1")] | .spec.policyEnforcer.parameters.policy.rules = [.spec.policyEnforcer.parameters.policy.rules[] | select(.verifierName != "notation-1")]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     # wait for executor to be reconciled
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run crdtest --namespace default --image=registry:5000/notation:signed
     assert_failure
 
@@ -397,7 +397,7 @@ EOF
     run restore_executor original-executor-crd.yaml
     assert_success
     # wait for executor to be reconciled
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run crdtest --namespace default --image=registry:5000/notation:signed
     assert_success
 }
@@ -411,16 +411,16 @@ EOF
     }
 
     # save original executor state
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-store.yaml"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-store.yaml"
     assert_success
 
     # patch executor with an invalid store type
-    run bash -c 'kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+    run bash -c 'kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.stores = [{"type": "invalid-store-type", "parameters": {"plainHttp": true}}]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     # wait for executor to report error
     sleep 5
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.error}' | grep -i 'store'"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.error}' | grep -i 'store'"
     assert_success
 }
 
@@ -479,7 +479,7 @@ EOF
     }
 
     # save original executor state
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-certstore.yaml"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-certstore.yaml"
     assert_success
 
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
@@ -495,11 +495,11 @@ EOF
 
     # patch executor to use alternate inline certificate
     run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
-        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg alt_cert "$ALT_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $alt_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     # wait for executor to be reconciled
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     sleep 10
 
     # verify that the image can now be run
@@ -517,7 +517,7 @@ EOF
     }
 
     # save original executor state
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-kmp.yaml"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-kmp.yaml"
     assert_success
 
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
@@ -533,11 +533,11 @@ EOF
 
     # patch executor to use alternate inline certificate
     run bash -c 'ALT_CERT=$(cat ~/.config/notation/truststore/x509/ca/alternate-cert/alternate-cert.crt) && \
-        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg alt_cert "$ALT_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $alt_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     # wait for executor to be reconciled
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     # verify that the image can now be run
     run kubectl run demo-alternate --namespace default --image=registry:5000/notation:signed-alternate
@@ -557,7 +557,7 @@ EOF
     }
 
     # save original executor state
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-kmp-certstore.yaml"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-kmp-certstore.yaml"
     assert_success
 
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
@@ -566,14 +566,14 @@ EOF
     assert_success
 
     # validate executor status shows success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run demo --namespace default --image=registry:5000/notation:signed
     assert_success
 
     sleep 10
 
     # validate executor still reports success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
     run kubectl run demo1 --namespace default --image=registry:5000/notation:signed
     assert_success
 }
@@ -614,7 +614,7 @@ EOF
     }
 
     # save original executor state
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-leaf.yaml"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-leaf.yaml"
     assert_success
 
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
@@ -624,10 +624,10 @@ EOF
 
     # patch executor to use root cert for leaf-test
     run bash -c 'ROOT_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
-        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg root_cert "$ROOT_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $root_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     # verify that the image can be run with a root cert
     run kubectl run demo-leaf --namespace default --image=registry:5000/notation:leafSigned
@@ -635,10 +635,10 @@ EOF
 
     # patch executor to use the leaf cert instead of the root cert; leaf certs are rejected as trust anchors
     run bash -c 'LEAF_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt) && \
-        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg leaf_cert "$LEAF_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $leaf_cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep false"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep false"
 
     # the provider keeps serving the last-known-good (root cert) config after an
     # invalid update, so restart it to force a fresh load of the leaf-only trust

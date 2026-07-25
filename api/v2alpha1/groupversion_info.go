@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package v2alpha1 contains API Schema definitions for the config v2alpha1 API group.
 // +kubebuilder:object:generate=true
-// +groupName=config.ratify.dev
+// +groupName=config.ratify.sh
 package v2alpha1
 
 import (
@@ -26,7 +26,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects.
-	GroupVersion = schema.GroupVersion{Group: "config.ratify.dev", Version: "v2alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "config.ratify.sh", Version: "v2alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

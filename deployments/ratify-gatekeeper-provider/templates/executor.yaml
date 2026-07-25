@@ -1,4 +1,4 @@
-apiVersion: config.ratify.dev/v2alpha1
+apiVersion: config.ratify.sh/v2alpha1
 kind: Executor
 metadata:
   name: {{ include "ratify.fullname" . }}-executor-1

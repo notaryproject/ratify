@@ -75,15 +75,15 @@ RATIFY_NAMESPACE=gatekeeper-system
     sleep 5
 
     # save the original executor so the AKV notation cert can be restored afterwards
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o yaml > original-executor-leaf.yaml"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-leaf.yaml"
     assert_success
 
     # patch the notation verifier to trust the leaf-test ROOT certificate (inline)
     run bash -c 'ROOT_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
-        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg cert "$ROOT_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     # a leaf-signed image chains up to the root cert, so admission should pass
     run wait_for_process 20 10 'kubectl run demo-leaf --namespace default --image=${TEST_REGISTRY}/notation:leafSigned'
@@ -91,13 +91,13 @@ RATIFY_NAMESPACE=gatekeeper-system
 
     # patch the notation verifier to trust ONLY the LEAF certificate (inline); leaf certs are rejected as trust anchors
     run bash -c 'LEAF_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/leaf.crt) && \
-        kubectl get executors.config.ratify.dev/'"${EXECUTOR_NAME}"' -o json | \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq --arg cert "$LEAF_CERT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{"type": "ca", "inline": {"certs": $cert}}] else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep false"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep false"
 
     # the executor status must explain why the leaf-only trust store was rejected
-    run bash -c "kubectl get executors.config.ratify.dev/${EXECUTOR_NAME} -o jsonpath='{.status.error}' | grep 'is not a CA certificate or self-signed signing certificate'"
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.error}' | grep 'is not a CA certificate or self-signed signing certificate'"
     assert_success
 
     # the provider keeps serving the last-known-good (root cert) config after an

@@ -3,7 +3,7 @@
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
 cliVersion: 4.6.0
-domain: ratify.dev
+domain: ratify.sh
 layout:
 - go.kubebuilder.io/v4
 projectName: crd
@@ -13,7 +13,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: ratify.dev
+  domain: ratify.sh
   group: config
   kind: Executor
   path: github.com/notaryproject/ratify/v2/api/v2alpha1
