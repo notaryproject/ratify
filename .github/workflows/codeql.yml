@@ -47,4 +47,4 @@ jobs:
       - name: Build CLI
         run: make build
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@45775bd8235c68ba998cffa5171334d58593da47 # tag=v3.28.15
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # tag=v4.37.3
