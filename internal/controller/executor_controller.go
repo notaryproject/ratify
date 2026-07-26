@@ -21,9 +21,13 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
 )
@@ -75,22 +79,46 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 // SetupWithManager sets up the controller with the Manager.
+//
+// The watch is filtered with GenerationChangedPredicate so that status-only
+// updates (which do not bump metadata.generation) do not re-trigger Reconcile.
+// Without this predicate every status write produced by updateStatus would
+// itself be an update event that re-enqueues the object, creating a feedback
+// loop that repeatedly rebuilds the in-memory executor (and hammers external
+// providers such as Azure Key Vault). The loop is amplified once the
+// deployment is scaled to multiple replicas.
 func (r *ExecutorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&configv2alpha1.Executor{}).
+		For(&configv2alpha1.Executor{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 
-func (r *ExecutorReconciler) updateStatus(ctx context.Context, executor *configv2alpha1.Executor, err error) {
-	if err != nil {
-		executor.Status.Succeeded = false
-		executor.Status.Error = err.Error()
-	} else {
-		executor.Status.Succeeded = true
-		executor.Status.Error = ""
-	}
-	if statusErr := r.Status().Update(ctx, executor); statusErr != nil {
-		log := logf.FromContext(ctx)
-		log.Error(statusErr, "Failed to update Executor status", "executor", executor.Name)
+// updateStatus records the outcome of the reconcile on the Executor's status
+// subresource.
+//
+// The write is wrapped in retry.RetryOnConflict so that concurrent writers
+// (e.g. multiple replicas, or an informer resync racing a spec change) do not
+// silently drop the update on an HTTP 409. On conflict the object is re-fetched
+// to obtain the latest resourceVersion before the status is re-applied.
+func (r *ExecutorReconciler) updateStatus(ctx context.Context, executor *configv2alpha1.Executor, upsertErr error) {
+	log := logf.FromContext(ctx)
+	key := types.NamespacedName{Namespace: executor.Namespace, Name: executor.Name}
+
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var latest configv2alpha1.Executor
+		if getErr := r.Get(ctx, key, &latest); getErr != nil {
+			return getErr
+		}
+		if upsertErr != nil {
+			latest.Status.Succeeded = false
+			latest.Status.Error = upsertErr.Error()
+		} else {
+			latest.Status.Succeeded = true
+			latest.Status.Error = ""
+		}
+		return r.Status().Update(ctx, &latest)
+	})
+	if retryErr != nil {
+		log.Error(retryErr, "Failed to update Executor status", "executor", executor.Name)
 	}
 }
