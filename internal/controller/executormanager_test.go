@@ -209,3 +209,94 @@ func TestDeleteExecutor_RemoveExistingEntry(t *testing.T) {
 		t.Fatalf("expected non-nil executor after deletion")
 	}
 }
+
+// newInvalidExecutor returns an Executor whose spec passes convertOptions
+// validation but fails NewScopedExecutor (the verifier type is not registered),
+// so the failure surfaces in refreshExecutor rather than convertOptions.
+func newInvalidExecutor() *configv2alpha1.Executor {
+	exec := newValidExecutor()
+	exec.Spec.Verifiers = []*configv2alpha1.VerifierOptions{
+		{
+			Name: "broken",
+			Type: "type-not-registered",
+		},
+	}
+	return exec
+}
+
+// TestUpsertExecutor_StaleRetainedAndNoOptsPollutionOnInvalidUpdate verifies
+// that when a previously succeeded Executor is updated to an invalid config:
+//   - the last-known-good executor is retained (graceful degradation),
+//   - the desired-state map (m.opts) is rolled back so the broken entry does
+//     not pollute it, and
+//   - subsequent updates to other (valid, unrelated) Executors still succeed.
+func TestUpsertExecutor_StaleRetainedAndNoOptsPollutionOnInvalidUpdate(t *testing.T) {
+	mgr := executorManager{
+		opts:        map[string]e.ScopedOptions{},
+		generations: map[string]int64{},
+	}
+
+	initial := newValidExecutor()
+	initial.Generation = 1
+	if err := mgr.upsertExecutor("default", "exec1", initial); err != nil {
+		t.Fatalf("initial upsert failed: %v", err)
+	}
+	goodExecutor := mgr.GetExecutor()
+	if goodExecutor == nil {
+		t.Fatalf("expected non-nil executor after initial upsert")
+	}
+	if got := mgr.opts[createOptsKey("default", "exec1")].Scopes[0]; got != "example.com" {
+		t.Fatalf("expected stored scope example.com, got %q", got)
+	}
+
+	// Update exec1 to an invalid config (generation advanced).
+	broken := newInvalidExecutor()
+	broken.Generation = 2
+	if err := mgr.upsertExecutor("default", "exec1", broken); err == nil {
+		t.Fatalf("expected error when updating to an invalid config")
+	}
+
+	// Last-known-good executor must be retained.
+	if mgr.GetExecutor() != goodExecutor {
+		t.Fatalf("expected the last-known-good executor to be retained after a failed update")
+	}
+
+	// m.opts must be rolled back to the previous valid config (no pollution).
+	if got := mgr.opts[createOptsKey("default", "exec1")].Scopes[0]; got != "example.com" {
+		t.Fatalf("expected opts to be rolled back to example.com, got %q", got)
+	}
+	// The last applied generation must remain the previous (successful) one.
+	if got := mgr.generations[createOptsKey("default", "exec1")]; got != 1 {
+		t.Fatalf("expected tracked generation to remain 1, got %d", got)
+	}
+
+	// A different, valid Executor must still be applicable (the broken CRD did
+	// not get stuck in m.opts and block unrelated reconciles).
+	other := newValidExecutor()
+	other.Spec.Scopes = []string{"other.com"}
+	other.Generation = 1
+	if err := mgr.upsertExecutor("default", "exec2", other); err != nil {
+		t.Fatalf("expected unrelated valid upsert to succeed, got: %v", err)
+	}
+}
+
+// TestUpsertExecutor_InvalidColdStartNoExecutor verifies that when the very
+// first (cold-start) config is invalid, no executor is served (fail-closed).
+func TestUpsertExecutor_InvalidColdStartNoExecutor(t *testing.T) {
+	mgr := executorManager{
+		opts:        map[string]e.ScopedOptions{},
+		generations: map[string]int64{},
+	}
+
+	broken := newInvalidExecutor()
+	broken.Generation = 1
+	if err := mgr.upsertExecutor("default", "exec1", broken); err == nil {
+		t.Fatalf("expected error on invalid cold-start config")
+	}
+	if mgr.GetExecutor() != nil {
+		t.Fatalf("expected no executor to be served on invalid cold start (fail-closed)")
+	}
+	if _, exists := mgr.opts[createOptsKey("default", "exec1")]; exists {
+		t.Fatalf("expected broken cold-start entry not to remain in opts")
+	}
+}

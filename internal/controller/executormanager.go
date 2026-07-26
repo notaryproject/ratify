@@ -26,14 +26,21 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // executorManager manages the lifecycle of executor instances across different
 // namespaces and names.
 type executorManager struct {
-	mutex    sync.Mutex
-	opts     map[string]e.ScopedOptions
-	executor atomic.Pointer[e.ScopedExecutor]
+	mutex sync.Mutex
+	opts  map[string]e.ScopedOptions
+	// generations records the last successfully applied metadata.generation
+	// for each Executor resource. It is used to tell a genuine desired-state
+	// change (spec was edited) apart from a re-reconcile of an unchanged spec
+	// (e.g. periodic resync) so that only the former is treated as an
+	// enforcement gap when the build fails.
+	generations map[string]int64
+	executor    atomic.Pointer[e.ScopedExecutor]
 }
 
 // GlobalExecutorManager is an instance of executorManager that is used by
@@ -42,7 +49,8 @@ var GlobalExecutorManager executorManager
 
 func init() {
 	GlobalExecutorManager = executorManager{
-		opts: make(map[string]e.ScopedOptions),
+		opts:        make(map[string]e.ScopedOptions),
+		generations: make(map[string]int64),
 	}
 }
 
@@ -67,9 +75,45 @@ func (m *executorManager) upsertExecutor(namespace, name string, opts *configv2a
 	}
 
 	key := createOptsKey(namespace, name)
+	prevOpts, existed := m.opts[key]
+	prevGen, genTracked := m.generations[key]
+	newGen := opts.GetGeneration()
 	m.opts[key] = scopedOpts
 
-	return m.refreshExecutor()
+	if err := m.refreshExecutor(); err != nil {
+		// Roll back the desired-state map so that a single broken config does
+		// not pollute m.opts and block subsequent reconciles of other
+		// (valid, unrelated) Executor resources.
+		if existed {
+			m.opts[key] = prevOpts
+		} else {
+			delete(m.opts, key)
+		}
+
+		// If a previously built executor is still being served, the data plane
+		// keeps enforcing the last-known-good config. Warn loudly only when the
+		// spec actually changed (metadata.generation advanced): that is an
+		// operator edit that is silently NOT enforced until the config is fixed
+		// or the provider is restarted. An unchanged generation means a
+		// transient failure (e.g. a dependency such as Azure Key Vault was
+		// briefly unreachable) on a re-reconcile of the same spec, where
+		// retaining the cached executor is the intended graceful degradation.
+		if m.executor.Load() != nil {
+			specChanged := !genTracked || prevGen != newGen
+			if specChanged {
+				logf.Log.Error(err, "Executor configuration changed but failed to build; retaining the last-known-good executor. The updated configuration is NOT enforced on the data plane until the invalid config is corrected or the provider is restarted", "executor", key, "generation", newGen)
+			} else {
+				logf.Log.Info("Failed to rebuild Executor from an unchanged configuration (likely a transient error); retaining the last-known-good executor", "executor", key, "generation", newGen)
+			}
+		}
+		return err
+	}
+
+	if m.generations == nil {
+		m.generations = make(map[string]int64)
+	}
+	m.generations[key] = newGen
+	return nil
 }
 
 // deleteExecutor removes an executor instance under the given namespace and
@@ -81,6 +125,7 @@ func (m *executorManager) deleteExecutor(namespace, name string) error {
 	key := createOptsKey(namespace, name)
 	if _, exists := m.opts[key]; exists {
 		delete(m.opts, key)
+		delete(m.generations, key)
 		return m.refreshExecutor()
 	}
 	return fmt.Errorf("executor resource: %s/%s is not found", namespace, name)
