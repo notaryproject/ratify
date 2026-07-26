@@ -145,8 +145,10 @@ func setupCRDControllers(mgr ctrl.Manager, disableCRDManager bool) {
 
 	setupLog.Info("setting up CRD controllers")
 	if err := (&controller.ExecutorReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		PodName:      pod.Name(),
+		PodNamespace: pod.Namespace(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "could not set up Executor reconciler")
 		os.Exit(1)
@@ -157,6 +159,14 @@ func setupCRDControllers(mgr ctrl.Manager, disableCRDManager bool) {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "could not set up NamespacedExecutor reconciler")
+		os.Exit(1)
+	}
+
+	if err := (&controller.ExecutorPodStatusReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "could not set up ExecutorPodStatus reconciler")
 		os.Exit(1)
 	}
 }
