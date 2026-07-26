@@ -35,10 +35,8 @@ type executorManager struct {
 	mutex sync.Mutex
 	opts  map[string]e.ScopedOptions
 	// generations records the last successfully applied metadata.generation
-	// for each Executor resource. It is used to tell a genuine desired-state
-	// change (spec was edited) apart from a re-reconcile of an unchanged spec
-	// (e.g. periodic resync) so that only the former is treated as an
-	// enforcement gap when the build fails.
+	// per resource, used to tell a real spec change apart from a re-reconcile
+	// of an unchanged spec.
 	generations map[string]int64
 	executor    atomic.Pointer[e.ScopedExecutor]
 }
