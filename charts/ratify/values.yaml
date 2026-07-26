@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/notaryproject/ratify
   crdRepository: ghcr.io/notaryproject/ratify-crds
-  tag: v1.4.3
+  tag: v1.4.4
   pullPolicy: IfNotPresent
 
 nameOverride: ""
