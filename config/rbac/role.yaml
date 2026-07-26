@@ -49,8 +49,17 @@ rules:
   - patch
   - update
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - config.ratify.dev
   resources:
+  - executorpodstatuses
   - executors
   verbs:
   - create
@@ -63,14 +72,15 @@ rules:
 - apiGroups:
   - config.ratify.dev
   resources:
-  - executors/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - config.ratify.dev
-  resources:
+  - executorpodstatuses/status
   - executors/status
   verbs:
   - get
   - patch
+  - update
+- apiGroups:
+  - config.ratify.dev
+  resources:
+  - executors/finalizers
+  verbs:
   - update
