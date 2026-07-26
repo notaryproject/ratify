@@ -77,31 +77,31 @@ func (m *executorManager) upsertExecutor(namespace, name string, opts *configv2a
 	m.opts[key] = scopedOpts
 
 	if err := m.refreshExecutor(); err != nil {
-		// Roll back the desired-state map so that a single broken config does
-		// not pollute m.opts and block subsequent reconciles of other
-		// (valid, unrelated) Executor resources.
+		specChanged := !genTracked || prevGen != newGen
+		if specChanged {
+			// The operator changed the spec and the new config is invalid.
+			// Force the update: converge to the (broken) desired state and
+			// fail closed so the data plane rejects new requests until the
+			// config is fixed. Keep the new opts so we stay converged and do
+			// NOT record the generation (it was never successfully applied).
+			//
+			// NOTE: a single shared ScopedExecutor backs all CRDs, so this
+			// fails closed the whole data plane, not just the changed scope.
+			m.executor.Store(nil)
+			logf.Log.Error(err, "Executor configuration changed but failed to build; failing closed. New requests will be REJECTED until the invalid config is corrected", "executor", key, "generation", newGen)
+			return err
+		}
+
+		// Unchanged spec: the failure is most likely transient (e.g. a
+		// dependency such as Azure Key Vault was briefly unreachable). Retain
+		// the last-known-good executor and roll back the desired-state map so
+		// it stays consistent with what is being served.
 		if existed {
 			m.opts[key] = prevOpts
 		} else {
 			delete(m.opts, key)
 		}
-
-		// If a previously built executor is still being served, the data plane
-		// keeps enforcing the last-known-good config. Warn loudly only when the
-		// spec actually changed (metadata.generation advanced): that is an
-		// operator edit that is silently NOT enforced until the config is fixed
-		// or the provider is restarted. An unchanged generation means a
-		// transient failure (e.g. a dependency such as Azure Key Vault was
-		// briefly unreachable) on a re-reconcile of the same spec, where
-		// retaining the cached executor is the intended graceful degradation.
-		if m.executor.Load() != nil {
-			specChanged := !genTracked || prevGen != newGen
-			if specChanged {
-				logf.Log.Error(err, "Executor configuration changed but failed to build; retaining the last-known-good executor. The updated configuration is NOT enforced on the data plane until the invalid config is corrected or the provider is restarted", "executor", key, "generation", newGen)
-			} else {
-				logf.Log.Info("Failed to rebuild Executor from an unchanged configuration (likely a transient error); retaining the last-known-good executor", "executor", key, "generation", newGen)
-			}
-		}
+		logf.Log.Info("Failed to rebuild Executor from an unchanged configuration (likely a transient error); retaining the last-known-good executor", "executor", key, "generation", newGen)
 		return err
 	}
 
