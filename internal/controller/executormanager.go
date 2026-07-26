@@ -34,9 +34,7 @@ import (
 type executorManager struct {
 	mutex sync.Mutex
 	opts  map[string]e.ScopedOptions
-	// generations records the last successfully applied metadata.generation
-	// per resource, used to tell a real spec change apart from a re-reconcile
-	// of an unchanged spec.
+	// generations records the last successfully applied generation per resource.
 	generations map[string]int64
 	executor    atomic.Pointer[e.ScopedExecutor]
 }
