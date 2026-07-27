@@ -20,7 +20,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SUFFIX=$(openssl rand -hex 2)
+SUFFIX=$(openssl rand -hex 6)
 export GROUP_NAME="${GROUP_NAME:-ratify-e2e-${SUFFIX}}"
 export ACR_NAME="${ACR_NAME:-ratifyacr${SUFFIX}}"
 export AKS_NAME="${AKS_NAME:-ratify-aks-${SUFFIX}}"
