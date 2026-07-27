@@ -5,52 +5,17 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - config.ratify.deislabs.io
+  - ""
   resources:
-  - certificatestores
-  - namespacedpolicies
-  - namespacedstores
-  - namespacedverifiers
-  - policies
-  - stores
-  - verifiers
+  - pods
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
-- apiGroups:
-  - config.ratify.deislabs.io
-  resources:
-  - certificatestores/finalizers
-  - namespacedpolicies/finalizers
-  - namespacedstores/finalizers
-  - namespacedverifiers/finalizers
-  - policies/finalizers
-  - stores/finalizers
-  - verifiers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - config.ratify.deislabs.io
-  resources:
-  - certificatestores/status
-  - namespacedpolicies/status
-  - namespacedstores/status
-  - namespacedverifiers/status
-  - policies/status
-  - stores/status
-  - verifiers/status
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - config.ratify.dev
   resources:
+  - executorpodstatuses
   - executors
   verbs:
   - create
@@ -63,14 +28,15 @@ rules:
 - apiGroups:
   - config.ratify.dev
   resources:
-  - executors/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - config.ratify.dev
-  resources:
+  - executorpodstatuses/status
   - executors/status
   verbs:
   - get
   - patch
+  - update
+- apiGroups:
+  - config.ratify.dev
+  resources:
+  - executors/finalizers
+  verbs:
   - update

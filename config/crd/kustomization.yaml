@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/config.ratify.dev_executors.yaml
+- bases/config.ratify.dev_executorpodstatuses.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

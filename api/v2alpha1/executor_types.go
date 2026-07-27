@@ -103,6 +103,15 @@ type ExecutorStatus struct {
 	// Truncated error message if the message is too long.
 	// +optional
 	BriefError string `json:"briefError,omitempty"`
+
+	// ByPod reports the status observed by each individual Ratify pod (replica).
+	// It is aggregated from the per-pod ExecutorPodStatus objects and lets an
+	// operator tell, for example, that "2 of 5 replicas are unhealthy" instead
+	// of the top-level fields flapping under last-writer-wins.
+	// +optional
+	// +listType=map
+	// +listMapKey=id
+	ByPod []PodStatusEntry `json:"byPod,omitempty"`
 }
 
 // +kubebuilder:object:root=true
