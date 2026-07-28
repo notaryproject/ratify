@@ -47,6 +47,7 @@ const (
 type IdentityProvider struct {
 	clientID string
 	tenantID string
+	ibConfig *azure.IdentityBindingConfig
 }
 
 // IdentityProviderOptions contains configuration options for the Azure identity
@@ -57,6 +58,28 @@ type IdentityProviderOptions struct {
 	ClientID string `json:"clientID,omitempty"`
 	// TenantID is the Azure AD tenant ID where the application is registered
 	TenantID string `json:"tenantID,omitempty"`
+	// IdentityBinding, when set, enables ACR authentication via the Kubernetes
+	// identity binding token exchange (the cluster API server acts as the token
+	// issuer) instead of Entra Workload Identity federation.
+	IdentityBinding *IdentityBindingOptions `json:"identityBinding,omitempty"`
+}
+
+// IdentityBindingOptions contains configuration for Kubernetes identity binding
+// based ACR authentication.
+type IdentityBindingOptions struct {
+	// SNIName is the server name presented for the TLS handshake and used to
+	// build the identity binding token endpoint URL. It must not contain a
+	// protocol prefix.
+	SNIName string `json:"sniName,omitempty"`
+	// APIServerIP is the IP address (or resolvable host) the SNIName is dialed
+	// against.
+	APIServerIP string `json:"apiServerIP,omitempty"`
+	// TokenFilePath is the path to the projected service account token used as
+	// the client assertion. Defaults to the AZURE_FEDERATED_TOKEN_FILE env var.
+	TokenFilePath string `json:"tokenFilePath,omitempty"`
+	// CACertPath is the path to the cluster CA certificate used to validate the
+	// TLS connection. Defaults to /etc/kubernetes/certs/ca.crt.
+	CACertPath string `json:"caCertPath,omitempty"`
 }
 
 func init() {
@@ -83,6 +106,14 @@ func createAzureIdentityProvider(opts credentialprovider.Options) (ratify.Regist
 		clientID: azureOpts.ClientID,
 		tenantID: azureOpts.TenantID,
 	}
+	if ib := azureOpts.IdentityBinding; ib != nil && ib.SNIName != "" {
+		azureProvider.ibConfig = &azure.IdentityBindingConfig{
+			SNIName:       ib.SNIName,
+			APIServerIP:   ib.APIServerIP,
+			TokenFilePath: ib.TokenFilePath,
+			CACertPath:    ib.CACertPath,
+		}
+	}
 
 	// Wrap with caching provider
 	return credentialprovider.NewCachedProvider(azureProvider)
@@ -91,9 +122,10 @@ func createAzureIdentityProvider(opts credentialprovider.Options) (ratify.Regist
 // GetWithTTL implements credentialprovider.CredentialSourceProvider interface.
 // It retrieves the registry credentials from Azure with TTL information.
 func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string) (credentialprovider.CredentialWithTTL, error) {
-	// Step 1: Create a ChainedTokenCredential in the order: workload identity,
-	// managed identity.
-	chain, err := azure.CreateCredentialChain(p.clientID, p.tenantID)
+	// Step 1: Create a ChainedTokenCredential. When identity binding is
+	// configured it is tried first, followed by workload identity and managed
+	// identity.
+	chain, err := azure.CreateCredentialChainWithIdentityBinding(p.clientID, p.tenantID, p.ibConfig)
 	if err != nil {
 		return credentialprovider.CredentialWithTTL{}, fmt.Errorf("failed to create credential chain: %w", err)
 	}
