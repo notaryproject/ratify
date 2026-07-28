@@ -36,42 +36,94 @@ import (
 )
 
 const (
+	// EnvIdentityBindingSNIName is the environment variable that carries the SNI
+	// host of the cluster identity binding local authority. On AKS it is
+	// injected by the platform from ServiceAccountImagePullProfile.LocalAuthoritySNI
+	// (the same value AgentBaker passes to the ACR credential provider via
+	// --ib-sni-name). It is a per-cluster value.
+	EnvIdentityBindingSNIName = "AZURE_ACR_IDENTITY_BINDING_SNI_NAME"
+
+	// EnvIdentityBindingAPIServerHost is the environment variable that carries
+	// the host (IP or FQDN) the SNI name is dialed against. On AKS this is the
+	// API server FQDN (the same value AgentBaker passes via --ib-apiserver-ip).
+	// It is a per-cluster value.
+	EnvIdentityBindingAPIServerHost = "AZURE_ACR_IDENTITY_BINDING_APISERVER_HOST"
+
+	// EnvIdentityBindingTokenFile optionally overrides the path to the projected
+	// service account token used as the client assertion.
+	EnvIdentityBindingTokenFile = "AZURE_ACR_IDENTITY_BINDING_TOKEN_FILE"
+
+	// EnvIdentityBindingCACertPath optionally overrides the path to the cluster
+	// CA certificate used to validate the TLS connection.
+	EnvIdentityBindingCACertPath = "AZURE_ACR_IDENTITY_BINDING_CA_CERT_PATH"
+
 	// defaultKubernetesCACertPath is the default path to the cluster CA
 	// certificate used to validate the TLS connection to the identity binding
 	// token endpoint.
 	defaultKubernetesCACertPath = "/etc/kubernetes/certs/ca.crt"
 
-	// federatedTokenFileEnvVar is injected by the Azure Workload Identity
-	// mutating webhook and points at the projected service account token. The
-	// same token is used as the client assertion for identity binding.
-	federatedTokenFileEnvVar = "AZURE_FEDERATED_TOKEN_FILE"
+	// defaultServiceAccountTokenPath is the standard path of the projected
+	// service account token Kubernetes mounts into every pod. The token used for
+	// identity binding must be projected with the audience the cluster identity
+	// binding local authority requires (api://AKSIdentityBinding on AKS); that
+	// projection is configured on the pod spec, not by this credential.
+	defaultServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101 -- well-known mount path, not a credential
 
 	// clientAssertionType is the OAuth2 client assertion type for a JWT bearer
 	// assertion.
 	clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 )
 
-// IdentityBindingConfig contains the configuration required to authenticate to
-// Azure Container Registry using Kubernetes identity binding.
+// IdentityBindingConfig contains the resolved configuration required to
+// authenticate to Azure Container Registry using Kubernetes identity binding.
 //
 // With identity binding the cluster API server itself acts as the token issuer:
 // the projected service account token is exchanged, over a TLS connection whose
 // SNI host resolves to the API server, for an AAD access token. This removes the
 // dependency on the Entra Workload Identity federation endpoint.
+//
+// SNIName and APIServerHost are cluster-scoped infrastructure values injected by
+// the platform (see LoadIdentityBindingConfigFromEnv); they are not surfaced to
+// end users.
 type IdentityBindingConfig struct {
 	// SNIName is the server name presented for the TLS handshake and used to
-	// build the token endpoint URL (https://<SNIName>). It must not contain a
-	// protocol prefix.
+	// build the token endpoint URL (https://<SNIName>).
 	SNIName string
-	// APIServerIP is the IP address (or resolvable host) the SNIName is dialed
-	// against. All requests are routed to this address regardless of DNS.
-	APIServerIP string
+	// APIServerHost is the host (IP or FQDN) the SNIName is dialed against. All
+	// requests are routed to this host regardless of the SNI name.
+	APIServerHost string
 	// TokenFilePath is the path to the projected service account token used as
-	// the client assertion. Defaults to the AZURE_FEDERATED_TOKEN_FILE env var.
+	// the client assertion. Defaults to the standard projected token path.
 	TokenFilePath string
 	// CACertPath is the path to the cluster CA certificate used to validate the
 	// TLS connection. Defaults to /etc/kubernetes/certs/ca.crt.
 	CACertPath string
+}
+
+// LoadIdentityBindingConfigFromEnv builds an IdentityBindingConfig from the
+// platform-injected environment variables. It returns (nil, nil) when identity
+// binding is not configured (no SNI name present), so callers can treat a nil
+// result as "identity binding disabled".
+func LoadIdentityBindingConfigFromEnv() (*IdentityBindingConfig, error) {
+	sniName := strings.TrimSpace(os.Getenv(EnvIdentityBindingSNIName))
+	if sniName == "" {
+		return nil, nil
+	}
+	if strings.HasPrefix(sniName, "https://") || strings.HasPrefix(sniName, "http://") {
+		return nil, fmt.Errorf("%s must not contain a protocol prefix, got: %s", EnvIdentityBindingSNIName, sniName)
+	}
+
+	apiServerHost := strings.TrimSpace(os.Getenv(EnvIdentityBindingAPIServerHost))
+	if apiServerHost == "" {
+		return nil, fmt.Errorf("%s must be set when %s is provided", EnvIdentityBindingAPIServerHost, EnvIdentityBindingSNIName)
+	}
+
+	return &IdentityBindingConfig{
+		SNIName:       sniName,
+		APIServerHost: apiServerHost,
+		TokenFilePath: strings.TrimSpace(os.Getenv(EnvIdentityBindingTokenFile)),
+		CACertPath:    strings.TrimSpace(os.Getenv(EnvIdentityBindingCACertPath)),
+	}, nil
 }
 
 // identityBindingCredential implements [azcore.TokenCredential] using the
@@ -81,7 +133,7 @@ type identityBindingCredential struct {
 	tenantID      string
 	endpoint      string
 	sniName       string
-	apiServerIP   string
+	apiServerHost string
 	tokenFilePath string
 	caCertPath    string
 
@@ -96,12 +148,12 @@ type tokenResponse struct {
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
-// NewIdentityBindingCredential creates an [azcore.TokenCredential] that obtains
+// newIdentityBindingCredential creates an [azcore.TokenCredential] that obtains
 // AAD access tokens through the Kubernetes identity binding token exchange.
 //
 // clientID and tenantID fall back to the AZURE_CLIENT_ID and AZURE_TENANT_ID
 // environment variables respectively when empty.
-func NewIdentityBindingCredential(clientID, tenantID string, cfg IdentityBindingConfig) (azcore.TokenCredential, error) {
+func newIdentityBindingCredential(clientID, tenantID string, cfg IdentityBindingConfig) (azcore.TokenCredential, error) {
 	sniName := strings.TrimSpace(cfg.SNIName)
 	if sniName == "" {
 		return nil, fmt.Errorf("identity binding SNI name is required")
@@ -110,9 +162,9 @@ func NewIdentityBindingCredential(clientID, tenantID string, cfg IdentityBinding
 		return nil, fmt.Errorf("identity binding SNI name must not contain a protocol prefix, got: %s", sniName)
 	}
 
-	apiServerIP := strings.TrimSpace(cfg.APIServerIP)
-	if apiServerIP == "" {
-		return nil, fmt.Errorf("identity binding API server IP is required")
+	apiServerHost := strings.TrimSpace(cfg.APIServerHost)
+	if apiServerHost == "" {
+		return nil, fmt.Errorf("identity binding API server host is required")
 	}
 
 	if clientID == "" {
@@ -127,10 +179,7 @@ func NewIdentityBindingCredential(clientID, tenantID string, cfg IdentityBinding
 
 	tokenFilePath := cfg.TokenFilePath
 	if tokenFilePath == "" {
-		tokenFilePath = os.Getenv(federatedTokenFileEnvVar)
-	}
-	if tokenFilePath == "" {
-		return nil, fmt.Errorf("identity binding requires a service account token file (set tokenFilePath or the %s environment variable)", federatedTokenFileEnvVar)
+		tokenFilePath = defaultServiceAccountTokenPath
 	}
 
 	caCertPath := cfg.CACertPath
@@ -143,7 +192,7 @@ func NewIdentityBindingCredential(clientID, tenantID string, cfg IdentityBinding
 		tenantID:      tenantID,
 		endpoint:      "https://" + sniName,
 		sniName:       sniName,
-		apiServerIP:   apiServerIP,
+		apiServerHost: apiServerHost,
 		tokenFilePath: tokenFilePath,
 		caCertPath:    caCertPath,
 	}, nil
@@ -223,8 +272,8 @@ func (c *identityBindingCredential) GetToken(ctx context.Context, opts policy.To
 }
 
 // getTransport lazily builds and caches an HTTP transport that dials the fixed
-// API server IP while presenting the configured SNI name and validating against
-// the cluster CA.
+// API server host while presenting the configured SNI name and validating
+// against the cluster CA.
 func (c *identityBindingCredential) getTransport() (*http.Transport, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -246,14 +295,14 @@ func (c *identityBindingCredential) getTransport() (*http.Transport, error) {
 		return nil, fmt.Errorf("failed to parse CA file %q: no valid certificates found", c.caCertPath)
 	}
 
-	c.transport = newIdentityBindingTransport(c.sniName, c.apiServerIP, caPool)
+	c.transport = newIdentityBindingTransport(c.sniName, c.apiServerHost, caPool)
 	return c.transport, nil
 }
 
 // newIdentityBindingTransport builds an HTTP transport whose dialer always
-// connects to apiServerIP while the TLS handshake presents sniName and is
-// validated against caPool.
-func newIdentityBindingTransport(sniName, apiServerIP string, caPool *x509.CertPool) *http.Transport {
+// connects to apiServerHost (IP or FQDN) while the TLS handshake presents
+// sniName and is validated against caPool.
+func newIdentityBindingTransport(sniName, apiServerHost string, caPool *x509.CertPool) *http.Transport {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	// Do not use any environment proxy: the endpoint is reached directly.
 	transport.Proxy = nil
@@ -263,7 +312,9 @@ func newIdentityBindingTransport(sniName, apiServerIP string, caPool *x509.CertP
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse address %s: %w", addr, err)
 		}
-		fixedAddr := net.JoinHostPort(apiServerIP, port)
+		// Route to the API server host (IP or FQDN) regardless of the SNI host
+		// in the request URL. A FQDN is resolved by the dialer at connect time.
+		fixedAddr := net.JoinHostPort(apiServerHost, port)
 		dialer := &net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,

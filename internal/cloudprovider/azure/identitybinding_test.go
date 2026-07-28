@@ -34,6 +34,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 )
 
+const testACRScope = "https://containerregistry.azure.net/.default"
+
 func writeTempFile(t *testing.T, name, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
@@ -41,6 +43,109 @@ func writeTempFile(t *testing.T, name, content string) string {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 	return path
+}
+
+func TestLoadIdentityBindingConfigFromEnv(t *testing.T) {
+	tests := []struct {
+		name        string
+		env         map[string]string
+		expectNil   bool
+		expectError bool
+		assert      func(t *testing.T, cfg *IdentityBindingConfig)
+	}{
+		{
+			name:      "not configured returns nil",
+			env:       map[string]string{},
+			expectNil: true,
+		},
+		{
+			name: "sni without api server host errors",
+			env: map[string]string{
+				EnvIdentityBindingSNIName: "sni.example.com",
+			},
+			expectError: true,
+		},
+		{
+			name: "sni with protocol prefix errors",
+			env: map[string]string{
+				EnvIdentityBindingSNIName:       "https://sni.example.com",
+				EnvIdentityBindingAPIServerHost: "apiserver.example.com",
+			},
+			expectError: true,
+		},
+		{
+			name: "valid minimal config",
+			env: map[string]string{
+				EnvIdentityBindingSNIName:       "sni.example.com",
+				EnvIdentityBindingAPIServerHost: "apiserver.example.com",
+			},
+			assert: func(t *testing.T, cfg *IdentityBindingConfig) {
+				if cfg.SNIName != "sni.example.com" {
+					t.Errorf("unexpected SNIName: %s", cfg.SNIName)
+				}
+				if cfg.APIServerHost != "apiserver.example.com" {
+					t.Errorf("unexpected APIServerHost: %s", cfg.APIServerHost)
+				}
+			},
+		},
+		{
+			name: "valid with overrides",
+			env: map[string]string{
+				EnvIdentityBindingSNIName:       "sni.example.com",
+				EnvIdentityBindingAPIServerHost: "10.0.0.1",
+				EnvIdentityBindingTokenFile:     "/custom/token",
+				EnvIdentityBindingCACertPath:    "/custom/ca.crt",
+			},
+			assert: func(t *testing.T, cfg *IdentityBindingConfig) {
+				if cfg.TokenFilePath != "/custom/token" {
+					t.Errorf("unexpected TokenFilePath: %s", cfg.TokenFilePath)
+				}
+				if cfg.CACertPath != "/custom/ca.crt" {
+					t.Errorf("unexpected CACertPath: %s", cfg.CACertPath)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Ensure a clean slate for the identity binding env vars.
+			for _, k := range []string{
+				EnvIdentityBindingSNIName,
+				EnvIdentityBindingAPIServerHost,
+				EnvIdentityBindingTokenFile,
+				EnvIdentityBindingCACertPath,
+			} {
+				t.Setenv(k, "")
+			}
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+
+			cfg, err := LoadIdentityBindingConfigFromEnv()
+			if tt.expectError {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.expectNil {
+				if cfg != nil {
+					t.Fatalf("expected nil config, got %+v", cfg)
+				}
+				return
+			}
+			if cfg == nil {
+				t.Fatal("expected non-nil config")
+			}
+			if tt.assert != nil {
+				tt.assert(t, cfg)
+			}
+		})
+	}
 }
 
 func TestNewIdentityBindingCredential(t *testing.T) {
@@ -57,56 +162,49 @@ func TestNewIdentityBindingCredential(t *testing.T) {
 		{
 			name:        "missing SNI name",
 			clientID:    "client",
-			cfg:         IdentityBindingConfig{APIServerIP: "10.0.0.1", TokenFilePath: tokenFile},
+			cfg:         IdentityBindingConfig{APIServerHost: "apiserver.example.com", TokenFilePath: tokenFile},
 			expectError: true,
 		},
 		{
 			name:        "SNI name with protocol prefix",
 			clientID:    "client",
-			cfg:         IdentityBindingConfig{SNIName: "https://sni.example.com", APIServerIP: "10.0.0.1", TokenFilePath: tokenFile},
+			cfg:         IdentityBindingConfig{SNIName: "https://sni.example.com", APIServerHost: "apiserver.example.com", TokenFilePath: tokenFile},
 			expectError: true,
 		},
 		{
-			name:        "missing API server IP",
+			name:        "missing API server host",
 			clientID:    "client",
 			cfg:         IdentityBindingConfig{SNIName: "sni.example.com", TokenFilePath: tokenFile},
 			expectError: true,
 		},
 		{
 			name:        "missing client ID",
-			cfg:         IdentityBindingConfig{SNIName: "sni.example.com", APIServerIP: "10.0.0.1", TokenFilePath: tokenFile},
+			cfg:         IdentityBindingConfig{SNIName: "sni.example.com", APIServerHost: "apiserver.example.com", TokenFilePath: tokenFile},
 			expectError: true,
 		},
 		{
-			name:        "missing token file",
-			clientID:    "client",
-			cfg:         IdentityBindingConfig{SNIName: "sni.example.com", APIServerIP: "10.0.0.1"},
-			expectError: true,
+			name:     "valid explicit config",
+			clientID: "client",
+			tenantID: "tenant",
+			cfg:      IdentityBindingConfig{SNIName: "sni.example.com", APIServerHost: "apiserver.example.com", TokenFilePath: tokenFile},
 		},
 		{
-			name:        "valid explicit config",
-			clientID:    "client",
-			tenantID:    "tenant",
-			cfg:         IdentityBindingConfig{SNIName: "sni.example.com", APIServerIP: "10.0.0.1", TokenFilePath: tokenFile},
-			expectError: false,
-		},
-		{
-			name:        "valid using env fallbacks",
-			cfg:         IdentityBindingConfig{SNIName: "sni.example.com", APIServerIP: "10.0.0.1"},
-			env:         map[string]string{"AZURE_CLIENT_ID": "env-client", federatedTokenFileEnvVar: tokenFile},
-			expectError: false,
+			name: "valid using env fallback for client ID and default token path",
+			cfg:  IdentityBindingConfig{SNIName: "sni.example.com", APIServerHost: "apiserver.example.com"},
+			env:  map[string]string{"AZURE_CLIENT_ID": "env-client"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("AZURE_CLIENT_ID", "")
 			for k, v := range tt.env {
 				t.Setenv(k, v)
 			}
-			cred, err := NewIdentityBindingCredential(tt.clientID, tt.tenantID, tt.cfg)
+			cred, err := newIdentityBindingCredential(tt.clientID, tt.tenantID, tt.cfg)
 			if tt.expectError {
 				if err == nil {
-					t.Fatalf("expected error, got nil")
+					t.Fatal("expected error, got nil")
 				}
 				return
 			}
@@ -123,7 +221,25 @@ func TestNewIdentityBindingCredential(t *testing.T) {
 			if ibCred.caCertPath != defaultKubernetesCACertPath {
 				t.Errorf("expected default CA path, got %s", ibCred.caCertPath)
 			}
+			if ibCred.tokenFilePath == "" {
+				t.Error("expected a token file path to be set")
+			}
 		})
+	}
+}
+
+func TestNewIdentityBindingCredential_DefaultTokenPath(t *testing.T) {
+	t.Setenv("AZURE_CLIENT_ID", "")
+	cred, err := newIdentityBindingCredential("client", "tenant", IdentityBindingConfig{
+		SNIName:       "sni.example.com",
+		APIServerHost: "apiserver.example.com",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	ibCred := cred.(*identityBindingCredential)
+	if ibCred.tokenFilePath != defaultServiceAccountTokenPath {
+		t.Errorf("expected default SA token path %s, got %s", defaultServiceAccountTokenPath, ibCred.tokenFilePath)
 	}
 }
 
@@ -153,7 +269,7 @@ func TestIdentityBindingCredential_GetToken_Success(t *testing.T) {
 		transport:     http.DefaultTransport.(*http.Transport).Clone(),
 	}
 
-	token, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{"https://containerregistry.azure.net/.default"}})
+	token, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{testACRScope}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -170,7 +286,7 @@ func TestIdentityBindingCredential_GetToken_Success(t *testing.T) {
 	if gotForm["client_assertion_type"] != clientAssertionType {
 		t.Errorf("unexpected client_assertion_type: %s", gotForm["client_assertion_type"])
 	}
-	if gotForm["scope"] != "https://containerregistry.azure.net/.default" {
+	if gotForm["scope"] != testACRScope {
 		t.Errorf("unexpected scope: %s", gotForm["scope"])
 	}
 	if gotForm["client_assertion"] != "sa-token-value" {
@@ -193,7 +309,7 @@ func TestIdentityBindingCredential_GetToken_Errors(t *testing.T) {
 
 	t.Run("missing token file", func(t *testing.T) {
 		cred := &identityBindingCredential{tokenFilePath: filepath.Join(t.TempDir(), "does-not-exist"), transport: http.DefaultTransport.(*http.Transport).Clone()}
-		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{"https://containerregistry.azure.net/.default"}}); err == nil {
+		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{testACRScope}}); err == nil {
 			t.Fatal("expected error for missing token file")
 		}
 	})
@@ -201,7 +317,7 @@ func TestIdentityBindingCredential_GetToken_Errors(t *testing.T) {
 	t.Run("empty token file", func(t *testing.T) {
 		empty := writeTempFile(t, "empty", "")
 		cred := &identityBindingCredential{tokenFilePath: empty, transport: http.DefaultTransport.(*http.Transport).Clone()}
-		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{"https://containerregistry.azure.net/.default"}}); err == nil {
+		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{testACRScope}}); err == nil {
 			t.Fatal("expected error for empty token file")
 		}
 	})
@@ -213,7 +329,7 @@ func TestIdentityBindingCredential_GetToken_Errors(t *testing.T) {
 		}))
 		defer server.Close()
 		cred := &identityBindingCredential{clientID: "c", endpoint: server.URL, tokenFilePath: tokenFile, transport: http.DefaultTransport.(*http.Transport).Clone()}
-		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{"https://containerregistry.azure.net/.default"}}); err == nil {
+		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{testACRScope}}); err == nil {
 			t.Fatal("expected error for non-200 response")
 		}
 	})
@@ -224,7 +340,7 @@ func TestIdentityBindingCredential_GetToken_Errors(t *testing.T) {
 		}))
 		defer server.Close()
 		cred := &identityBindingCredential{clientID: "c", endpoint: server.URL, tokenFilePath: tokenFile, transport: http.DefaultTransport.(*http.Transport).Clone()}
-		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{"https://containerregistry.azure.net/.default"}}); err == nil {
+		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{testACRScope}}); err == nil {
 			t.Fatal("expected error for invalid json")
 		}
 	})
@@ -235,7 +351,7 @@ func TestIdentityBindingCredential_GetToken_Errors(t *testing.T) {
 		}))
 		defer server.Close()
 		cred := &identityBindingCredential{clientID: "c", endpoint: server.URL, tokenFilePath: tokenFile, transport: http.DefaultTransport.(*http.Transport).Clone()}
-		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{"https://containerregistry.azure.net/.default"}}); err == nil {
+		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{testACRScope}}); err == nil {
 			t.Fatal("expected error for empty access token")
 		}
 	})
@@ -246,7 +362,7 @@ func TestIdentityBindingCredential_GetTransport(t *testing.T) {
 
 	t.Run("valid CA", func(t *testing.T) {
 		caFile := writeTempFile(t, "ca.crt", caPEM)
-		cred := &identityBindingCredential{sniName: "sni.example.com", apiServerIP: "10.0.0.1", caCertPath: caFile}
+		cred := &identityBindingCredential{sniName: "sni.example.com", apiServerHost: "apiserver.example.com", caCertPath: caFile}
 		transport, err := cred.getTransport()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -260,7 +376,6 @@ func TestIdentityBindingCredential_GetTransport(t *testing.T) {
 		if transport.Proxy != nil {
 			t.Error("expected Proxy to be nil")
 		}
-		// second call returns cached transport
 		transport2, err := cred.getTransport()
 		if err != nil || transport2 != transport {
 			t.Error("expected cached transport on second call")
@@ -299,7 +414,7 @@ func TestCreateCredentialChainWithIdentityBinding(t *testing.T) {
 	t.Run("valid identity binding config", func(t *testing.T) {
 		cred, err := CreateCredentialChainWithIdentityBinding("client", "tenant", &IdentityBindingConfig{
 			SNIName:       "sni.example.com",
-			APIServerIP:   "10.0.0.1",
+			APIServerHost: "apiserver.example.com",
 			TokenFilePath: tokenFile,
 		})
 		if err != nil {
@@ -314,7 +429,7 @@ func TestCreateCredentialChainWithIdentityBinding(t *testing.T) {
 		_, err := CreateCredentialChainWithIdentityBinding("client", "tenant", &IdentityBindingConfig{
 			SNIName:       "sni.example.com",
 			TokenFilePath: tokenFile,
-			// APIServerIP missing
+			// APIServerHost missing
 		})
 		if err == nil {
 			t.Fatal("expected error for invalid identity binding config")

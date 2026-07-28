@@ -61,25 +61,20 @@ type IdentityProviderOptions struct {
 	// IdentityBinding, when set, enables ACR authentication via the Kubernetes
 	// identity binding token exchange (the cluster API server acts as the token
 	// issuer) instead of Entra Workload Identity federation.
+	//
+	// Only the enable switch is user-configurable: the cluster-scoped endpoint
+	// details (SNI host, API server host, CA path, token audience) are injected
+	// by the platform through environment variables and are not surfaced here.
 	IdentityBinding *IdentityBindingOptions `json:"identityBinding,omitempty"`
 }
 
-// IdentityBindingOptions contains configuration for Kubernetes identity binding
-// based ACR authentication.
+// IdentityBindingOptions is the user-facing switch for Kubernetes identity
+// binding based ACR authentication.
 type IdentityBindingOptions struct {
-	// SNIName is the server name presented for the TLS handshake and used to
-	// build the identity binding token endpoint URL. It must not contain a
-	// protocol prefix.
-	SNIName string `json:"sniName,omitempty"`
-	// APIServerIP is the IP address (or resolvable host) the SNIName is dialed
-	// against.
-	APIServerIP string `json:"apiServerIP,omitempty"`
-	// TokenFilePath is the path to the projected service account token used as
-	// the client assertion. Defaults to the AZURE_FEDERATED_TOKEN_FILE env var.
-	TokenFilePath string `json:"tokenFilePath,omitempty"`
-	// CACertPath is the path to the cluster CA certificate used to validate the
-	// TLS connection. Defaults to /etc/kubernetes/certs/ca.crt.
-	CACertPath string `json:"caCertPath,omitempty"`
+	// Enabled turns on identity binding authentication. The cluster-specific
+	// endpoint configuration is resolved from platform-injected environment
+	// variables (see azure.LoadIdentityBindingConfigFromEnv).
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 func init() {
@@ -106,13 +101,15 @@ func createAzureIdentityProvider(opts credentialprovider.Options) (ratify.Regist
 		clientID: azureOpts.ClientID,
 		tenantID: azureOpts.TenantID,
 	}
-	if ib := azureOpts.IdentityBinding; ib != nil && ib.SNIName != "" {
-		azureProvider.ibConfig = &azure.IdentityBindingConfig{
-			SNIName:       ib.SNIName,
-			APIServerIP:   ib.APIServerIP,
-			TokenFilePath: ib.TokenFilePath,
-			CACertPath:    ib.CACertPath,
+	if ib := azureOpts.IdentityBinding; ib != nil && ib.Enabled {
+		ibConfig, err := azure.LoadIdentityBindingConfigFromEnv()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load identity binding configuration: %w", err)
 		}
+		if ibConfig == nil {
+			return nil, fmt.Errorf("identity binding is enabled but not configured: %s environment variable is not set", azure.EnvIdentityBindingSNIName)
+		}
+		azureProvider.ibConfig = ibConfig
 	}
 
 	// Wrap with caching provider

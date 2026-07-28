@@ -38,7 +38,7 @@ func CreateCredentialChainWithIdentityBinding(clientID, tenantID string, ibConfi
 
 	// 0. Try identity binding first when configured.
 	if ibConfig != nil && ibConfig.SNIName != "" {
-		ibCred, err := NewIdentityBindingCredential(clientID, tenantID, *ibConfig)
+		ibCred, err := newIdentityBindingCredential(clientID, tenantID, *ibConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create identity binding credential: %w", err)
 		}
