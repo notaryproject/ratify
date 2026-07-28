@@ -30,6 +30,18 @@ spec:
           username: "{{ .credential.username }}"
           password: "{{ .credential.password }}"
           {{- end }}
+          {{- if eq .credential.provider "azure" }}
+          {{- if .credential.clientID }}
+          clientID: "{{ .credential.clientID }}"
+          {{- end }}
+          {{- if .credential.tenantID }}
+          tenantID: "{{ .credential.tenantID }}"
+          {{- end }}
+          {{- if and .credential.identityBinding .credential.identityBinding.enabled }}
+          identityBinding:
+            enabled: true
+          {{- end }}
+          {{- end }}
         {{- if .plainHttp }}
         {{- if or .caBase64 .caPem }}
         {{- fail (printf "store with scopes %v: plainHttp cannot be combined with caBase64/caPem (no TLS over plain HTTP)" .scopes) }}

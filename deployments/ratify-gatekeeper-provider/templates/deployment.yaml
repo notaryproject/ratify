@@ -22,6 +22,10 @@ spec:
         {{- if or (eq (index .Values.stores 0).credential.provider "azure") (eq (include "ratify.akvCertsProvided" .) "true") }}
         azure.workload.identity/use: "true"
         {{- end }}
+      {{- if eq (include "ratify.identityBindingEnabled" .) "true" }}
+      annotations:
+        azure.workload.identity/use-identity-binding: "true"
+      {{- end }}
     spec:
       {{- if .Values.serviceAccount.create }}
       serviceAccountName: {{ include "ratify.serviceAccountName" . }}

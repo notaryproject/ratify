@@ -79,6 +79,24 @@ false
 {{- end -}}
 
 {{/*
+Returns "true" when any store uses the azure credential provider with Kubernetes
+identity binding enabled. When enabled, the pod is annotated with
+azure.workload.identity/use-identity-binding so the AKS workload-identity webhook
+injects the identity binding token endpoint configuration.
+*/}}
+{{- define "ratify.identityBindingEnabled" -}}
+{{- $enabled := false -}}
+{{- range .Values.stores -}}
+{{- if and .credential (eq (default "" .credential.provider) "azure") .credential.identityBinding -}}
+{{- if .credential.identityBinding.enabled -}}
+{{- $enabled = true -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $enabled -}}
+{{- end -}}
+
+{{/*
 Choose the certificate/key pair to enable TLS for HTTP server
 */}}
 {{- define "ratify.tlsSecret" -}}
