@@ -83,6 +83,8 @@ spec:
               port: healthz
             initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - mountPath: "/usr/local/tls"
               name: tls
