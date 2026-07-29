@@ -5,6 +5,25 @@ image:
 
 replicaCount: 1
 
+# terminationGracePeriodSeconds is the time given to drain in-flight requests
+# on shutdown or scale-down. The provider shuts its servers down gracefully on
+# SIGTERM within this budget.
+terminationGracePeriodSeconds: 30
+
+# preStopSleepSeconds delays SIGTERM using the native lifecycle sleep action so
+# the pod is removed from Service endpoints before it stops serving, avoiding
+# dropped requests during scale-down and rolling updates. Requires Kubernetes
+# >= 1.30. Set to 0 to disable.
+preStopSleepSeconds: 5
+
+# podDisruptionBudget keeps a minimum number of provider pods available during
+# voluntary disruptions (node drains, rollouts). Enable it when running more
+# than one replica.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable:
+
 executor:
   scopes: []
   concurrency: 3
