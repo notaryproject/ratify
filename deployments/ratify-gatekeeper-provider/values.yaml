@@ -15,6 +15,16 @@ resources:
     cpu: 600m
     memory: 512Mi
 
+# autoscaling configures a HorizontalPodAutoscaler for the provider Deployment.
+# It requires metrics-server (for CPU/memory metrics) and container resource
+# requests (see resources above). When enabled, replicaCount is ignored.
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
 executor:
   scopes: []
   concurrency: 3
