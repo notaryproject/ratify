@@ -114,7 +114,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestStartRatify(t *testing.T) {
-	startManagerFunc = func(_ chan struct{}, _, _ bool) {}
+	startManagerFunc = func(_, _ chan struct{}, _, _ bool) {}
 	tests := []struct {
 		name        string
 		opts        *options
@@ -156,7 +156,7 @@ func TestStartRatify(t *testing.T) {
 func TestRunHealthServer(t *testing.T) {
 	t.Run("empty address is a no-op", func(_ *testing.T) {
 		// Should return immediately without starting a server.
-		runHealthServer(context.Background(), "", nil)
+		runHealthServer(context.Background(), "", nil, nil)
 	})
 
 	t.Run("stops when context is cancelled", func(t *testing.T) {
@@ -170,7 +170,7 @@ func TestRunHealthServer(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		done := make(chan struct{})
 		go func() {
-			runHealthServer(ctx, addr, nil)
+			runHealthServer(ctx, addr, nil, nil)
 			close(done)
 		}()
 
@@ -185,6 +185,20 @@ func TestRunHealthServer(t *testing.T) {
 	t.Run("returns on invalid address", func(_ *testing.T) {
 		// An out-of-range port makes the server fail to listen and return,
 		// exercising the error-logging branch.
-		runHealthServer(context.Background(), "127.0.0.1:99999", nil)
+		runHealthServer(context.Background(), "127.0.0.1:99999", nil, nil)
 	})
+}
+
+func TestExecutorReadyOrManagerSynced(t *testing.T) {
+	// No executor loaded and the manager has not synced yet: not ready.
+	notSynced := make(chan struct{})
+	if executorReadyOrManagerSynced(notSynced) {
+		t.Error("expected not ready before the manager has synced")
+	}
+	// No executor loaded but the manager has synced: ready (fail closed).
+	synced := make(chan struct{})
+	close(synced)
+	if !executorReadyOrManagerSynced(synced) {
+		t.Error("expected ready once the manager has synced")
+	}
 }

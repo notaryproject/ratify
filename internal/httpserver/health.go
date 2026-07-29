@@ -50,6 +50,14 @@ type HealthCheckOptions struct {
 	// ready as soon as the health check server starts.
 	// Optional.
 	CertRotatorReady chan struct{}
+
+	// ExecutorReady reports whether the executor has been loaded into memory.
+	// While it returns false, the readiness probe reports not ready so that
+	// Gatekeeper does not route verification traffic to a pod that would fail
+	// with "no valid executor configured". If nil, readiness does not wait for
+	// the executor (e.g. when it is loaded synchronously at startup).
+	// Optional.
+	ExecutorReady func() bool
 }
 
 // StartHealthCheckServer starts a plaintext HTTP server that exposes the
@@ -62,7 +70,7 @@ func StartHealthCheckServer(ctx context.Context, opts HealthCheckOptions) error 
 		return errors.New("health check server address is required")
 	}
 
-	isReady := newReadinessTracker(opts.CertRotatorReady)
+	isReady := newReadinessTracker(opts.CertRotatorReady, opts.ExecutorReady)
 
 	srv := &http.Server{
 		Addr:         opts.Address,
@@ -91,21 +99,27 @@ func StartHealthCheckServer(ctx context.Context, opts HealthCheckOptions) error 
 }
 
 // newReadinessTracker returns a function reporting whether the server is ready.
-// If certRotatorReady is nil, cert rotation is disabled and the server is ready
-// immediately. Otherwise readiness flips to true once certRotatorReady closes.
-func newReadinessTracker(certRotatorReady chan struct{}) func() bool {
-	var ready atomic.Bool
+// The pod is ready once TLS cert rotation has completed (or immediately when
+// certRotatorReady is nil) and, when executorReady is set, once the executor
+// has been loaded into memory.
+func newReadinessTracker(certRotatorReady chan struct{}, executorReady func() bool) func() bool {
+	var certReady atomic.Bool
 	if certRotatorReady == nil {
-		// Cert rotation is disabled: the pod is ready as soon as it starts.
-		ready.Store(true)
+		// Cert rotation is disabled: TLS is ready as soon as the pod starts.
+		certReady.Store(true)
 	} else {
 		go func() {
 			<-certRotatorReady
-			ready.Store(true)
+			certReady.Store(true)
 			logrus.Info("readiness probe: TLS cert rotator is ready")
 		}()
 	}
-	return ready.Load
+	return func() bool {
+		if !certReady.Load() {
+			return false
+		}
+		return executorReady == nil || executorReady()
+	}
 }
 
 // healthHandler builds the HTTP handler serving the liveness (/healthz) and

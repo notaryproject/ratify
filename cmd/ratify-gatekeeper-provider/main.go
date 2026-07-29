@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/notaryproject/ratify/v2/internal/controller"
 	"github.com/notaryproject/ratify/v2/internal/httpserver"
 	"github.com/notaryproject/ratify/v2/internal/manager"
 	"github.com/sirupsen/logrus"
@@ -92,24 +93,53 @@ func startRatify(opts *options) error {
 		CertRotatorReady:     certRotatorReady,
 	}
 
-	go startManagerFunc(certRotatorReady, serverOpts.DisableMutation, serverOpts.DisableCRDManager)
+	// In CRD-manager mode the executor is loaded asynchronously by the
+	// reconciler; executorManagerReady is closed once the manager's caches have
+	// synced, so readiness no longer blocks once the executor state is known.
+	var executorManagerReady chan struct{}
+	if !serverOpts.DisableCRDManager {
+		executorManagerReady = make(chan struct{})
+	}
+	go startManagerFunc(certRotatorReady, executorManagerReady, serverOpts.DisableMutation, serverOpts.DisableCRDManager)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	go runHealthServer(ctx, opts.healthServerAddress, certRotatorReady)
+	// Gate readiness on the executor in CRD-manager mode; config-file mode loads
+	// it synchronously at startup and needs no gating.
+	var executorReady func() bool
+	if !serverOpts.DisableCRDManager {
+		executorReady = func() bool { return executorReadyOrManagerSynced(executorManagerReady) }
+	}
+	go runHealthServer(ctx, opts.healthServerAddress, certRotatorReady, executorReady)
 
 	return httpserver.StartServer(serverOpts, opts.configFilePath)
 }
 
+// executorReadyOrManagerSynced reports whether the CRD-managed executor is
+// loaded, or the manager has synced (managerSynced closed) so the pod becomes
+// Ready and fails closed even when no valid Executor is installed yet.
+func executorReadyOrManagerSynced(managerSynced <-chan struct{}) bool {
+	if controller.GlobalExecutorManager.GetExecutor() != nil {
+		return true
+	}
+	select {
+	case <-managerSynced:
+		return true
+	default:
+		return false
+	}
+}
+
 // runHealthServer starts the liveness/readiness health check server. It is a
 // no-op when address is empty. It blocks until the context is cancelled.
-func runHealthServer(ctx context.Context, address string, certRotatorReady chan struct{}) {
+func runHealthServer(ctx context.Context, address string, certRotatorReady chan struct{}, executorReady func() bool) {
 	if address == "" {
 		return
 	}
 	if err := httpserver.StartHealthCheckServer(ctx, httpserver.HealthCheckOptions{
 		Address:          address,
 		CertRotatorReady: certRotatorReady,
+		ExecutorReady:    executorReady,
 	}); err != nil {
 		logrus.Errorf("health check server stopped with error: %v", err)
 	}

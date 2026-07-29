@@ -16,6 +16,7 @@ limitations under the License.
 package manager
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"os"
@@ -31,6 +32,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -50,7 +52,7 @@ func init() {
 
 // StartManager creates a new Manager which is responsible for creating
 // Controllers.
-func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableCRDManager bool) {
+func StartManager(certRotatorReady chan struct{}, executorManagerReady chan struct{}, disableMutation bool, disableCRDManager bool) {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
@@ -62,6 +64,18 @@ func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableC
 
 	setupCertRotator(certRotatorReady, mgr, disableMutation)
 	setupCRDControllers(mgr, disableCRDManager)
+
+	if !disableCRDManager && executorManagerReady != nil {
+		// Closed once the manager's caches have synced, so readiness reflects
+		// that the executor state is known (loaded, or confirmed absent).
+		if err := mgr.Add(manager.RunnableFunc(func(context.Context) error {
+			close(executorManagerReady)
+			return nil
+		})); err != nil {
+			setupLog.Error(err, "could not register executor readiness signal")
+			os.Exit(1)
+		}
+	}
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "could not start manager")
