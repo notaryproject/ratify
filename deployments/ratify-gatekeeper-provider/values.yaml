@@ -18,6 +18,10 @@ resources:
     cpu: 600m
     memory: 512Mi
 
+metrics:
+  enabled: true
+  port: 8888
+
 executor:
   scopes: []
   concurrency: 3
