@@ -25,11 +25,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
-	"github.com/sirupsen/logrus"
 	"oras.land/oras-go/v2/registry"
 )
+
+var logOpt = logger.Option{ComponentType: logger.Server}
 
 // verify handles the verification request from Gatekeeper.
 func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -73,12 +75,13 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 			}
 			renderedResult := convertResult(result)
 			if err = s.verifyCache.Set(ctx, key, renderedResult, 0); err != nil {
-				logrus.Warnf("failed to set verify cache for image %s: %v", artifact, err)
+				logger.GetLogger(ctx, logOpt).Warnf("failed to set verify cache for image %s: %v", artifact, err)
 			}
 			return renderedResult, nil
 		})
 		if err != nil {
 			results[idx].Error = err.Error()
+			metrics.ReportSystemError(ctx, "verify_artifact")
 		}
 		results[idx].Value = val
 	}
@@ -119,6 +122,7 @@ func (s *server) resolveReference(ctx context.Context, key string) externaldata.
 	ref, err := registry.ParseReference(reference)
 	if err != nil {
 		item.Error = fmt.Sprintf("failed to parse reference: %v", err)
+		metrics.ReportSystemError(ctx, "mutate_parse_reference")
 		return item
 	}
 	if _, err = ref.Digest(); err == nil {
@@ -150,12 +154,13 @@ func (s *server) resolveReference(ctx context.Context, key string) externaldata.
 		resolvedRef := ref.String()
 
 		if err = s.mutateCache.Set(ctx, cacheKey, resolvedRef, 0); err != nil {
-			logrus.Warnf("failed to set mutate cache for image %s: %v", reference, err)
+			logger.GetLogger(ctx, logOpt).Warnf("failed to set mutate cache for image %s: %v", reference, err)
 		}
 		return resolvedRef, nil
 	})
 	if err != nil {
 		item.Error = err.Error()
+		metrics.ReportSystemError(ctx, "mutate_resolve_reference")
 	} else {
 		item.Value = val
 	}

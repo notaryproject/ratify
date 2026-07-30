@@ -33,6 +33,7 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/notaryproject/ratify/v2/internal/httpserver/config"
 	"github.com/notaryproject/ratify/v2/internal/httpserver/tlssecret"
+	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
 )
@@ -200,13 +201,13 @@ func (s *server) registerVerifyHandler() error {
 
 func (s *server) verifyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_ = s.verify(r.Context(), w, r)
+		_ = s.verify(logger.InitContext(r.Context(), r), w, r)
 	}
 }
 
 func (s *server) mutateHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_ = s.mutate(r.Context(), w, r)
+		_ = s.mutate(logger.InitContext(r.Context(), r), w, r)
 	}
 }
 
