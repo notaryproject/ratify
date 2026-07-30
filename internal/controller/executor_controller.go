@@ -34,9 +34,9 @@ type ExecutorReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=config.ratify.dev,resources=executors,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=config.ratify.dev,resources=executors/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=config.ratify.dev,resources=executors/finalizers,verbs=update
+// +kubebuilder:rbac:groups=config.ratify.sh,resources=executors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=config.ratify.sh,resources=executors/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=config.ratify.sh,resources=executors/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
