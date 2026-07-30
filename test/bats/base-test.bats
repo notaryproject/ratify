@@ -778,3 +778,55 @@ EOF
     run kubectl run cosign-demo-unsigned --namespace default --image=registry:5000/cosign:unsigned
     assert_failure
 }
+
+@test "namespaced executor multi-tenancy routing test" {
+    NS=namespaced-executor-ns
+    teardown() {
+        echo "cleaning up"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete namespacedexecutors.config.ratify.sh/executor-notation-namespaced -n ${NS} --ignore-not-found=true"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod notation-signed-cluster --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete namespace ${NS} --ignore-not-found=true"
+    }
+
+    # Cluster-scoped executor (deployed by helm) trusts the signing cert; wait for it.
+    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    assert_success
+    sleep 5
+    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    assert_success
+    sleep 5
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
+
+    # Create the tenant namespace.
+    run kubectl create namespace ${NS}
+    assert_success
+    sleep 3
+
+    # Extend the shared constraint so Gatekeeper also intercepts pods in the tenant namespace.
+    run kubectl patch ratifyverification ratify-constraint --type=json -p="[{\"op\":\"add\",\"path\":\"/spec/match/namespaces/-\",\"value\":\"${NS}\"}]"
+    assert_success
+    sleep 3
+
+    # NamespacedExecutor with a non-matching CA, so the tenant rejects the signed image.
+    run kubectl apply -f ${BATS_TESTS_DIR}/config/namespaced_executor_notation.yaml -n ${NS}
+    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get namespacedexecutors.config.ratify.sh/executor-notation-namespaced -n ${NS} -o jsonpath='{.status.succeeded}' | grep true"
+    sleep 5
+
+    # Signed image rejected in the tenant namespace (routed to the NamespacedExecutor).
+    run kubectl run notation-signed-tenant --namespace ${NS} --image=registry:5000/notation:signed
+    assert_failure
+
+    # Same image still passes in default (namespaced executor is namespace-scoped).
+    run kubectl run notation-signed-cluster --namespace default --image=registry:5000/notation:signed
+    assert_success
+
+    # Delete it; the tenant namespace falls back to the cluster-scoped executor.
+    run kubectl delete namespacedexecutors.config.ratify.sh/executor-notation-namespaced -n ${NS}
+    assert_success
+    # Wait past the provider verify cache TTL (5s) so the earlier failure isn't cached.
+    sleep 10
+
+    run kubectl run notation-signed-fallback --namespace ${NS} --image=registry:5000/notation:signed
+    assert_success
+}

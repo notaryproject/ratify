@@ -86,9 +86,11 @@ func (w *Watcher) loadExecutor() error {
 	return nil
 }
 
-// GetExecutor returns the current executor instance.
+// GetExecutor returns the current executor instance. The namespace parameter is
+// ignored because the file-based configuration defines a single, cluster-wide
+// executor and does not support per-namespace (multi-tenant) configuration.
 // It is safe to call this method concurrently.
-func (w *Watcher) GetExecutor() *executor.ScopedExecutor {
+func (w *Watcher) GetExecutor(_ string) *executor.ScopedExecutor {
 	return w.executor.Load()
 }
 

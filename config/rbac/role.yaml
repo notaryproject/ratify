@@ -5,9 +5,10 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - config.ratify.dev
+  - config.ratify.sh
   resources:
   - executors
+  - namespacedexecutors
   verbs:
   - create
   - delete
@@ -20,12 +21,14 @@ rules:
   - config.ratify.sh
   resources:
   - executors/finalizers
+  - namespacedexecutors/finalizers
   verbs:
   - update
 - apiGroups:
   - config.ratify.sh
   resources:
   - executors/status
+  - namespacedexecutors/status
   verbs:
   - get
   - patch

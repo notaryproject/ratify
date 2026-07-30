@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
 	"github.com/sirupsen/logrus"
@@ -58,7 +59,7 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		// Cache is missed, block multiple goroutines from validating the same
 		// artifact.
 		val, err, _ := s.sfGroup.Do(key, func() (any, error) {
-			executor := s.getExecutor()
+			executor := s.getExecutor(extractNamespace(artifact))
 			if executor == nil {
 				return nil, errors.New("no valid executor configured")
 			}
@@ -101,9 +102,11 @@ func (s *server) mutate(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	return sendResponse(results, w, http.StatusOK, true)
 }
 
-func (s *server) resolveReference(ctx context.Context, reference string) externaldata.Item {
+func (s *server) resolveReference(ctx context.Context, key string) externaldata.Item {
+	namespace := extractNamespace(key)
+	reference := stripNamespacePrefix(key)
 	item := externaldata.Item{
-		Key:   reference,
+		Key:   key,
 		Value: reference,
 	}
 
@@ -117,9 +120,10 @@ func (s *server) resolveReference(ctx context.Context, reference string) externa
 		return item
 	}
 
-	// Fetch the cache value first.
-	key := mutateKey(reference)
-	result, err := s.mutateCache.Get(ctx, key)
+	// Fetch the cache value first. Key on the original namespace-prefixed key so
+	// that namespaces with different executor/store config do not share entries.
+	cacheKey := mutateKey(key)
+	result, err := s.mutateCache.Get(ctx, cacheKey)
 	if err == nil && result != "" {
 		item.Value = result
 		return item
@@ -127,8 +131,8 @@ func (s *server) resolveReference(ctx context.Context, reference string) externa
 
 	// Cache is missed, block multiple goroutines from resolving the same
 	// reference.
-	val, err, _ := s.sfGroup.Do(key, func() (any, error) {
-		executor := s.getExecutor()
+	val, err, _ := s.sfGroup.Do(cacheKey, func() (any, error) {
+		executor := s.getExecutor(namespace)
 		if executor == nil {
 			return "", errors.New("no valid executor configured")
 		}
@@ -139,7 +143,7 @@ func (s *server) resolveReference(ctx context.Context, reference string) externa
 		ref.Reference = desc.Digest.String()
 		resolvedRef := ref.String()
 
-		if err = s.mutateCache.Set(ctx, key, resolvedRef, 0); err != nil {
+		if err = s.mutateCache.Set(ctx, cacheKey, resolvedRef, 0); err != nil {
 			logrus.Warnf("failed to set mutate cache for image %s: %v", reference, err)
 		}
 		return resolvedRef, nil
@@ -175,4 +179,29 @@ func mutateKey(key string) string {
 
 func verifyKey(key string) string {
 	return fmt.Sprintf("%s_%s", verifyPath, key)
+}
+
+// extractNamespace returns the Kubernetes namespace encoded in a Gatekeeper
+// external data key. Gatekeeper constraint templates prepend the workload's
+// namespace as a "[namespace]" prefix to each image reference. It returns an
+// empty string when no namespace prefix is present, in which case the
+// cluster-scoped executor is used.
+func extractNamespace(key string) string {
+	if strings.HasPrefix(key, "[") {
+		if idx := strings.Index(key, "]"); idx != -1 {
+			return key[1:idx]
+		}
+	}
+	return ""
+}
+
+// stripNamespacePrefix removes a leading "[namespace]" prefix from an external
+// data key, returning the bare artifact reference.
+func stripNamespacePrefix(key string) string {
+	if strings.HasPrefix(key, "[") {
+		if idx := strings.Index(key, "]"); idx != -1 {
+			return key[idx+1:]
+		}
+	}
+	return key
 }
