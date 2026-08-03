@@ -5,6 +5,19 @@ image:
 
 replicaCount: 1
 
+logger:
+  level: info
+
+# resources sets the container resource requests and limits. Requests are
+# required for CPU-based autoscaling (HPA). Defaults match the v1 chart.
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 600m
+    memory: 512Mi
+
 executor:
   scopes: []
   concurrency: 3

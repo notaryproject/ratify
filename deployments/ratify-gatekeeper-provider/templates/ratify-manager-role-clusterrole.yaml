@@ -25,7 +25,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - config.ratify.dev
+  - config.ratify.sh
   resources:
   - executors
   verbs:
@@ -37,13 +37,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - config.ratify.dev
+  - config.ratify.sh
   resources:
   - executors/finalizers
   verbs:
   - update
 - apiGroups:
-  - config.ratify.dev
+  - config.ratify.sh
   resources:
   - executors/status
   verbs:

@@ -83,6 +83,8 @@ spec:
               port: healthz
             initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - mountPath: "/usr/local/tls"
               name: tls
@@ -113,6 +115,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: RATIFY_NAME
               value: {{ include "ratify.fullname" . }}
+            - name: RATIFY_LOG_LEVEL
+              value: {{ .Values.logger.level | quote }}
       volumes:
         {{- if .Values.provider.disableCRDManager }}
         - name: ratify-config
