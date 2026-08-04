@@ -82,67 +82,71 @@ func init() {
 	store.Register(mockStoreType, newMockStore)
 }
 
-// helper returns a minimal, but valid, Executor CRD object that satisfies
+// newTestManager returns an executorManager initialized with an empty
+// per-namespace options map, ready for use in unit tests.
+func newTestManager() executorManager {
+	return executorManager{opts: map[string]map[string]e.ScopedOptions{}}
+}
+
+// newValidExecutor returns a minimal, but valid, ExecutorSpec that satisfies
 // convertOptions’ validation rules (verifiers and stores must be non-nil).
-func newValidExecutor() *configv2alpha1.Executor {
-	return &configv2alpha1.Executor{
-		Spec: configv2alpha1.ExecutorSpec{
-			Scopes: []string{"example.com"},
-			Verifiers: []*configv2alpha1.VerifierOptions{
-				{
-					Name: mockVerifierName,
-					Type: mockVerifierType,
-				},
+func newValidExecutor() *configv2alpha1.ExecutorSpec {
+	return &configv2alpha1.ExecutorSpec{
+		Scopes: []string{"example.com"},
+		Verifiers: []*configv2alpha1.VerifierOptions{
+			{
+				Name: mockVerifierName,
+				Type: mockVerifierType,
 			},
-			Stores: []*configv2alpha1.StoreOptions{
-				{
-					Type: mockStoreType,
-				},
+		},
+		Stores: []*configv2alpha1.StoreOptions{
+			{
+				Type: mockStoreType,
 			},
 		},
 	}
 }
 
 func TestUpsertExecutor_NilOptions(t *testing.T) {
-	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
+	mgr := newTestManager()
 	if err := mgr.upsertExecutor("default", "nil-exec", nil); err == nil {
 		t.Fatalf("expected error when opts is nil")
 	}
 }
 
 func TestUpsertExecutor_InsertAndCreateExecutor(t *testing.T) {
-	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
+	mgr := newTestManager()
 
 	if err := mgr.upsertExecutor("default", "exec1", newValidExecutor()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got := len(mgr.opts); got != 1 {
-		t.Fatalf("expected 1 entry in opts map, got %d", got)
+	if got := len(mgr.opts["default"]); got != 1 {
+		t.Fatalf("expected 1 entry in default namespace opts map, got %d", got)
 	}
 
-	if exec := mgr.GetExecutor(); exec == nil {
+	if exec := mgr.GetExecutor("default"); exec == nil {
 		t.Fatalf("expected non-nil executor after upsert")
 	}
 }
 
 func TestUpsertExecutor_InvalidOpts(t *testing.T) {
-	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
+	mgr := newTestManager()
 	executorOpts := newValidExecutor()
-	executorOpts.Spec.Verifiers = nil // Invalid because verifiers cannot be empty
+	executorOpts.Verifiers = nil // Invalid because verifiers cannot be empty
 	if err := mgr.upsertExecutor("default", "invalid-exec", executorOpts); err == nil {
 		t.Fatalf("expected error when verifiers are nil, got nil")
 	}
 
 	executorOpts = newValidExecutor()
-	executorOpts.Spec.Stores = nil // Invalid because stores cannot be empty
+	executorOpts.Stores = nil // Invalid because stores cannot be empty
 	if err := mgr.upsertExecutor("default", "invalid-exec", executorOpts); err == nil {
 		t.Fatalf("expected error when stores are nil, got nil")
 	}
 }
 
 func TestUpsertExecutor_UpdateExistingEntry(t *testing.T) {
-	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
+	mgr := newTestManager()
 
 	if err := mgr.upsertExecutor("default", "exec1", newValidExecutor()); err != nil {
 		t.Fatalf("initial upsert failed: %v", err)
@@ -150,23 +154,23 @@ func TestUpsertExecutor_UpdateExistingEntry(t *testing.T) {
 
 	// perform an update with (slightly) different spec
 	updated := newValidExecutor()
-	updated.Spec.Scopes = []string{"example2.com"}
+	updated.Scopes = []string{"example2.com"}
 
 	if err := mgr.upsertExecutor("default", "exec1", updated); err != nil {
 		t.Fatalf("update upsert failed: %v", err)
 	}
 
-	if got := len(mgr.opts); got != 1 {
+	if got := len(mgr.opts["default"]); got != 1 {
 		t.Fatalf("expected opts map size to remain 1 after update, got %d", got)
 	}
 
-	if exec := mgr.GetExecutor(); exec == nil {
+	if exec := mgr.GetExecutor("default"); exec == nil {
 		t.Fatalf("expected executor to still be non-nil after update")
 	}
 }
 
 func TestDeleteExecutor_NotFound(t *testing.T) {
-	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
+	mgr := newTestManager()
 
 	if err := mgr.deleteExecutor("default", "nonexistent"); err == nil {
 		t.Fatalf("expected error when deleting non-existing executor, got nil")
@@ -180,19 +184,19 @@ func TestDeleteExecutor_NotFound(t *testing.T) {
 // TestDeleteExecutor_RemoveExistingEntry ensures that deleting an existing
 // executor succeeds and updates the internal state correctly.
 func TestDeleteExecutor_RemoveExistingEntry(t *testing.T) {
-	mgr := executorManager{opts: map[string]e.ScopedOptions{}}
+	mgr := newTestManager()
 
 	// Add two executors so that after deletion at least one remains.
 	if err := mgr.upsertExecutor("default", "exec1", newValidExecutor()); err != nil {
 		t.Fatalf("failed to upsert exec1: %v", err)
 	}
 	executor2 := newValidExecutor()
-	executor2.Spec.Scopes = []string{"example2.com"}
+	executor2.Scopes = []string{"example2.com"}
 	if err := mgr.upsertExecutor("default", "exec2", executor2); err != nil {
 		t.Fatalf("failed to upsert exec2: %v", err)
 	}
 
-	if got := len(mgr.opts); got != 2 {
+	if got := len(mgr.opts["default"]); got != 2 {
 		t.Fatalf("expected 2 executors before deletion, got %d", got)
 	}
 
@@ -201,11 +205,58 @@ func TestDeleteExecutor_RemoveExistingEntry(t *testing.T) {
 		t.Fatalf("unexpected error during delete: %v", err)
 	}
 
-	if got := len(mgr.opts); got != 1 {
+	if got := len(mgr.opts["default"]); got != 1 {
 		t.Fatalf("expected 1 executor after deletion, got %d", got)
 	}
 
-	if mgr.GetExecutor() == nil {
+	if mgr.GetExecutor("default") == nil {
 		t.Fatalf("expected non-nil executor after deletion")
+	}
+}
+
+// TestGetExecutor_NamespaceFallback ensures that a request for a namespace
+// without its own executor falls back to the cluster-scoped executor, and that
+// a namespace with its own executor is preferred over the fallback.
+func TestGetExecutor_NamespaceFallback(t *testing.T) {
+	mgr := newTestManager()
+
+	// Register a cluster-scoped executor (empty namespace).
+	if err := mgr.upsertExecutor(clusterScopeNamespace, "cluster", newValidExecutor()); err != nil {
+		t.Fatalf("failed to upsert cluster executor: %v", err)
+	}
+
+	// A namespace without its own executor falls back to the cluster executor.
+	if exec := mgr.GetExecutor("team-a"); exec == nil {
+		t.Fatalf("expected fallback to cluster executor for namespace without config")
+	}
+
+	// Register a namespaced executor for team-a.
+	if err := mgr.upsertExecutor("team-a", "exec1", newValidExecutor()); err != nil {
+		t.Fatalf("failed to upsert namespaced executor: %v", err)
+	}
+	clusterExec := mgr.GetExecutor("other")
+	teamExec := mgr.GetExecutor("team-a")
+	if teamExec == nil || clusterExec == nil {
+		t.Fatalf("expected non-nil executors")
+	}
+	if teamExec == clusterExec {
+		t.Fatalf("expected namespaced executor to differ from cluster fallback")
+	}
+
+	// Deleting the namespaced executor should restore fallback behavior.
+	if err := mgr.deleteExecutor("team-a", "exec1"); err != nil {
+		t.Fatalf("failed to delete namespaced executor: %v", err)
+	}
+	if exec := mgr.GetExecutor("team-a"); exec != clusterExec {
+		t.Fatalf("expected namespace to fall back to cluster executor after deletion")
+	}
+}
+
+// TestGetExecutor_NoConfig ensures GetExecutor returns nil when nothing is
+// configured.
+func TestGetExecutor_NoConfig(t *testing.T) {
+	mgr := newTestManager()
+	if exec := mgr.GetExecutor("default"); exec != nil {
+		t.Fatalf("expected nil executor when nothing configured")
 	}
 }

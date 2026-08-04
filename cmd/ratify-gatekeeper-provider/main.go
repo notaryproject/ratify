@@ -116,7 +116,7 @@ func newExecutorReadiness(disableCRDManager bool) (chan struct{}, func() bool) {
 		return nil, nil
 	}
 	managerSynced := make(chan struct{})
-	executorLoaded := func() bool { return controller.GlobalExecutorManager.GetExecutor() != nil }
+	executorLoaded := func() bool { return controller.GlobalExecutorManager.GetExecutor("") != nil }
 	return managerSynced, func() bool { return isExecutorReady(executorLoaded, managerSynced) }
 }
 

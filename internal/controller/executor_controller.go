@@ -65,7 +65,7 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	err := GlobalExecutorManager.upsertExecutor(req.Namespace, req.Name, &executor)
+	err := GlobalExecutorManager.upsertExecutor(req.Namespace, req.Name, &executor.Spec)
 	if err != nil {
 		log.Error(err, "Failed to upsert Executor", "executor", req.Name)
 	}

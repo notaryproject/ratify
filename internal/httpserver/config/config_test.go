@@ -190,7 +190,7 @@ func TestGetExecutor(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, watcher)
 
-		executor := watcher.GetExecutor()
+		executor := watcher.GetExecutor("")
 		assert.NotNil(t, executor)
 	})
 }

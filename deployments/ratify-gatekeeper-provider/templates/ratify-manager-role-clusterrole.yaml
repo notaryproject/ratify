@@ -50,4 +50,30 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - config.ratify.sh
+  resources:
+  - namespacedexecutors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - config.ratify.sh
+  resources:
+  - namespacedexecutors/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - config.ratify.sh
+  resources:
+  - namespacedexecutors/status
+  verbs:
+  - get
+  - patch
+  - update
 {{- end }}
