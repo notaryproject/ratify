@@ -114,7 +114,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestStartRatify(t *testing.T) {
-	startManagerFunc = func(_ chan struct{}, _, _ bool) {}
+	startManagerFunc = func(_, _ chan struct{}, _, _ bool) {}
 	tests := []struct {
 		name        string
 		opts        *options
@@ -156,7 +156,7 @@ func TestStartRatify(t *testing.T) {
 func TestRunHealthServer(t *testing.T) {
 	t.Run("empty address is a no-op", func(_ *testing.T) {
 		// Should return immediately without starting a server.
-		runHealthServer(context.Background(), "", nil)
+		runHealthServer(context.Background(), "", nil, nil)
 	})
 
 	t.Run("stops when context is cancelled", func(t *testing.T) {
@@ -170,7 +170,7 @@ func TestRunHealthServer(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		done := make(chan struct{})
 		go func() {
-			runHealthServer(ctx, addr, nil)
+			runHealthServer(ctx, addr, nil, nil)
 			close(done)
 		}()
 
@@ -185,6 +185,60 @@ func TestRunHealthServer(t *testing.T) {
 	t.Run("returns on invalid address", func(_ *testing.T) {
 		// An out-of-range port makes the server fail to listen and return,
 		// exercising the error-logging branch.
-		runHealthServer(context.Background(), "127.0.0.1:99999", nil)
+		runHealthServer(context.Background(), "127.0.0.1:99999", nil, nil)
+	})
+}
+
+func TestIsExecutorReady(t *testing.T) {
+	notLoaded := func() bool { return false }
+	loaded := func() bool { return true }
+	open := make(chan struct{})
+	closed := make(chan struct{})
+	close(closed)
+
+	tests := []struct {
+		name           string
+		executorLoaded func() bool
+		managerSynced  <-chan struct{}
+		want           bool
+	}{
+		{name: "executor loaded is ready", executorLoaded: loaded, managerSynced: open, want: true},
+		{name: "not loaded and not synced is not ready", executorLoaded: notLoaded, managerSynced: open, want: false},
+		{name: "not loaded but synced is ready", executorLoaded: notLoaded, managerSynced: closed, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isExecutorReady(tt.executorLoaded, tt.managerSynced); got != tt.want {
+				t.Errorf("isExecutorReady() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewExecutorReadiness(t *testing.T) {
+	t.Run("disabled CRD manager returns no gating", func(t *testing.T) {
+		managerSynced, executorReady := newExecutorReadiness(true)
+		if managerSynced != nil {
+			t.Error("expected a nil manager-sync channel when the CRD manager is disabled")
+		}
+		if executorReady != nil {
+			t.Error("expected a nil readiness check when the CRD manager is disabled")
+		}
+	})
+
+	t.Run("becomes ready once the manager signals sync", func(t *testing.T) {
+		managerSynced, executorReady := newExecutorReadiness(false)
+		if managerSynced == nil || executorReady == nil {
+			t.Fatal("expected a manager-sync channel and readiness check in CRD-manager mode")
+		}
+		if executorReady() {
+			t.Error("expected not ready before the manager has synced")
+		}
+
+		close(managerSynced)
+		if !executorReady() {
+			t.Error("expected ready once the manager has synced")
+		}
 	})
 }

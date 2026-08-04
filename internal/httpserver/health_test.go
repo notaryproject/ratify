@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -89,7 +90,7 @@ func waitForServer(t *testing.T, url string) {
 
 func TestNewReadinessTracker(t *testing.T) {
 	t.Run("nil channel is ready immediately", func(t *testing.T) {
-		isReady := newReadinessTracker(nil)
+		isReady := newReadinessTracker(nil, nil)
 		if !isReady() {
 			t.Fatal("expected ready when cert rotation is disabled")
 		}
@@ -97,7 +98,7 @@ func TestNewReadinessTracker(t *testing.T) {
 
 	t.Run("flips to ready when channel closes", func(t *testing.T) {
 		ch := make(chan struct{})
-		isReady := newReadinessTracker(ch)
+		isReady := newReadinessTracker(ch, nil)
 		if isReady() {
 			t.Fatal("expected not ready before channel closes")
 		}
@@ -112,6 +113,47 @@ func TestNewReadinessTracker(t *testing.T) {
 			select {
 			case <-deadline:
 				t.Fatal("expected ready after channel closed")
+			default:
+				time.Sleep(5 * time.Millisecond)
+			}
+		}
+	})
+
+	t.Run("not ready until executor is loaded", func(t *testing.T) {
+		var loaded atomic.Bool
+		isReady := newReadinessTracker(nil, loaded.Load)
+		if isReady() {
+			t.Fatal("expected not ready before executor is loaded")
+		}
+
+		loaded.Store(true)
+		if !isReady() {
+			t.Fatal("expected ready once cert is ready and executor is loaded")
+		}
+	})
+
+	t.Run("requires both cert and executor to be ready", func(t *testing.T) {
+		ch := make(chan struct{})
+		var loaded atomic.Bool
+		isReady := newReadinessTracker(ch, loaded.Load)
+		if isReady() {
+			t.Fatal("expected not ready before cert or executor")
+		}
+
+		loaded.Store(true)
+		if isReady() {
+			t.Fatal("expected not ready until cert is also ready")
+		}
+
+		close(ch)
+		deadline := time.After(2 * time.Second)
+		for {
+			if isReady() {
+				return
+			}
+			select {
+			case <-deadline:
+				t.Fatal("expected ready after cert closed and executor loaded")
 			default:
 				time.Sleep(5 * time.Millisecond)
 			}
