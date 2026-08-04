@@ -28,11 +28,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/notaryproject/ratify/v2/internal/cache"
+	"github.com/notaryproject/ratify/v2/internal/cache/dapr"
 	"github.com/notaryproject/ratify/v2/internal/cache/ristretto"
 	"github.com/notaryproject/ratify/v2/internal/controller"
 	"github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/notaryproject/ratify/v2/internal/httpserver/config"
 	"github.com/notaryproject/ratify/v2/internal/httpserver/tlssecret"
+	"github.com/notaryproject/ratify/v2/pkg/featureflag"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
 )
@@ -136,11 +138,11 @@ func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *
 		getExecutorFunc = controller.GlobalExecutorManager.GetExecutor
 	}
 
-	mutateCache, err := ristretto.NewCache[string](defaultCacheTTL)
+	mutateCache, err := newCache[string](defaultCacheTTL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create mutate cache: %w", err)
 	}
-	verifyCache, err := ristretto.NewCache[*result](defaultCacheTTL)
+	verifyCache, err := newCache[*result](defaultCacheTTL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create verify cache: %w", err)
 	}
@@ -164,6 +166,17 @@ func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *
 		return nil, nil, fmt.Errorf("failed to register handlers: %w", err)
 	}
 	return server, configWatcher, nil
+}
+
+// newCache creates a cache for the server. When the high-availability feature
+// flag is enabled it returns a distributed Dapr-backed cache so that state is
+// shared across replicas; otherwise it falls back to the in-process Ristretto
+// cache.
+func newCache[T any](ttl time.Duration) (cache.Cache[T], error) {
+	if featureflag.HighAvailability.Enabled {
+		return dapr.NewCache[T](dapr.DefaultCacheName, ttl)
+	}
+	return ristretto.NewCache[T](ttl)
 }
 
 func (s *server) registerHandlers() error {
