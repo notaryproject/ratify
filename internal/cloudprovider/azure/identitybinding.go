@@ -158,7 +158,6 @@ func hostFromURL(raw string) (string, error) {
 // Kubernetes identity binding token exchange.
 type identityBindingCredential struct {
 	clientID      string
-	tenantID      string
 	endpoint      string
 	sniName       string
 	apiServerHost string
@@ -178,10 +177,7 @@ type tokenResponse struct {
 
 // newIdentityBindingCredential creates an [azcore.TokenCredential] that obtains
 // AAD access tokens through the Kubernetes identity binding token exchange.
-//
-// clientID and tenantID fall back to the AZURE_CLIENT_ID and AZURE_TENANT_ID
-// environment variables respectively when empty.
-func newIdentityBindingCredential(clientID, tenantID string, cfg IdentityBindingConfig) (azcore.TokenCredential, error) {
+func newIdentityBindingCredential(clientID string, cfg IdentityBindingConfig) (azcore.TokenCredential, error) {
 	sniName := strings.TrimSpace(cfg.SNIName)
 	if sniName == "" {
 		return nil, fmt.Errorf("identity binding SNI name is required")
@@ -201,9 +197,6 @@ func newIdentityBindingCredential(clientID, tenantID string, cfg IdentityBinding
 	if clientID == "" {
 		return nil, fmt.Errorf("identity binding requires a client ID (set clientID or the AZURE_CLIENT_ID environment variable)")
 	}
-	if tenantID == "" {
-		tenantID = os.Getenv("AZURE_TENANT_ID")
-	}
 
 	tokenFilePath := cfg.TokenFilePath
 	if tokenFilePath == "" {
@@ -217,7 +210,6 @@ func newIdentityBindingCredential(clientID, tenantID string, cfg IdentityBinding
 
 	return &identityBindingCredential{
 		clientID:      clientID,
-		tenantID:      tenantID,
 		endpoint:      "https://" + sniName,
 		sniName:       sniName,
 		apiServerHost: apiServerHost,

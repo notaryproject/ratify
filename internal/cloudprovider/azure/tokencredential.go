@@ -23,22 +23,17 @@ import (
 )
 
 // CreateCredentialChain creates a ChainedTokenCredential with the specified
-// order: workload identity, managed identity.
-// Note: credentials are cached in memory by default.
 func CreateCredentialChain(clientID, tenantID string) (azcore.TokenCredential, error) {
 	return CreateCredentialChainWithIdentityBinding(clientID, tenantID, nil)
 }
 
 // CreateCredentialChainWithIdentityBinding creates a ChainedTokenCredential.
-// When ibConfig is non-nil the Kubernetes identity binding credential is tried
-// first, followed by workload identity and managed identity.
-// Note: credentials are cached in memory by default.
 func CreateCredentialChainWithIdentityBinding(clientID, tenantID string, ibConfig *IdentityBindingConfig) (azcore.TokenCredential, error) {
 	var sources []azcore.TokenCredential
 
 	// 0. Try identity binding first when configured.
 	if ibConfig != nil && ibConfig.SNIName != "" {
-		ibCred, err := newIdentityBindingCredential(clientID, tenantID, *ibConfig)
+		ibCred, err := newIdentityBindingCredential(clientID, *ibConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create identity binding credential: %w", err)
 		}

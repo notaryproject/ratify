@@ -59,12 +59,7 @@ type IdentityProviderOptions struct {
 	// TenantID is the Azure AD tenant ID where the application is registered
 	TenantID string `json:"tenantID,omitempty"`
 	// IdentityBinding, when set, enables ACR authentication via the Kubernetes
-	// identity binding token exchange (the cluster API server acts as the token
-	// issuer) instead of Entra Workload Identity federation.
-	//
-	// Only the enable switch is user-configurable: the cluster-scoped endpoint
-	// details (SNI host, API server host, CA path, token audience) are injected
-	// by the platform through environment variables and are not surfaced here.
+	// identity binding token exchange
 	IdentityBinding *IdentityBindingOptions `json:"identityBinding,omitempty"`
 }
 
