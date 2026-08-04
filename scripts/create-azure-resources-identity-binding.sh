@@ -157,10 +157,32 @@ subjects:
 EOF
 }
 
+ensure_resource_group() {
+  # Tag the resource group with SkipAKSCluster so tenant governance policy does
+  # not force-enable the Azure Policy add-on on clusters created here. The Azure
+  # Policy add-on installs its own Gatekeeper instance and a byovalidation
+  # admission webhook that rejects the Gatekeeper constraint/mutation resources
+  # this test applies. On subscriptions without that policy the tag is a no-op.
+  if az group show --name "${GROUP_NAME}" >/dev/null 2>&1; then
+    echo "Tagging resource group ${GROUP_NAME} with SkipAKSCluster=true"
+    az tag update \
+      --resource-id "$(az group show --name "${GROUP_NAME}" --query id -o tsv)" \
+      --operation merge \
+      --tags SkipAKSCluster=true >/dev/null
+  else
+    echo "Creating resource group ${GROUP_NAME} with SkipAKSCluster=true"
+    az group create \
+      --name "${GROUP_NAME}" \
+      --location "${LOCATION}" \
+      --tags SkipAKSCluster=true >/dev/null
+  fi
+}
+
 main() {
   echo "Using resource group ${GROUP_NAME} in ${LOCATION}"
 
   ensure_preview_tooling
+  ensure_resource_group
   create_user_managed_identity
   create_acr
   create_aks
