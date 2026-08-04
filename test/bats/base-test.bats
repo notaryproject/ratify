@@ -830,3 +830,66 @@ EOF
     run kubectl run notation-signed-fallback --namespace ${NS} --image=registry:5000/notation:signed
     assert_success
 }
+
+# Positive attribution: prove a NamespacedExecutor can independently ADMIT an
+# image that the cluster-scoped executor would reject. The leaf-signed image is
+# signed by the leaf-test CA, which the helm-deployed cluster-scoped executor
+# does NOT trust, so a pass in the tenant namespace can only come from the
+# NamespacedExecutor doing real verification work.
+@test "namespaced executor positive verification test" {
+    NS=namespaced-executor-positive-ns
+    teardown() {
+        echo "cleaning up"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete namespacedexecutors.config.ratify.sh/executor-notation-leaf -n ${NS} --ignore-not-found=true"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod leaf-signed-default --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete namespace ${NS} --ignore-not-found=true"
+    }
+
+    # Cluster-scoped executor (deployed by helm) trusts ratify-bats-test, not the
+    # leaf-test CA; wait for it to be ready.
+    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    assert_success
+    sleep 5
+    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    assert_success
+    sleep 5
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
+
+    # Baseline: the cluster-scoped executor rejects the leaf-signed image, proving
+    # the leaf-test CA is not trusted cluster-wide.
+    run kubectl run leaf-signed-default --namespace default --image=registry:5000/notation:leafSigned
+    assert_failure
+
+    # Create the tenant namespace and extend the shared constraint to cover it.
+    run kubectl create namespace ${NS}
+    assert_success
+    sleep 3
+    run kubectl patch ratifyverification ratify-constraint --type=json -p="[{\"op\":\"add\",\"path\":\"/spec/match/namespaces/-\",\"value\":\"${NS}\"}]"
+    assert_success
+    sleep 3
+
+    # NamespacedExecutor that trusts the leaf-test root CA (which the cluster-scoped
+    # executor does not). Built from the runner's generated root cert.
+    run bash -c 'ROOT_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
+        jq -n --arg root_cert "$ROOT_CERT" --arg ns "'"${NS}"'" '"'"'{
+            apiVersion: "config.ratify.sh/v2alpha1",
+            kind: "NamespacedExecutor",
+            metadata: {name: "executor-notation-leaf", namespace: $ns},
+            spec: {
+                scopes: ["registry:5000"],
+                concurrency: 3,
+                stores: [{type: "registry-store", parameters: {plainHttp: true, credential: {provider: "static", username: "test_user", password: "test_pw"}}}],
+                verifiers: [{name: "notation", type: "notation", parameters: {certificates: [{type: "ca", inline: {certs: $root_cert}}]}}],
+                policyEnforcer: {type: "threshold-policy", parameters: {policy: {threshold: 1, rules: [{verifierName: "notation"}]}}}
+            }
+        }'"'"' | kubectl apply -f -'
+    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get namespacedexecutors.config.ratify.sh/executor-notation-leaf -n ${NS} -o jsonpath='{.status.succeeded}' | grep true"
+    sleep 5
+
+    # The leaf-signed image is admitted in the tenant namespace. Since the
+    # cluster-scoped executor rejected the same image above, this pass is uniquely
+    # attributable to the NamespacedExecutor's own verification.
+    run kubectl run leaf-signed-tenant --namespace ${NS} --image=registry:5000/notation:leafSigned
+    assert_success
+}
