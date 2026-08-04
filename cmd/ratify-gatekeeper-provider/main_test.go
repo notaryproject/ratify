@@ -189,16 +189,56 @@ func TestRunHealthServer(t *testing.T) {
 	})
 }
 
-func TestExecutorReadyOrManagerSynced(t *testing.T) {
-	// No executor loaded and the manager has not synced yet: not ready.
-	notSynced := make(chan struct{})
-	if executorReadyOrManagerSynced(notSynced) {
-		t.Error("expected not ready before the manager has synced")
+func TestIsExecutorReady(t *testing.T) {
+	notLoaded := func() bool { return false }
+	loaded := func() bool { return true }
+	open := make(chan struct{})
+	closed := make(chan struct{})
+	close(closed)
+
+	tests := []struct {
+		name           string
+		executorLoaded func() bool
+		managerSynced  <-chan struct{}
+		want           bool
+	}{
+		{name: "executor loaded is ready", executorLoaded: loaded, managerSynced: open, want: true},
+		{name: "not loaded and not synced is not ready", executorLoaded: notLoaded, managerSynced: open, want: false},
+		{name: "not loaded but synced is ready", executorLoaded: notLoaded, managerSynced: closed, want: true},
 	}
-	// No executor loaded but the manager has synced: ready (fail closed).
-	synced := make(chan struct{})
-	close(synced)
-	if !executorReadyOrManagerSynced(synced) {
-		t.Error("expected ready once the manager has synced")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isExecutorReady(tt.executorLoaded, tt.managerSynced); got != tt.want {
+				t.Errorf("isExecutorReady() = %v, want %v", got, tt.want)
+			}
+		})
 	}
+}
+
+func TestNewExecutorReadiness(t *testing.T) {
+	t.Run("disabled CRD manager returns no gating", func(t *testing.T) {
+		managerSynced, executorReady := newExecutorReadiness(true)
+		if managerSynced != nil {
+			t.Error("expected a nil manager-sync channel when the CRD manager is disabled")
+		}
+		if executorReady != nil {
+			t.Error("expected a nil readiness check when the CRD manager is disabled")
+		}
+	})
+
+	t.Run("becomes ready once the manager signals sync", func(t *testing.T) {
+		managerSynced, executorReady := newExecutorReadiness(false)
+		if managerSynced == nil || executorReady == nil {
+			t.Fatal("expected a manager-sync channel and readiness check in CRD-manager mode")
+		}
+		if executorReady() {
+			t.Error("expected not ready before the manager has synced")
+		}
+
+		close(managerSynced)
+		if !executorReady() {
+			t.Error("expected ready once the manager has synced")
+		}
+	})
 }

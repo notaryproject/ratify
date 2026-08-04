@@ -65,22 +65,34 @@ func StartManager(certRotatorReady chan struct{}, executorManagerReady chan stru
 	setupCertRotator(certRotatorReady, mgr, disableMutation)
 	setupCRDControllers(mgr, disableCRDManager)
 
-	if !disableCRDManager && executorManagerReady != nil {
-		// Closed once the manager's caches have synced, so readiness reflects
-		// that the executor state is known (loaded, or confirmed absent).
-		if err := mgr.Add(manager.RunnableFunc(func(context.Context) error {
-			close(executorManagerReady)
-			return nil
-		})); err != nil {
-			setupLog.Error(err, "could not register executor readiness signal")
-			os.Exit(1)
-		}
+	if err := addExecutorReadySignal(mgr, executorManagerReady, disableCRDManager); err != nil {
+		setupLog.Error(err, "could not register executor readiness signal")
+		os.Exit(1)
 	}
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "could not start manager")
 		os.Exit(1)
 	}
+}
+
+// runnableAdder is the subset of ctrl.Manager used to register the executor
+// readiness signal.
+type runnableAdder interface {
+	Add(manager.Runnable) error
+}
+
+// addExecutorReadySignal registers a runnable that closes executorManagerReady
+// once the manager's caches have synced, so readiness reflects that the
+// executor state is known (loaded, or confirmed absent).
+func addExecutorReadySignal(mgr runnableAdder, executorManagerReady chan struct{}, disableCRDManager bool) error {
+	if disableCRDManager || executorManagerReady == nil {
+		return nil
+	}
+	return mgr.Add(manager.RunnableFunc(func(context.Context) error {
+		close(executorManagerReady)
+		return nil
+	}))
 }
 
 func setupCertRotator(certRotatorReady chan struct{}, mgr ctrl.Manager, disableMutation bool) {

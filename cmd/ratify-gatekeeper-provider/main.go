@@ -98,30 +98,33 @@ func startRatify(opts *options) error {
 	// In CRD-manager mode the executor is loaded asynchronously by the
 	// reconciler; executorManagerReady is closed once the manager's caches have
 	// synced, so readiness no longer blocks once the executor state is known.
-	var executorManagerReady chan struct{}
-	if !serverOpts.DisableCRDManager {
-		executorManagerReady = make(chan struct{})
-	}
+	executorManagerReady, executorReady := newExecutorReadiness(serverOpts.DisableCRDManager)
 	go startManagerFunc(certRotatorReady, executorManagerReady, serverOpts.DisableMutation, serverOpts.DisableCRDManager)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	// Gate readiness on the executor in CRD-manager mode; config-file mode loads
-	// it synchronously at startup and needs no gating.
-	var executorReady func() bool
-	if !serverOpts.DisableCRDManager {
-		executorReady = func() bool { return executorReadyOrManagerSynced(executorManagerReady) }
-	}
 	go runHealthServer(ctx, opts.healthServerAddress, certRotatorReady, executorReady)
 
 	return httpserver.StartServer(serverOpts, opts.configFilePath)
 }
 
-// executorReadyOrManagerSynced reports whether the CRD-managed executor is
-// loaded, or the manager has synced (managerSynced closed) so the pod becomes
-// Ready and fails closed even when no valid Executor is installed yet.
-func executorReadyOrManagerSynced(managerSynced <-chan struct{}) bool {
-	if controller.GlobalExecutorManager.GetExecutor() != nil {
+// newExecutorReadiness returns the manager-sync signal and the readiness check
+// used to gate /readyz in CRD-manager mode. Both are nil when the CRD manager
+// is disabled, since the executor is then loaded synchronously at startup.
+func newExecutorReadiness(disableCRDManager bool) (chan struct{}, func() bool) {
+	if disableCRDManager {
+		return nil, nil
+	}
+	managerSynced := make(chan struct{})
+	executorLoaded := func() bool { return controller.GlobalExecutorManager.GetExecutor() != nil }
+	return managerSynced, func() bool { return isExecutorReady(executorLoaded, managerSynced) }
+}
+
+// isExecutorReady reports whether the CRD-managed executor is loaded, or the
+// manager has synced (managerSynced closed) so the pod becomes Ready and fails
+// closed even when no valid Executor is installed yet.
+func isExecutorReady(executorLoaded func() bool, managerSynced <-chan struct{}) bool {
+	if executorLoaded() {
 		return true
 	}
 	select {
