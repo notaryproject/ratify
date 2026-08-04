@@ -105,6 +105,58 @@ func TestLoadIdentityBindingConfigFromEnv(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "AKS webhook env fallback",
+			env: map[string]string{
+				EnvAKSIdentityBindingSNIName:    "sni.ests.aks",
+				EnvAKSIdentityBindingTokenProxy: "https://apiserver.hcp.westus2.azmk8s.io",
+				EnvAKSIdentityBindingCAFile:     "/var/run/secrets/azure/wi/ca-cert/ca.crt",
+				EnvAKSFederatedTokenFile:        "/var/run/secrets/azure/wi/token/azure-identity-token",
+			},
+			assert: func(t *testing.T, cfg *IdentityBindingConfig) {
+				if cfg.SNIName != "sni.ests.aks" {
+					t.Errorf("unexpected SNIName: %s", cfg.SNIName)
+				}
+				if cfg.APIServerHost != "apiserver.hcp.westus2.azmk8s.io" {
+					t.Errorf("unexpected APIServerHost: %s", cfg.APIServerHost)
+				}
+				if cfg.TokenFilePath != "/var/run/secrets/azure/wi/token/azure-identity-token" {
+					t.Errorf("unexpected TokenFilePath: %s", cfg.TokenFilePath)
+				}
+				if cfg.CACertPath != "/var/run/secrets/azure/wi/ca-cert/ca.crt" {
+					t.Errorf("unexpected CACertPath: %s", cfg.CACertPath)
+				}
+			},
+		},
+		{
+			name: "ratify-specific vars take precedence over AKS fallback",
+			env: map[string]string{
+				EnvIdentityBindingSNIName:       "sni.override",
+				EnvIdentityBindingAPIServerHost: "apiserver.override",
+				EnvAKSIdentityBindingSNIName:    "sni.ests.aks",
+				EnvAKSIdentityBindingTokenProxy: "https://apiserver.hcp.westus2.azmk8s.io",
+			},
+			assert: func(t *testing.T, cfg *IdentityBindingConfig) {
+				if cfg.SNIName != "sni.override" {
+					t.Errorf("unexpected SNIName: %s", cfg.SNIName)
+				}
+				if cfg.APIServerHost != "apiserver.override" {
+					t.Errorf("unexpected APIServerHost: %s", cfg.APIServerHost)
+				}
+			},
+		},
+		{
+			name: "AKS token proxy with port strips scheme and port",
+			env: map[string]string{
+				EnvAKSIdentityBindingSNIName:    "sni.ests.aks",
+				EnvAKSIdentityBindingTokenProxy: "https://apiserver.hcp.westus2.azmk8s.io:443",
+			},
+			assert: func(t *testing.T, cfg *IdentityBindingConfig) {
+				if cfg.APIServerHost != "apiserver.hcp.westus2.azmk8s.io" {
+					t.Errorf("unexpected APIServerHost: %s", cfg.APIServerHost)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -115,6 +167,10 @@ func TestLoadIdentityBindingConfigFromEnv(t *testing.T) {
 				EnvIdentityBindingAPIServerHost,
 				EnvIdentityBindingTokenFile,
 				EnvIdentityBindingCACertPath,
+				EnvAKSIdentityBindingSNIName,
+				EnvAKSIdentityBindingTokenProxy,
+				EnvAKSIdentityBindingCAFile,
+				EnvAKSFederatedTokenFile,
 			} {
 				t.Setenv(k, "")
 			}

@@ -57,6 +57,32 @@ const (
 	// CA certificate used to validate the TLS connection.
 	EnvIdentityBindingCACertPath = "AZURE_ACR_IDENTITY_BINDING_CA_CERT_PATH"
 
+	// The following EnvAKS* variables are the standard environment variables
+	// injected into a pod by the AKS workload-identity webhook (v1.6.0+) when
+	// the pod carries the annotation
+	// azure.workload.identity/use-identity-binding: "true". They are used as
+	// fallbacks for the ratify-specific AZURE_ACR_IDENTITY_BINDING_* variables so
+	// that identity binding works out of the box on AKS without the operator
+	// having to re-map any environment variables. The ratify-specific variables,
+	// when set, always take precedence.
+
+	// EnvAKSIdentityBindingSNIName is the AKS webhook-injected SNI host of the
+	// cluster identity binding local authority.
+	EnvAKSIdentityBindingSNIName = "AZURE_KUBERNETES_SNI_NAME"
+
+	// EnvAKSIdentityBindingTokenProxy is the AKS webhook-injected token endpoint
+	// URL. Its host is the API server the SNI name is dialed against.
+	EnvAKSIdentityBindingTokenProxy = "AZURE_KUBERNETES_TOKEN_PROXY"
+
+	// EnvAKSIdentityBindingCAFile is the AKS webhook-injected path to the cluster
+	// CA certificate used to validate the TLS connection.
+	EnvAKSIdentityBindingCAFile = "AZURE_KUBERNETES_CA_FILE"
+
+	// EnvAKSFederatedTokenFile is the AKS webhook-injected path to the projected
+	// service account token. With identity binding enabled the webhook projects
+	// this token with the audience api://AKSIdentityBinding.
+	EnvAKSFederatedTokenFile = "AZURE_FEDERATED_TOKEN_FILE" // #nosec G101 -- env var name, not a credential
+
 	// defaultKubernetesCACertPath is the default path to the cluster CA
 	// certificate used to validate the TLS connection to the identity binding
 	// token endpoint.
@@ -104,8 +130,17 @@ type IdentityBindingConfig struct {
 // platform-injected environment variables. It returns (nil, nil) when identity
 // binding is not configured (no SNI name present), so callers can treat a nil
 // result as "identity binding disabled".
+//
+// The ratify-specific AZURE_ACR_IDENTITY_BINDING_* variables take precedence.
+// When they are not set, the values injected by the AKS workload-identity
+// webhook (AZURE_KUBERNETES_SNI_NAME, AZURE_KUBERNETES_TOKEN_PROXY,
+// AZURE_KUBERNETES_CA_FILE, AZURE_FEDERATED_TOKEN_FILE) are used as fallbacks so
+// identity binding works out of the box on AKS.
 func LoadIdentityBindingConfigFromEnv() (*IdentityBindingConfig, error) {
 	sniName := strings.TrimSpace(os.Getenv(EnvIdentityBindingSNIName))
+	if sniName == "" {
+		sniName = strings.TrimSpace(os.Getenv(EnvAKSIdentityBindingSNIName))
+	}
 	if sniName == "" {
 		return nil, nil
 	}
@@ -115,15 +150,49 @@ func LoadIdentityBindingConfigFromEnv() (*IdentityBindingConfig, error) {
 
 	apiServerHost := strings.TrimSpace(os.Getenv(EnvIdentityBindingAPIServerHost))
 	if apiServerHost == "" {
-		return nil, fmt.Errorf("%s must be set when %s is provided", EnvIdentityBindingAPIServerHost, EnvIdentityBindingSNIName)
+		// The AKS webhook injects the token endpoint as a full URL; the host is
+		// the API server the SNI name is dialed against.
+		if proxy := strings.TrimSpace(os.Getenv(EnvAKSIdentityBindingTokenProxy)); proxy != "" {
+			host, err := hostFromURL(proxy)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse %s: %w", EnvAKSIdentityBindingTokenProxy, err)
+			}
+			apiServerHost = host
+		}
+	}
+	if apiServerHost == "" {
+		return nil, fmt.Errorf("%s (or %s) must be set when %s is provided", EnvIdentityBindingAPIServerHost, EnvAKSIdentityBindingTokenProxy, EnvIdentityBindingSNIName)
+	}
+
+	tokenFilePath := strings.TrimSpace(os.Getenv(EnvIdentityBindingTokenFile))
+	if tokenFilePath == "" {
+		tokenFilePath = strings.TrimSpace(os.Getenv(EnvAKSFederatedTokenFile))
+	}
+
+	caCertPath := strings.TrimSpace(os.Getenv(EnvIdentityBindingCACertPath))
+	if caCertPath == "" {
+		caCertPath = strings.TrimSpace(os.Getenv(EnvAKSIdentityBindingCAFile))
 	}
 
 	return &IdentityBindingConfig{
 		SNIName:       sniName,
 		APIServerHost: apiServerHost,
-		TokenFilePath: strings.TrimSpace(os.Getenv(EnvIdentityBindingTokenFile)),
-		CACertPath:    strings.TrimSpace(os.Getenv(EnvIdentityBindingCACertPath)),
+		TokenFilePath: tokenFilePath,
+		CACertPath:    caCertPath,
 	}, nil
+}
+
+// hostFromURL extracts the host (without scheme, port, or path) from a URL such
+// as the AKS-injected token proxy endpoint (https://apiserver-fqdn[:port]).
+func hostFromURL(raw string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("no host in URL %q", raw)
+	}
+	return u.Hostname(), nil
 }
 
 // identityBindingCredential implements [azcore.TokenCredential] using the
