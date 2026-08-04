@@ -94,8 +94,8 @@ jobs:
     needs: build
     uses: ./.github/workflows/e2e-k8s.yml
     with:
-      k8s_version: "1.31.2"
-      gatekeeper_version: "3.18.0"
+      k8s_version: "1.35.5"
+      gatekeeper_version: "3.22.2"
       ratify_image_repository: ${{ needs.build.outputs.image_repository }}
       ratify_image_tag: ${{ needs.build.outputs.image_tag }}
 
@@ -119,3 +119,5 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           charts_dir: deployments
+          chart_version: "2.0.0-dev"
+          app_version: "dev"
