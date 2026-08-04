@@ -209,3 +209,112 @@ func TestDeleteExecutor_RemoveExistingEntry(t *testing.T) {
 		t.Fatalf("expected non-nil executor after deletion")
 	}
 }
+
+// newInvalidExecutor returns an Executor whose spec passes convertOptions
+// validation but fails NewScopedExecutor (the verifier type is not registered),
+// so the failure surfaces in refreshExecutor rather than convertOptions.
+func newInvalidExecutor() *configv2alpha1.Executor {
+	exec := newValidExecutor()
+	exec.Spec.Verifiers = []*configv2alpha1.VerifierOptions{
+		{
+			Name: "broken",
+			Type: "type-not-registered",
+		},
+	}
+	return exec
+}
+
+// TestUpsertExecutor_FailClosedOnInvalidSpecChange verifies that when a
+// previously succeeded Executor has its spec changed (generation advanced) to
+// an invalid config, the manager forces the update: it converges to the new
+// (broken) desired state and fails closed so the data plane rejects requests.
+func TestUpsertExecutor_FailClosedOnInvalidSpecChange(t *testing.T) {
+	mgr := executorManager{
+		opts:        map[string]e.ScopedOptions{},
+		generations: map[string]int64{},
+	}
+
+	initial := newValidExecutor()
+	initial.Generation = 1
+	if err := mgr.upsertExecutor("default", "exec1", initial); err != nil {
+		t.Fatalf("initial upsert failed: %v", err)
+	}
+	if mgr.GetExecutor() == nil {
+		t.Fatalf("expected non-nil executor after initial upsert")
+	}
+
+	// Change exec1 to an invalid config (generation advanced).
+	broken := newInvalidExecutor()
+	broken.Generation = 2
+	if err := mgr.upsertExecutor("default", "exec1", broken); err == nil {
+		t.Fatalf("expected error when changing to an invalid config")
+	}
+
+	// Fail closed: no executor is served, so new requests are rejected.
+	if mgr.GetExecutor() != nil {
+		t.Fatalf("expected executor to be nil (fail-closed) after an invalid spec change")
+	}
+	// The desired state converged to the new (broken) config.
+	if got := mgr.opts[createOptsKey("default", "exec1")].Verifiers[0].Type; got != "type-not-registered" {
+		t.Fatalf("expected opts to converge to the new config, got verifier type %q", got)
+	}
+	// The generation is not recorded because it was never successfully applied.
+	if got := mgr.generations[createOptsKey("default", "exec1")]; got != 1 {
+		t.Fatalf("expected tracked generation to remain 1 (last success), got %d", got)
+	}
+}
+
+// TestUpsertExecutor_TransientRetainsLastKnownGood verifies that when a build
+// fails without any spec change (same generation, i.e. a re-reconcile of an
+// unchanged spec such as a periodic resync), the last-known-good executor is
+// retained and the desired-state map is rolled back.
+func TestUpsertExecutor_TransientRetainsLastKnownGood(t *testing.T) {
+	mgr := executorManager{
+		opts:        map[string]e.ScopedOptions{},
+		generations: map[string]int64{},
+	}
+
+	initial := newValidExecutor()
+	initial.Generation = 1
+	if err := mgr.upsertExecutor("default", "exec1", initial); err != nil {
+		t.Fatalf("initial upsert failed: %v", err)
+	}
+	goodExecutor := mgr.GetExecutor()
+	if goodExecutor == nil {
+		t.Fatalf("expected non-nil executor after initial upsert")
+	}
+
+	// Re-reconcile the SAME generation but the build now fails (transient).
+	broken := newInvalidExecutor()
+	broken.Generation = 1
+	if err := mgr.upsertExecutor("default", "exec1", broken); err == nil {
+		t.Fatalf("expected error on transient build failure")
+	}
+
+	// Last-known-good executor must be retained (graceful degradation).
+	if mgr.GetExecutor() != goodExecutor {
+		t.Fatalf("expected the last-known-good executor to be retained on a transient failure")
+	}
+	// m.opts must be rolled back to the previous valid config.
+	if got := mgr.opts[createOptsKey("default", "exec1")].Verifiers[0].Type; got != mockVerifierType {
+		t.Fatalf("expected opts to roll back to the valid config, got verifier type %q", got)
+	}
+}
+
+// TestUpsertExecutor_InvalidColdStartFailsClosed verifies that when the very
+// first (cold-start) config is invalid, no executor is served (fail-closed).
+func TestUpsertExecutor_InvalidColdStartFailsClosed(t *testing.T) {
+	mgr := executorManager{
+		opts:        map[string]e.ScopedOptions{},
+		generations: map[string]int64{},
+	}
+
+	broken := newInvalidExecutor()
+	broken.Generation = 1
+	if err := mgr.upsertExecutor("default", "exec1", broken); err == nil {
+		t.Fatalf("expected error on invalid cold-start config")
+	}
+	if mgr.GetExecutor() != nil {
+		t.Fatalf("expected no executor to be served on invalid cold start (fail-closed)")
+	}
+}

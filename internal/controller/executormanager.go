@@ -26,14 +26,17 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // executorManager manages the lifecycle of executor instances across different
 // namespaces and names.
 type executorManager struct {
-	mutex    sync.Mutex
-	opts     map[string]e.ScopedOptions
-	executor atomic.Pointer[e.ScopedExecutor]
+	mutex sync.Mutex
+	opts  map[string]e.ScopedOptions
+	// generations records the last successfully applied generation per resource.
+	generations map[string]int64
+	executor    atomic.Pointer[e.ScopedExecutor]
 }
 
 // GlobalExecutorManager is an instance of executorManager that is used by
@@ -42,7 +45,8 @@ var GlobalExecutorManager executorManager
 
 func init() {
 	GlobalExecutorManager = executorManager{
-		opts: make(map[string]e.ScopedOptions),
+		opts:        make(map[string]e.ScopedOptions),
+		generations: make(map[string]int64),
 	}
 }
 
@@ -67,9 +71,45 @@ func (m *executorManager) upsertExecutor(namespace, name string, opts *configv2a
 	}
 
 	key := createOptsKey(namespace, name)
+	prevOpts, existed := m.opts[key]
+	prevGen, genTracked := m.generations[key]
+	newGen := opts.GetGeneration()
 	m.opts[key] = scopedOpts
 
-	return m.refreshExecutor()
+	if err := m.refreshExecutor(); err != nil {
+		specChanged := !genTracked || prevGen != newGen
+		if specChanged {
+			// The operator changed the spec and the new config is invalid.
+			// Force the update: converge to the (broken) desired state and
+			// fail closed so the data plane rejects new requests until the
+			// config is fixed. Keep the new opts so we stay converged and do
+			// NOT record the generation (it was never successfully applied).
+			//
+			// NOTE: a single shared ScopedExecutor backs all CRDs, so this
+			// fails closed the whole data plane, not just the changed scope.
+			m.executor.Store(nil)
+			logf.Log.Error(err, "Executor configuration changed but failed to build; failing closed. New requests will be REJECTED until the invalid config is corrected", "executor", key, "generation", newGen)
+			return err
+		}
+
+		// Unchanged spec: the failure is most likely transient (e.g. a
+		// dependency such as Azure Key Vault was briefly unreachable). Retain
+		// the last-known-good executor and roll back the desired-state map so
+		// it stays consistent with what is being served.
+		if existed {
+			m.opts[key] = prevOpts
+		} else {
+			delete(m.opts, key)
+		}
+		logf.Log.Info("Failed to rebuild Executor from an unchanged configuration (likely a transient error); retaining the last-known-good executor", "executor", key, "generation", newGen)
+		return err
+	}
+
+	if m.generations == nil {
+		m.generations = make(map[string]int64)
+	}
+	m.generations[key] = newGen
+	return nil
 }
 
 // deleteExecutor removes an executor instance under the given namespace and
@@ -81,6 +121,7 @@ func (m *executorManager) deleteExecutor(namespace, name string) error {
 	key := createOptsKey(namespace, name)
 	if _, exists := m.opts[key]; exists {
 		delete(m.opts, key)
+		delete(m.generations, key)
 		return m.refreshExecutor()
 	}
 	return fmt.Errorf("executor resource: %s/%s is not found", namespace, name)
