@@ -28,6 +28,7 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/httpserver"
 	"github.com/notaryproject/ratify/v2/internal/manager"
 	"github.com/notaryproject/ratify/v2/pkg/common"
+	"github.com/notaryproject/ratify/v2/pkg/featureflag"
 	"github.com/sirupsen/logrus"
 )
 
@@ -36,6 +37,7 @@ var startManagerFunc = manager.StartManager
 // main is the entry point for the Ratify server.
 func main() {
 	common.SetLoggingLevelFromEnv(logrus.StandardLogger())
+	featureflag.InitFeatureFlagsFromEnv()
 	if err := startRatify(parse()); err != nil {
 		logrus.Errorf("Failed to start Ratify: %v", err)
 		panic(err)

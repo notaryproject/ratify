@@ -107,7 +107,11 @@ func (d *Cache[T]) Set(ctx context.Context, key string, value T, ttl time.Durati
 
 	var md map[string]string
 	if ttl > 0 {
-		md = map[string]string{"ttlInSeconds": strconv.Itoa(int(ttl.Seconds()))}
+		// Round up to the nearest second using integer duration math so that
+		// any positive TTL maps to at least 1 second (avoids sending
+		// ttlInSeconds=0, which would disable expiry, for sub-second TTLs).
+		seconds := int64((ttl + time.Second - 1) / time.Second)
+		md = map[string]string{"ttlInSeconds": strconv.FormatInt(seconds, 10)}
 	}
 
 	if err := d.daprClient.SaveState(ctx, d.cacheName, ctxUtils.CreateCacheKey(ctx, key), bytes, md); err != nil {

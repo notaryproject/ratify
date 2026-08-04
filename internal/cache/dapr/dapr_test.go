@@ -186,6 +186,21 @@ func TestDaprCache_Set_DefaultTTL(t *testing.T) {
 	}
 }
 
+func TestDaprCache_Set_SubSecondTTL(t *testing.T) {
+	d := &Cache[string]{
+		daprClient: &testDaprClient{
+			stateValues: map[string]string{},
+		},
+		cacheName: testCacheName,
+	}
+	if err := d.Set(context.Background(), testKey, testValue, 500*time.Millisecond); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if got := d.daprClient.(*testDaprClient).mdValues["ttlInSeconds"]; got != "1" {
+		t.Errorf("expected sub-second TTL to round up to 1, got %s", got)
+	}
+}
+
 func TestDaprCache_Delete_Expected(t *testing.T) {
 	d := &Cache[string]{
 		daprClient: &testDaprClient{
