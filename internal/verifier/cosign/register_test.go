@@ -694,6 +694,19 @@ func TestToVerifierOptions(t *testing.T) {
 			},
 		},
 		{
+			name:         "keyless honors ignoreCTLog false",
+			verifierName: "test-policy",
+			input: &ScopedOptions{
+				IgnoreCTLog: false,
+			},
+			wantErr: false,
+			validate: func(t *testing.T, opts *cosign.VerifierOptions) {
+				if opts.IgnoreCTLog {
+					t.Errorf("IgnoreCTLog = %v, want false (honored for keyless)", opts.IgnoreCTLog)
+				}
+			},
+		},
+		{
 			name:         "with certificate identity",
 			verifierName: "test-policy",
 			input: &ScopedOptions{
@@ -755,8 +768,7 @@ func TestToVerifierOptions(t *testing.T) {
 						"keys": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END PUBLIC KEY-----",
 					},
 				},
-				IgnoreTLog:  true,  // Honored for key-based verification
-				IgnoreCTLog: false, // Always ignored for key-based (public keys carry no SCTs)
+				IgnoreTLog: true, // Honored for key-based verification
 			},
 			wantErr:     true, // inline provider not registered in test context
 			errContains: "failed to create key provider",
@@ -820,8 +832,9 @@ func (mockKeyProvider) GetKeys(context.Context) ([]*keyprovider.PublicKey, error
 
 // TestToVerifierOptions_KeyBasedTimestampOptions verifies that key-based
 // verification honors IgnoreTLog and IgnoreObserverTimestamps (so offline,
-// key-signed images without a timestamp can be verified) while always ignoring
-// the certificate transparency log.
+// key-signed images without a timestamp can be verified) and passes IgnoreCTLog
+// through unchanged, since the certificate transparency log never applies to
+// public keys.
 func TestToVerifierOptions_KeyBasedTimestampOptions(t *testing.T) {
 	const providerName = "mock-key-provider-timestamp"
 	keyprovider.RegisterKeyProvider(providerName, func(any) (keyprovider.KeyProvider, error) {
@@ -832,15 +845,19 @@ func TestToVerifierOptions_KeyBasedTimestampOptions(t *testing.T) {
 		name                     string
 		ignoreTLog               bool
 		ignoreObserverTimestamps bool
+		ignoreCTLog              bool
 	}{
 		{name: "offline key verification", ignoreTLog: true, ignoreObserverTimestamps: true},
 		{name: "defaults preserved", ignoreTLog: false, ignoreObserverTimestamps: false},
+		{name: "ignoreCTLog false is passed through", ignoreCTLog: false},
+		{name: "ignoreCTLog true is passed through", ignoreCTLog: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts, err := toVerifierOptions(&ScopedOptions{
 				IgnoreTLog:               tt.ignoreTLog,
 				IgnoreObserverTimestamps: tt.ignoreObserverTimestamps,
+				IgnoreCTLog:              tt.ignoreCTLog,
 				Keys: map[string]any{
 					providerName: map[string]any{},
 				},
@@ -851,8 +868,8 @@ func TestToVerifierOptions_KeyBasedTimestampOptions(t *testing.T) {
 			if opts.IgnoreTLog != tt.ignoreTLog {
 				t.Errorf("IgnoreTLog = %v, want %v", opts.IgnoreTLog, tt.ignoreTLog)
 			}
-			if !opts.IgnoreCTLog {
-				t.Errorf("IgnoreCTLog = %v, want true (always ignored for key-based)", opts.IgnoreCTLog)
+			if opts.IgnoreCTLog != tt.ignoreCTLog {
+				t.Errorf("IgnoreCTLog = %v, want %v", opts.IgnoreCTLog, tt.ignoreCTLog)
 			}
 			if opts.IgnoreObserverTimestamps != tt.ignoreObserverTimestamps {
 				t.Errorf("IgnoreObserverTimestamps = %v, want %v", opts.IgnoreObserverTimestamps, tt.ignoreObserverTimestamps)

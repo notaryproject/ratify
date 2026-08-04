@@ -88,9 +88,9 @@ type ScopedOptions struct {
 
 	// IgnoreCTLog indicates whether to ignore the certificate transparency log
 	// during verification. Only applies to keyless (certificate-based)
-	// verification. Key-based verification always ignores the certificate
-	// transparency log because public keys carry no Fulcio certificate and
-	// therefore no signed certificate timestamps. Optional.
+	// verification; it has no effect on key-based verification because public
+	// keys carry no Fulcio certificate and therefore no signed certificate
+	// timestamps. Optional.
 	IgnoreCTLog bool `json:"ignoreCTLog,omitempty"`
 
 	// IgnoreObserverTimestamps indicates whether to skip observer timestamp
@@ -315,10 +315,11 @@ func toVerifierOptions(s *ScopedOptions, name string) (*cosign.VerifierOptions, 
 	opts := &cosign.VerifierOptions{
 		Name: name,
 	}
+	// The underlying verifier skips the certificate transparency log for public
+	// keys, so IgnoreCTLog only takes effect for keyless verification.
+	opts.IgnoreCTLog = s.IgnoreCTLog
+	opts.IgnoreTLog = s.IgnoreTLog
 	if len(s.Keys) == 0 {
-		opts.IgnoreCTLog = s.IgnoreCTLog
-		opts.IgnoreTLog = s.IgnoreTLog
-
 		if s.CertificateIdentity != "" || s.CertificateIdentityRegex != "" ||
 			s.CertificateOIDCIssuer != "" || s.CertificateOIDCIssuerRegex != "" {
 			// Create certificate identity using the sigstore verify package
@@ -339,16 +340,6 @@ func toVerifierOptions(s *ScopedOptions, name string) (*cosign.VerifierOptions, 
 		}
 		return opts, nil
 	}
-	// Key-based verification: always ignore the certificate transparency log
-	// regardless of s.IgnoreCTLog. Public-key signatures carry no Fulcio
-	// certificate, so they have no signed certificate timestamps; requiring SCTs
-	// (IgnoreCTLog=false) makes the underlying verifier reject the bundle with
-	// "SCTs required but bundle is signed with a public key". The transparency-log
-	// and observer-timestamp checks are honored per the trust policy so that
-	// offline, key-signed images (no tlog entry and no RFC3161 timestamp) can be
-	// verified when the caller opts in via IgnoreTLog and IgnoreObserverTimestamps.
-	opts.IgnoreCTLog = true
-	opts.IgnoreTLog = s.IgnoreTLog
 	opts.IgnoreObserverTimestamps = s.IgnoreObserverTimestamps
 	opts.IdentityPolicies = []verify.PolicyOption{
 		verify.WithKey(),
