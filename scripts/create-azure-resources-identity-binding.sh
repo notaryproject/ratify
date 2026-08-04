@@ -95,9 +95,10 @@ create_acr() {
 
 create_aks() {
   # Workload identity and the OIDC issuer are prerequisites for identity
-  # bindings. No --attach-acr / federated credential is created here; ACR access
-  # is granted to the managed identity (acrpull above) and consumed in-cluster
-  # through the identity binding token exchange.
+  # bindings. --attach-acr grants the cluster kubelet identity acrpull so it can
+  # pull the ratify provider image and admitted workload images; this is the
+  # standard kubelet image-pull path and is independent of the identity binding
+  # based authentication that ratify itself performs during verification.
   az aks create \
     --resource-group "${GROUP_NAME}" \
     --name "${AKS_NAME}" \
@@ -106,7 +107,8 @@ create_aks() {
     --node-count 1 \
     --no-ssh-key \
     --enable-workload-identity \
-    --enable-oidc-issuer >/dev/null
+    --enable-oidc-issuer \
+    --attach-acr "${ACR_NAME}" >/dev/null
   echo "AKS '${AKS_NAME}' is created"
 
   az aks get-credentials --resource-group "${GROUP_NAME}" --name "${AKS_NAME}" --overwrite-existing

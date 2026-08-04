@@ -375,6 +375,41 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_mutate_success
 }
 
+# This case runs against a dedicated identity binding deployment; it is invoked
+# by scripts/azure-ci-test-identity-binding.sh via `bats -f "notation identity
+# binding test"` and is not part of the default workload-identity azure-ci-test.sh
+# run. ratify is deployed with the ACR "azure" credential provider in identity
+# binding mode, so it can only fetch the image manifest and notation signature
+# from the (authenticated) ACR after exchanging the projected service account
+# token (audience api://AKSIdentityBinding) for an AAD token and then an ACR
+# refresh token. Admission of the signed image therefore proves the identity
+# binding based registry authentication worked end-to-end; the unsigned image
+# confirms verification is enforced. Notation verification uses an inline trust
+# store so the case isolates the identity binding registry auth path.
+@test "notation identity binding test" {
+    teardown() {
+        echo "cleaning up"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo1 --namespace default --force --ignore-not-found=true'
+    }
+
+    run kubectl apply -f ./library/default/template.yaml
+    assert_success
+    sleep 5
+    run kubectl apply -f ./library/default/samples/constraint.yaml
+    assert_success
+    sleep 5
+
+    # signed image, pulled from ACR via identity binding and validated against
+    # the inline notation certificate, should pass
+    run wait_for_process 20 10 'kubectl run demo --namespace default --image=${TEST_REGISTRY}/notation:signed'
+    assert_success
+
+    # unsigned image should be rejected
+    run kubectl run demo1 --namespace default --image=${TEST_REGISTRY}/notation:unsigned
+    assert_failure
+}
+
 @test "validate refresher reconcile count" {
     skip "no KeyManagementProvider/refresher in the v2 gatekeeper provider"
     teardown() {

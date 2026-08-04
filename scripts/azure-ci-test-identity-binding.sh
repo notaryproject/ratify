@@ -97,7 +97,6 @@ deploy_ratify() {
     --set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
     --set provider.tls.disableCertRotation=true \
     --set executor.scopes[0]=${REGISTRY}/notation \
-    --set stores[0].scopes[0]=${REGISTRY}/notation \
     --set stores[0].credential.provider=azure \
     --set stores[0].credential.identityBinding.enabled=true \
     --set notation.scopes[0]=${REGISTRY}/notation \
@@ -155,7 +154,9 @@ main() {
   deploy_gatekeeper
   deploy_ratify
 
-  TEST_REGISTRY=$REGISTRY bats -t ./test/bats/azure-identity-binding-test.bats
+  # The identity binding case lives in the shared azure-test.bats; run only that
+  # case since the other cases target the workload-identity/AKV deployment.
+  TEST_REGISTRY=$REGISTRY bats -t -f "notation identity binding test" ./test/bats/azure-test.bats
 }
 
 main
