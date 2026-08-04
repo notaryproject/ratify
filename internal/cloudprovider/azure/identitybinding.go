@@ -36,67 +36,26 @@ import (
 )
 
 const (
-	// EnvIdentityBindingSNIName is the environment variable that carries the SNI
-	// host of the cluster identity binding local authority. On AKS it is
-	// injected by the platform from ServiceAccountImagePullProfile.LocalAuthoritySNI
-	// (the same value AgentBaker passes to the ACR credential provider via
-	// --ib-sni-name). It is a per-cluster value.
 	EnvIdentityBindingSNIName = "AZURE_ACR_IDENTITY_BINDING_SNI_NAME"
 
-	// EnvIdentityBindingAPIServerHost is the environment variable that carries
-	// the host (IP or FQDN) the SNI name is dialed against. On AKS this is the
-	// API server FQDN (the same value AgentBaker passes via --ib-apiserver-ip).
-	// It is a per-cluster value.
 	EnvIdentityBindingAPIServerHost = "AZURE_ACR_IDENTITY_BINDING_APISERVER_HOST"
 
-	// EnvIdentityBindingTokenFile optionally overrides the path to the projected
-	// service account token used as the client assertion.
 	EnvIdentityBindingTokenFile = "AZURE_ACR_IDENTITY_BINDING_TOKEN_FILE"
 
-	// EnvIdentityBindingCACertPath optionally overrides the path to the cluster
-	// CA certificate used to validate the TLS connection.
 	EnvIdentityBindingCACertPath = "AZURE_ACR_IDENTITY_BINDING_CA_CERT_PATH"
 
-	// The following EnvAKS* variables are the standard environment variables
-	// injected into a pod by the AKS workload-identity webhook (v1.6.0+) when
-	// the pod carries the annotation
-	// azure.workload.identity/use-identity-binding: "true". They are used as
-	// fallbacks for the ratify-specific AZURE_ACR_IDENTITY_BINDING_* variables so
-	// that identity binding works out of the box on AKS without the operator
-	// having to re-map any environment variables. The ratify-specific variables,
-	// when set, always take precedence.
-
-	// EnvAKSIdentityBindingSNIName is the AKS webhook-injected SNI host of the
-	// cluster identity binding local authority.
 	EnvAKSIdentityBindingSNIName = "AZURE_KUBERNETES_SNI_NAME"
 
-	// EnvAKSIdentityBindingTokenProxy is the AKS webhook-injected token endpoint
-	// URL. Its host is the API server the SNI name is dialed against.
 	EnvAKSIdentityBindingTokenProxy = "AZURE_KUBERNETES_TOKEN_PROXY"
 
-	// EnvAKSIdentityBindingCAFile is the AKS webhook-injected path to the cluster
-	// CA certificate used to validate the TLS connection.
 	EnvAKSIdentityBindingCAFile = "AZURE_KUBERNETES_CA_FILE"
 
-	// EnvAKSFederatedTokenFile is the AKS webhook-injected path to the projected
-	// service account token. With identity binding enabled the webhook projects
-	// this token with the audience api://AKSIdentityBinding.
 	EnvAKSFederatedTokenFile = "AZURE_FEDERATED_TOKEN_FILE" // #nosec G101 -- env var name, not a credential
 
-	// defaultKubernetesCACertPath is the default path to the cluster CA
-	// certificate used to validate the TLS connection to the identity binding
-	// token endpoint.
 	defaultKubernetesCACertPath = "/etc/kubernetes/certs/ca.crt"
 
-	// defaultServiceAccountTokenPath is the standard path of the projected
-	// service account token Kubernetes mounts into every pod. The token used for
-	// identity binding must be projected with the audience the cluster identity
-	// binding local authority requires (api://AKSIdentityBinding on AKS); that
-	// projection is configured on the pod spec, not by this credential.
 	defaultServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101 -- well-known mount path, not a credential
 
-	// clientAssertionType is the OAuth2 client assertion type for a JWT bearer
-	// assertion.
 	clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 )
 
@@ -308,7 +267,7 @@ func (c *identityBindingCredential) GetToken(ctx context.Context, opts policy.To
 		"component": "azure-identity-binding",
 		"endpoint":  c.endpoint,
 		"scope":     scope,
-	}).Debug("requesting token from identity binding endpoint")
+	}).Info("acquiring AAD token via Azure identity binding auth provider")
 
 	httpClient := &http.Client{Transport: transport}
 	resp, err := httpClient.Do(req)
