@@ -24,9 +24,9 @@ import (
 	"os"
 	"time"
 
+	re "github.com/notaryproject/ratify/v2/errors"
 	"github.com/notaryproject/ratify/v2/internal/logger"
-	re "github.com/ratify-project/ratify/errors"
-	"github.com/ratify-project/ratify/pkg/utils"
+	"github.com/notaryproject/ratify/v2/pkg/utils"
 
 	"github.com/docker/cli/cli/config"
 	core "k8s.io/api/core/v1"
