@@ -28,6 +28,8 @@ import (
 
 	"github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -398,5 +400,87 @@ func TestVerifyStripsNamespacePrefix(t *testing.T) {
 	}
 	if strings.Contains(itemErr, "parse") {
 		t.Errorf("prefixed key should be stripped before parsing; got parse error: %q", itemErr)
+	}
+}
+
+func TestVerify_LogsFailures(t *testing.T) {
+	hook := test.NewGlobal()
+	defer hook.Reset()
+
+	srv := &server{
+		getExecutor: func(_ string) *executor.ScopedExecutor { return nil },
+		verifyCache: &mockResultCache{entries: make(map[string]*result)},
+		sfGroup:     new(singleflight.Group),
+	}
+	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(`{"request":{"keys":["artifact1"]}}`))
+	if err := srv.verify(context.Background(), httptest.NewRecorder(), req); err != nil {
+		t.Fatalf("verify() error = %v", err)
+	}
+
+	var logged bool
+	for _, entry := range hook.AllEntries() {
+		if entry.Level == logrus.ErrorLevel && strings.Contains(entry.Message, "artifact1") {
+			logged = true
+		}
+	}
+	if !logged {
+		t.Error("expected a verification failure to be logged at error level")
+	}
+}
+
+func TestResolveReference_LogsFailures(t *testing.T) {
+	hook := test.NewGlobal()
+	defer hook.Reset()
+
+	srv := &server{
+		getExecutor: func(_ string) *executor.ScopedExecutor { return nil },
+		mutateCache: &mockCache{entries: make(map[string]string)},
+		sfGroup:     new(singleflight.Group),
+	}
+	if item := srv.resolveReference(context.Background(), "!invalid!"); item.Error == "" {
+		t.Fatal("expected an error item for an invalid reference")
+	}
+
+	var logged bool
+	for _, entry := range hook.AllEntries() {
+		if entry.Level == logrus.ErrorLevel {
+			logged = true
+		}
+	}
+	if !logged {
+		t.Error("expected a reference failure to be logged at error level")
+	}
+}
+
+func TestLogVerificationResult(t *testing.T) {
+	hook := test.NewGlobal()
+	defer hook.Reset()
+
+	res := &result{
+		Succeeded: false,
+		ArtifactReports: []*validationReport{
+			{
+				Subject:  "registry.example/app:v1",
+				Artifact: "registry.example/app@sha256:deadbeef",
+				Results: []*verificationResult{
+					{
+						VerifierName: "notation-1",
+						ErrorReason:  "signature is not produced by a trusted signer",
+					},
+				},
+			},
+		},
+	}
+	logVerificationResult(logrus.StandardLogger(), "registry.example/app:v1", res)
+
+	entries := hook.AllEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(entries))
+	}
+	msg := entries[0].Message
+	for _, want := range []string{"notation-1", "signature is not produced by a trusted signer", `"succeeded":false`} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("expected the logged result to contain %q, got: %s", want, msg)
+		}
 	}
 }
