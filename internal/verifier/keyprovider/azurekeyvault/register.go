@@ -71,6 +71,7 @@ type Options struct {
 // Provider is a key provider that fetches certificate chains from Azure Key
 // Vault secrets and public keys from Azure Key Vault keys.
 type Provider struct {
+	vaultURL      string
 	secretsClient *azsecrets.Client
 	keysClient    *azkeys.Client
 	certSpecs     []CertificateSpec
@@ -119,6 +120,7 @@ func init() {
 		}
 
 		provider := &Provider{
+			vaultURL:      opts.VaultURL,
 			secretsClient: secretsClient,
 			keysClient:    keysClient,
 			certSpecs:     opts.Certificates,
@@ -182,7 +184,7 @@ func (p *Provider) fetchAllCertificates(ctx context.Context) ([]*x509.Certificat
 	}
 
 	for _, certSpec := range p.certSpecs {
-		logrus.Infof("Fetching certificate chain for %q from Azure Key Vault during initialization", certSpec.Name)
+		logrus.Infof("Fetching certificate chain for %q from Azure Key Vault %s during initialization", certSpec.Name, p.vaultURL)
 
 		certChain, err := p.fetchCertificateChain(ctx, certSpec)
 		if err != nil {
@@ -210,7 +212,7 @@ func (p *Provider) fetchAllKeys(ctx context.Context) ([]*keyprovider.PublicKey, 
 	}
 
 	for _, keySpec := range p.keySpecs {
-		logrus.Infof("Fetching public key for %q from Azure Key Vault during initialization", keySpec.Name)
+		logrus.Infof("Fetching public key for %q from Azure Key Vault %s during initialization", keySpec.Name, p.vaultURL)
 
 		key, err := p.fetchKey(ctx, keySpec)
 		if err != nil {

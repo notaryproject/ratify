@@ -22,7 +22,10 @@ import (
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/cache"
 	"github.com/notaryproject/ratify/v2/internal/cache/inmemory"
+	"github.com/notaryproject/ratify/v2/internal/logger"
 )
+
+var logOpt = logger.Option{ComponentType: logger.AuthProvider}
 
 // CredentialWithTTL represents a credential response with its expiration time.
 type CredentialWithTTL struct {
@@ -61,10 +64,13 @@ func NewCachedProvider(source CredentialSourceProvider) (*CachedProvider, error)
 // It returns cached credentials if available and not expired, otherwise fetches
 // new credentials from the source provider and caches them.
 func (c *CachedProvider) Get(ctx context.Context, serverAddress string) (ratify.RegistryCredential, error) {
+	log := logger.GetLogger(ctx, logOpt)
 	// Check if we have a cached credential
 	if credential, err := c.cache.Get(ctx, serverAddress); err == nil {
+		log.Debugf("registry credential cache hit for %s", serverAddress)
 		return credential, nil
 	}
+	log.Debugf("registry credential cache miss for %s", serverAddress)
 
 	// Cache miss, fetch new credentials
 	credWithTTL, err := c.source.GetWithTTL(ctx, serverAddress)
@@ -74,8 +80,14 @@ func (c *CachedProvider) Get(ctx context.Context, serverAddress string) (ratify.
 
 	if credWithTTL.TTL > 0 {
 		defer func() {
-			_ = c.cache.Set(ctx, serverAddress, credWithTTL.Credential, credWithTTL.TTL)
+			if err := c.cache.Set(ctx, serverAddress, credWithTTL.Credential, credWithTTL.TTL); err != nil {
+				log.Warnf("failed to cache the registry credential for %s: %v", serverAddress, err)
+				return
+			}
+			log.Debugf("cached the registry credential for %s for %s", serverAddress, credWithTTL.TTL)
 		}()
+	} else {
+		log.Debugf("registry credential for %s has no TTL and will not be cached", serverAddress)
 	}
 	return credWithTTL.Credential, nil
 }
