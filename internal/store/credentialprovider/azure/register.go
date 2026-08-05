@@ -27,8 +27,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/cloudprovider/azure"
+	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
 )
+
+var logOpt = logger.Option{ComponentType: logger.AuthProvider}
 
 const (
 	// GrantTypeAccessToken is the grant type for AAD access token
@@ -93,14 +96,18 @@ func createAzureIdentityProvider(opts credentialprovider.Options) (ratify.Regist
 func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string) (credentialprovider.CredentialWithTTL, error) {
 	// Step 1: Create a ChainedTokenCredential in the order: workload identity,
 	// managed identity.
+	log := logger.GetLogger(ctx, logOpt)
+	log.Debugf("resolving ACR credential for %s (clientID=%q, tenantID=%q)", serverAddress, p.clientID, p.tenantID)
 	chain, err := azure.CreateCredentialChain(p.clientID, p.tenantID)
 	if err != nil {
+		log.Errorf("failed to create Azure credential chain for %s: %v", serverAddress, err)
 		return credentialprovider.CredentialWithTTL{}, fmt.Errorf("failed to create credential chain: %w", err)
 	}
 
 	// Step 2: Exchange an AAD token for an ACR refresh token using ExchangeAADAccessTokenForACRRefreshToken
 	acrRefreshToken, err := p.exchangeAADTokenForACRToken(ctx, chain, serverAddress)
 	if err != nil {
+		log.Errorf("failed to exchange AAD token for ACR refresh token for %s: %v", serverAddress, err)
 		return credentialprovider.CredentialWithTTL{}, fmt.Errorf("failed to exchange AAD token for ACR refresh token: %w", err)
 	}
 
@@ -108,8 +115,10 @@ func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string)
 	ttl, err := parseJWTTokenTTL(acrRefreshToken)
 	if err != nil {
 		// If JWT parsing fails, fall back to the default TTL
+		log.Warnf("failed to parse ACR refresh token TTL for %s, falling back to the default: %v", serverAddress, err)
 		ttl = DefaultACRTokenTTL
 	}
+	log.Debugf("resolved ACR credential for %s, expires in %s", serverAddress, ttl)
 
 	return credentialprovider.CredentialWithTTL{
 		Credential: ratify.RegistryCredential{
@@ -122,13 +131,16 @@ func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string)
 // exchangeAADTokenForACRToken exchanges an AAD access token for an ACR refresh
 // token.
 func (p *IdentityProvider) exchangeAADTokenForACRToken(ctx context.Context, credential azcore.TokenCredential, serverAddress string) (string, error) {
+	log := logger.GetLogger(ctx, logOpt)
 	// Get an AAD access token
+	start := time.Now()
 	token, err := credential.GetToken(ctx, policy.TokenRequestOptions{
 		Scopes: []string{AADResource},
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to get AAD access token: %w", err)
 	}
+	log.Debugf("acquired AAD access token for scope %s in %dms", AADResource, time.Since(start).Milliseconds())
 
 	// Create ACR authentication client
 	serverURL := "https://" + serverAddress
@@ -138,6 +150,7 @@ func (p *IdentityProvider) exchangeAADTokenForACRToken(ctx context.Context, cred
 	}
 
 	// Exchange AAD token for ACR refresh token
+	exchangeStart := time.Now()
 	response, err := client.ExchangeAADAccessTokenForACRRefreshToken(
 		ctx,
 		azcontainerregistry.PostContentSchemaGrantType(GrantTypeAccessToken),
@@ -154,6 +167,7 @@ func (p *IdentityProvider) exchangeAADTokenForACRToken(ctx context.Context, cred
 	if response.RefreshToken == nil {
 		return "", fmt.Errorf("received nil refresh token from ACR")
 	}
+	log.Debugf("exchanged AAD token for an ACR refresh token at %s in %dms", serverAddress, time.Since(exchangeStart).Milliseconds())
 
 	return *response.RefreshToken, nil
 }

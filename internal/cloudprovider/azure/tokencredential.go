@@ -18,6 +18,7 @@ package azure
 import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/sirupsen/logrus"
 )
 
 // CreateCredentialChain creates a ChainedTokenCredential with the specified
@@ -34,6 +35,9 @@ func CreateCredentialChain(clientID, tenantID string) (azcore.TokenCredential, e
 	})
 	if err == nil {
 		sources = append(sources, wiCred)
+		logrus.Debugf("azure: workload identity credential is available (clientID=%q, tenantID=%q)", clientID, tenantID)
+	} else {
+		logrus.Debugf("azure: workload identity credential is unavailable: %v", err)
 	}
 
 	// 2. Try Managed Identity second
@@ -46,7 +50,12 @@ func CreateCredentialChain(clientID, tenantID string) (azcore.TokenCredential, e
 	miCred, err := azidentity.NewManagedIdentityCredential(miOpts)
 	if err == nil {
 		sources = append(sources, miCred)
+		logrus.Debugf("azure: managed identity credential is available (clientID=%q)", clientID)
+	} else {
+		logrus.Debugf("azure: managed identity credential is unavailable: %v", err)
 	}
+
+	logrus.Debugf("azure: built credential chain with %d source(s)", len(sources))
 
 	// 3. Create chained credential
 	return azidentity.NewChainedTokenCredential(sources, nil)
