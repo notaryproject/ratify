@@ -40,13 +40,13 @@ const (
 
 	EnvIdentityBindingAPIServerHost = "AZURE_ACR_IDENTITY_BINDING_APISERVER_HOST"
 
-	EnvIdentityBindingTokenFile = "AZURE_ACR_IDENTITY_BINDING_TOKEN_FILE"
+	EnvIdentityBindingTokenFile = "AZURE_ACR_IDENTITY_BINDING_TOKEN_FILE" // #nosec G101 -- env var name, not a credential
 
 	EnvIdentityBindingCACertPath = "AZURE_ACR_IDENTITY_BINDING_CA_CERT_PATH"
 
 	EnvAKSIdentityBindingSNIName = "AZURE_KUBERNETES_SNI_NAME"
 
-	EnvAKSIdentityBindingTokenProxy = "AZURE_KUBERNETES_TOKEN_PROXY"
+	EnvAKSIdentityBindingTokenProxy = "AZURE_KUBERNETES_TOKEN_PROXY" // #nosec G101 -- env var name, not a credential
 
 	EnvAKSIdentityBindingCAFile = "AZURE_KUBERNETES_CA_FILE"
 
@@ -57,6 +57,15 @@ const (
 	defaultServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101 -- well-known mount path, not a credential
 
 	clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+
+	// maxIdentityBindingResponseBytes bounds how much of the token endpoint
+	// response is read into memory (1 MiB is far larger than any valid token
+	// response but small enough to prevent memory exhaustion).
+	maxIdentityBindingResponseBytes = 1 << 20
+
+	// maxErrorBodyBytes bounds how much of a non-2xx response body is included
+	// in an error message.
+	maxErrorBodyBytes = 2048
 )
 
 // IdentityBindingConfig contains the resolved configuration required to
@@ -154,6 +163,15 @@ func hostFromURL(raw string) (string, error) {
 	return u.Hostname(), nil
 }
 
+// truncateForError returns body as a string, truncated to maxErrorBodyBytes so
+// an oversized response cannot bloat an error message.
+func truncateForError(body []byte) string {
+	if len(body) > maxErrorBodyBytes {
+		return string(body[:maxErrorBodyBytes]) + "... (truncated)"
+	}
+	return string(body)
+}
+
 // identityBindingCredential implements [azcore.TokenCredential] using the
 // Kubernetes identity binding token exchange.
 type identityBindingCredential struct {
@@ -229,11 +247,12 @@ func (c *identityBindingCredential) GetToken(ctx context.Context, opts policy.To
 
 	// Read the service account token on every call so that token rotation is
 	// picked up transparently.
-	clientAssertion, err := os.ReadFile(c.tokenFilePath)
+	rawAssertion, err := os.ReadFile(c.tokenFilePath)
 	if err != nil {
 		return azcore.AccessToken{}, fmt.Errorf("failed to read service account token file %q: %w", c.tokenFilePath, err)
 	}
-	if len(clientAssertion) == 0 {
+	clientAssertion := strings.TrimSpace(string(rawAssertion))
+	if clientAssertion == "" {
 		return azcore.AccessToken{}, fmt.Errorf("service account token file %q is empty", c.tokenFilePath)
 	}
 
@@ -241,7 +260,7 @@ func (c *identityBindingCredential) GetToken(ctx context.Context, opts policy.To
 	formData.Set("grant_type", "client_credentials")
 	formData.Set("client_assertion_type", clientAssertionType)
 	formData.Set("scope", scope)
-	formData.Set("client_assertion", strings.TrimSpace(string(clientAssertion)))
+	formData.Set("client_assertion", clientAssertion)
 	formData.Set("client_id", c.clientID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, strings.NewReader(formData.Encode()))
@@ -268,12 +287,14 @@ func (c *identityBindingCredential) GetToken(ctx context.Context, opts policy.To
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	// Bound the amount read from the response body to guard against an
+	// oversized or misbehaving endpoint exhausting memory.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxIdentityBindingResponseBytes))
 	if err != nil {
 		return azcore.AccessToken{}, fmt.Errorf("failed to read identity binding token response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return azcore.AccessToken{}, fmt.Errorf("identity binding token request failed with status %d: %s", resp.StatusCode, string(body))
+		return azcore.AccessToken{}, fmt.Errorf("identity binding token request failed with status %d: %s", resp.StatusCode, truncateForError(body))
 	}
 
 	var tokenResp tokenResponse

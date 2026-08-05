@@ -28,6 +28,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -210,7 +211,6 @@ func TestNewIdentityBindingCredential(t *testing.T) {
 	tests := []struct {
 		name        string
 		clientID    string
-		tenantID    string
 		cfg         IdentityBindingConfig
 		env         map[string]string
 		expectError bool
@@ -241,7 +241,6 @@ func TestNewIdentityBindingCredential(t *testing.T) {
 		{
 			name:     "valid explicit config",
 			clientID: "client",
-			tenantID: "tenant",
 			cfg:      IdentityBindingConfig{SNIName: "sni.example.com", APIServerHost: "apiserver.example.com", TokenFilePath: tokenFile},
 		},
 		{
@@ -257,7 +256,7 @@ func TestNewIdentityBindingCredential(t *testing.T) {
 			for k, v := range tt.env {
 				t.Setenv(k, v)
 			}
-			cred, err := newIdentityBindingCredential(tt.clientID, tt.tenantID, tt.cfg)
+			cred, err := newIdentityBindingCredential(tt.clientID, tt.cfg)
 			if tt.expectError {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -286,7 +285,7 @@ func TestNewIdentityBindingCredential(t *testing.T) {
 
 func TestNewIdentityBindingCredential_DefaultTokenPath(t *testing.T) {
 	t.Setenv("AZURE_CLIENT_ID", "")
-	cred, err := newIdentityBindingCredential("client", "tenant", IdentityBindingConfig{
+	cred, err := newIdentityBindingCredential("client", IdentityBindingConfig{
 		SNIName:       "sni.example.com",
 		APIServerHost: "apiserver.example.com",
 	})
@@ -319,7 +318,6 @@ func TestIdentityBindingCredential_GetToken_Success(t *testing.T) {
 
 	cred := &identityBindingCredential{
 		clientID:      "my-client",
-		tenantID:      "my-tenant",
 		endpoint:      server.URL,
 		tokenFilePath: tokenFile,
 		transport:     http.DefaultTransport.(*http.Transport).Clone(),
@@ -378,6 +376,14 @@ func TestIdentityBindingCredential_GetToken_Errors(t *testing.T) {
 		}
 	})
 
+	t.Run("whitespace-only token file", func(t *testing.T) {
+		ws := writeTempFile(t, "ws", "   \n\t  ")
+		cred := &identityBindingCredential{tokenFilePath: ws, transport: http.DefaultTransport.(*http.Transport).Clone()}
+		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{testACRScope}}); err == nil {
+			t.Fatal("expected error for whitespace-only token file")
+		}
+	})
+
 	t.Run("non-200 response", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
@@ -401,16 +407,61 @@ func TestIdentityBindingCredential_GetToken_Errors(t *testing.T) {
 		}
 	})
 
-	t.Run("empty access token", func(t *testing.T) {
+	t.Run("large error body is truncated", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_ = json.NewEncoder(w).Encode(tokenResponse{ExpiresIn: 3600})
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte(strings.Repeat("x", maxErrorBodyBytes*2)))
 		}))
 		defer server.Close()
 		cred := &identityBindingCredential{clientID: "c", endpoint: server.URL, tokenFilePath: tokenFile, transport: http.DefaultTransport.(*http.Transport).Clone()}
-		if _, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{testACRScope}}); err == nil {
-			t.Fatal("expected error for empty access token")
+		_, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{testACRScope}})
+		if err == nil {
+			t.Fatal("expected error for non-200 response")
+		}
+		if !strings.Contains(err.Error(), "truncated") {
+			t.Errorf("expected truncated error body, got: %v", err)
 		}
 	})
+}
+
+func TestHostFromURL(t *testing.T) {
+	t.Run("valid url with scheme and port", func(t *testing.T) {
+		host, err := hostFromURL("https://apiserver.example.com:443")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if host != "apiserver.example.com" {
+			t.Errorf("expected host apiserver.example.com, got %s", host)
+		}
+	})
+
+	t.Run("no host", func(t *testing.T) {
+		if _, err := hostFromURL("not-a-url"); err == nil {
+			t.Fatal("expected error for URL without host")
+		}
+	})
+
+	t.Run("unparsable url", func(t *testing.T) {
+		if _, err := hostFromURL("http://[::1"); err == nil {
+			t.Fatal("expected error for unparsable URL")
+		}
+	})
+}
+
+func TestTruncateForError(t *testing.T) {
+	small := []byte("short body")
+	if got := truncateForError(small); got != "short body" {
+		t.Errorf("expected untouched short body, got %q", got)
+	}
+
+	large := []byte(strings.Repeat("y", maxErrorBodyBytes+10))
+	got := truncateForError(large)
+	if !strings.HasSuffix(got, "... (truncated)") {
+		t.Errorf("expected truncation suffix, got suffix %q", got[len(got)-20:])
+	}
+	if len(got) != maxErrorBodyBytes+len("... (truncated)") {
+		t.Errorf("unexpected truncated length %d", len(got))
+	}
 }
 
 func TestIdentityBindingCredential_GetTransport(t *testing.T) {
@@ -467,7 +518,7 @@ func TestCreateCredentialChainWithIdentityBinding(t *testing.T) {
 		}
 	})
 
-	t.Run("valid identity binding config", func(t *testing.T) {
+	t.Run("identity binding is used exclusively (no workload/managed identity fallback)", func(t *testing.T) {
 		cred, err := CreateCredentialChainWithIdentityBinding("client", "tenant", &IdentityBindingConfig{
 			SNIName:       "sni.example.com",
 			APIServerHost: "apiserver.example.com",
@@ -478,6 +529,12 @@ func TestCreateCredentialChainWithIdentityBinding(t *testing.T) {
 		}
 		if cred == nil {
 			t.Fatal("expected non-nil credential")
+		}
+		// When identity binding is configured the credential must be the
+		// identity binding credential itself, not a chained credential that
+		// could silently fall back to workload/managed identity.
+		if _, ok := cred.(*identityBindingCredential); !ok {
+			t.Fatalf("expected *identityBindingCredential (exclusive use), got %T", cred)
 		}
 	})
 

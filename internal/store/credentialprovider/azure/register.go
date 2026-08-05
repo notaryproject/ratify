@@ -102,7 +102,7 @@ func createAzureIdentityProvider(opts credentialprovider.Options) (ratify.Regist
 			return nil, fmt.Errorf("failed to load identity binding configuration: %w", err)
 		}
 		if ibConfig == nil {
-			return nil, fmt.Errorf("identity binding is enabled but not configured: %s environment variable is not set", azure.EnvIdentityBindingSNIName)
+			return nil, fmt.Errorf("identity binding is enabled but not configured: set %s (or the AKS-injected %s) so the token endpoint can be resolved", azure.EnvIdentityBindingSNIName, azure.EnvAKSIdentityBindingSNIName)
 		}
 		azureProvider.ibConfig = ibConfig
 	}
@@ -114,9 +114,9 @@ func createAzureIdentityProvider(opts credentialprovider.Options) (ratify.Regist
 // GetWithTTL implements credentialprovider.CredentialSourceProvider interface.
 // It retrieves the registry credentials from Azure with TTL information.
 func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string) (credentialprovider.CredentialWithTTL, error) {
-	// Step 1: Create a ChainedTokenCredential. When identity binding is
-	// configured it is tried first, followed by workload identity and managed
-	// identity.
+	// Step 1: Create the Azure token credential. When identity binding is
+	// configured it is used exclusively; otherwise the chain is workload
+	// identity followed by managed identity.
 	chain, err := azure.CreateCredentialChainWithIdentityBinding(p.clientID, p.tenantID, p.ibConfig)
 	if err != nil {
 		return credentialprovider.CredentialWithTTL{}, fmt.Errorf("failed to create credential chain: %w", err)
