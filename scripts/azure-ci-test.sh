@@ -172,10 +172,8 @@ main() {
   local ACR_PASSWORD=$(az acr login --name ${ACR_NAME} --expose-token --output tsv --query accessToken)
 
   # Build and push the notation signed/unsigned test images to ACR and sign
-  # the signed image with the ratify-bats-test certificate. This replaces the
-  # v1 `make e2e-azure-setup` (which also provisioned the cosign key and KMP
-  # inputs); the full setup returns once those verifiers land in v2.
-  make e2e-create-all-image e2e-notation-setup \
+  # the signed image with the ratify-bats-test certificate.
+  make e2e-create-all-image e2e-notation-setup e2e-notation-leaf-cert-setup \
     TEST_REGISTRY=$REGISTRY \
     TEST_REGISTRY_USERNAME=${ACR_USER_NAME} \
     TEST_REGISTRY_PASSWORD=${ACR_PASSWORD}

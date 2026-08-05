@@ -663,52 +663,6 @@ EOF
     assert_failure
 }
 
-@test "validate ratify/gatekeeper tls cert rotation" {
-    teardown() {
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
-    }
-
-    # update Providers to use the new CA
-    run bash -c 'CA=$(cat .staging/rotation/ca.crt | base64 -w 0) && \
-        kubectl get Provider ratify-gatekeeper-mutation-provider -o json | \
-        jq --arg ca "$CA" ".spec.caBundle=\$ca" | kubectl replace -f -'
-    assert_success
-    run bash -c 'CA=$(cat .staging/rotation/ca.crt | base64 -w 0) && \
-        kubectl get Provider ratify-gatekeeper-provider -o json | \
-        jq --arg ca "$CA" ".spec.caBundle=\$ca" | kubectl replace -f -'
-    assert_success
-
-    # update the ratify tls secret to use the new tls cert and key
-    run bash -c 'CERT=$(cat .staging/rotation/server.crt | base64 -w 0) && \
-        KEY=$(cat .staging/rotation/server.key | base64 -w 0) && \
-        kubectl get secret ratify-gatekeeper-provider-tls -n gatekeeper-system -o json | \
-        jq --arg cert "$CERT" --arg key "$KEY" ".data[\"tls.key\"]=\$key | .data[\"tls.crt\"]=\$cert" | kubectl replace -f -'
-    assert_success
-
-    # update the gatekeeper webhook server tls secret to use the new cert bundle
-    run bash -c 'CA_CERT=$(cat .staging/rotation/gatekeeper/ca.crt | base64 -w 0) && \
-        CA_KEY=$(cat .staging/rotation/gatekeeper/ca.key | base64 -w 0) && \
-        TLS_CERT=$(cat .staging/rotation/gatekeeper/server.crt | base64 -w 0) && \
-        TLS_KEY=$(cat .staging/rotation/gatekeeper/server.key | base64 -w 0) && \
-        kubectl get Secret gatekeeper-webhook-server-cert -n gatekeeper-system -o json | \
-        jq --arg caCert "$CA_CERT" --arg caKey "$CA_KEY" --arg tlsCert "$TLS_CERT" --arg tlsKey "$TLS_KEY" \
-        ".data[\"ca.crt\"]=\$caCert | .data[\"ca.key\"]=\$caKey | .data[\"tls.crt\"]=\$tlsCert | .data[\"tls.key\"]=\$tlsKey" | kubectl replace -f -'
-    assert_success
-
-    # volume projection can take up to 90 seconds
-    sleep 100
-
-    # verify that the verification succeeds
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
-    assert_success
-    sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
-    assert_success
-    sleep 5
-    run kubectl run demo --namespace default --image=registry:5000/notation:signed
-    assert_success
-}
-
 @test "namespaced notation/cosign verifiers test" {
     skip "v2 executor CRD is cluster-scoped only, namespace-scoped executor not yet supported (see #2672)"
     teardown() {
@@ -891,5 +845,51 @@ EOF
     # cluster-scoped executor rejected the same image above, this pass is uniquely
     # attributable to the NamespacedExecutor's own verification.
     run kubectl run leaf-signed-tenant --namespace ${NS} --image=registry:5000/notation:leafSigned
+    assert_success
+}
+
+@test "validate ratify/gatekeeper tls cert rotation" {
+    teardown() {
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
+    }
+
+    # update Providers to use the new CA
+    run bash -c 'CA=$(cat .staging/rotation/ca.crt | base64 -w 0) && \
+        kubectl get Provider ratify-gatekeeper-mutation-provider -o json | \
+        jq --arg ca "$CA" ".spec.caBundle=\$ca" | kubectl replace -f -'
+    assert_success
+    run bash -c 'CA=$(cat .staging/rotation/ca.crt | base64 -w 0) && \
+        kubectl get Provider ratify-gatekeeper-provider -o json | \
+        jq --arg ca "$CA" ".spec.caBundle=\$ca" | kubectl replace -f -'
+    assert_success
+
+    # update the ratify tls secret to use the new tls cert and key
+    run bash -c 'CERT=$(cat .staging/rotation/server.crt | base64 -w 0) && \
+        KEY=$(cat .staging/rotation/server.key | base64 -w 0) && \
+        kubectl get secret ratify-gatekeeper-provider-tls -n gatekeeper-system -o json | \
+        jq --arg cert "$CERT" --arg key "$KEY" ".data[\"tls.key\"]=\$key | .data[\"tls.crt\"]=\$cert" | kubectl replace -f -'
+    assert_success
+
+    # update the gatekeeper webhook server tls secret to use the new cert bundle
+    run bash -c 'CA_CERT=$(cat .staging/rotation/gatekeeper/ca.crt | base64 -w 0) && \
+        CA_KEY=$(cat .staging/rotation/gatekeeper/ca.key | base64 -w 0) && \
+        TLS_CERT=$(cat .staging/rotation/gatekeeper/server.crt | base64 -w 0) && \
+        TLS_KEY=$(cat .staging/rotation/gatekeeper/server.key | base64 -w 0) && \
+        kubectl get Secret gatekeeper-webhook-server-cert -n gatekeeper-system -o json | \
+        jq --arg caCert "$CA_CERT" --arg caKey "$CA_KEY" --arg tlsCert "$TLS_CERT" --arg tlsKey "$TLS_KEY" \
+        ".data[\"ca.crt\"]=\$caCert | .data[\"ca.key\"]=\$caKey | .data[\"tls.crt\"]=\$tlsCert | .data[\"tls.key\"]=\$tlsKey" | kubectl replace -f -'
+    assert_success
+
+    # volume projection can take up to 90 seconds
+    sleep 100
+
+    # verify that the verification succeeds
+    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    assert_success
+    sleep 5
+    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    assert_success
+    sleep 5
+    run kubectl run demo --namespace default --image=registry:5000/notation:signed
     assert_success
 }
