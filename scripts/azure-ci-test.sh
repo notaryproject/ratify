@@ -189,7 +189,7 @@ main() {
   # bats env; re-enable together with those cases in the follow-up PRs.
   # local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
   # local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
-  TEST_REGISTRY=$REGISTRY bats -t ./test/bats/azure-test.bats
+  TEST_REGISTRY=$REGISTRY bats -t --filter-tags '!identity-binding' ./test/bats/azure-test.bats
 }
 
 main

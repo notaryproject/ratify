@@ -154,9 +154,9 @@ main() {
   deploy_gatekeeper
   deploy_ratify
 
-  # The identity binding case lives in the shared azure-test.bats; run only that
-  # case since the other cases target the workload-identity/AKV deployment.
-  TEST_REGISTRY=$REGISTRY bats -t -f "notation identity binding test" ./test/bats/azure-test.bats
+  # The identity binding case lives in the shared azure-test.bats, tagged
+  # `identity-binding`; run only that case here.
+  TEST_REGISTRY=$REGISTRY bats -t --filter-tags 'identity-binding' ./test/bats/azure-test.bats
 }
 
 main

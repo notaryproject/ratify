@@ -375,17 +375,21 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_mutate_success
 }
 
-# This case runs against a dedicated identity binding deployment; it is invoked
-# by scripts/azure-ci-test-identity-binding.sh via `bats -f "notation identity
-# binding test"` and is not part of the default workload-identity azure-ci-test.sh
-# run. ratify is deployed with the ACR "azure" credential provider in identity
-# binding mode, so it can only fetch the image manifest and notation signature
-# from the (authenticated) ACR after exchanging the projected service account
-# token (audience api://AKSIdentityBinding) for an AAD token and then an ACR
-# refresh token. Admission of the signed image therefore proves the identity
+# This case runs against a dedicated identity binding deployment; it is tagged
+# `identity-binding` and is invoked only by
+# scripts/azure-ci-test-identity-binding.sh (bats --filter-tags identity-binding).
+# The default workload-identity azure-ci-test.sh run excludes it
+# (--filter-tags !identity-binding) because that deployment does not enable
+# identity binding, so the case would not actually exercise the identity binding
+# auth path there. ratify is deployed with the ACR "azure" credential provider in
+# identity binding mode, so it can only fetch the image manifest and notation
+# signature from the (authenticated) ACR after exchanging the projected service
+# account token (audience api://AKSIdentityBinding) for an AAD token and then an
+# ACR refresh token. Admission of the signed image therefore proves the identity
 # binding based registry authentication worked end-to-end; the unsigned image
 # confirms verification is enforced. Notation verification uses an inline trust
 # store so the case isolates the identity binding registry auth path.
+# bats test_tags=identity-binding
 @test "notation identity binding test" {
     teardown() {
         echo "cleaning up"
