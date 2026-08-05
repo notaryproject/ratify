@@ -175,7 +175,13 @@ main() {
   # the signed image with the ratify-bats-test certificate. This replaces the
   # v1 `make e2e-azure-setup` (which also provisioned the cosign key and KMP
   # inputs); the full setup returns once those verifiers land in v2.
-  make e2e-create-all-image e2e-notation-setup \
+  #
+  # e2e-notation-leaf-cert-setup generates the leaf-test cert chain under
+  # ~/.config/notation/truststore/x509/ca/leaf-test (root.crt/leaf.crt) and
+  # pushes the notation:leafSigned image, both of which the
+  # "validate image signed by leaf cert" bats case depends on. It must run
+  # after e2e-notation-setup, which creates ~/.config/notation/signingkeys.json.
+  make e2e-create-all-image e2e-notation-setup e2e-notation-leaf-cert-setup \
     TEST_REGISTRY=$REGISTRY \
     TEST_REGISTRY_USERNAME=${ACR_USER_NAME} \
     TEST_REGISTRY_PASSWORD=${ACR_PASSWORD}
