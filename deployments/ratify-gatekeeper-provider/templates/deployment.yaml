@@ -11,6 +11,12 @@ spec:
       {{- include "ratify.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if .Values.metrics.enabled }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.metrics.port | quote }}
+        prometheus.io/path: "/metrics"
+      {{- end }}
       labels:
         {{- include "ratify.selectorLabels" . | nindent 8 }}
         {{- if or (eq (index .Values.stores 0).credential.provider "azure") (eq (include "ratify.akvCertsProvided" .) "true") }}
@@ -66,11 +72,20 @@ spec:
             {{- if (lookup "v1" "Secret" .Release.Namespace "gatekeeper-webhook-server-cert") }}
             - "--gatekeeper-ca-cert-file=/usr/local/tls/client-ca/ca.crt"
             {{- end }}
+            {{- if .Values.metrics.enabled }}
+            - "--enable-metrics"
+            - "--metrics-port={{ .Values.metrics.port | int }}"
+            {{- end }}
           ports:
             - containerPort: 6001
             - containerPort: 9099
               name: healthz
               protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - containerPort: {{ .Values.metrics.port | int }}
+              name: metrics
+              protocol: TCP
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
