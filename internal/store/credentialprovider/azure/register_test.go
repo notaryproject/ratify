@@ -904,3 +904,56 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+
+func TestTokenCacheTTL(t *testing.T) {
+	tests := []struct {
+		name    string
+		token   string
+		wantTTL time.Duration
+		wantErr bool
+	}{
+		{
+			name:    "valid token keeps its own TTL",
+			token:   createTestJWTToken(map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix()}),
+			wantTTL: 55 * time.Minute,
+		},
+		{
+			name:    "unparseable token falls back to the default TTL",
+			token:   "invalid.jwt.token",
+			wantTTL: DefaultACRTokenTTL,
+			wantErr: true,
+		},
+		{
+			name:    "expired token is never cached",
+			token:   createTestJWTToken(map[string]interface{}{"exp": time.Now().Add(-time.Hour).Unix()}),
+			wantTTL: 0,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ttl, err := tokenCacheTTL(tt.token)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("tokenCacheTTL() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			// Allow a small delta because the TTL is computed from time.Now().
+			if delta := ttl - tt.wantTTL; delta > time.Minute || delta < -time.Minute {
+				t.Errorf("tokenCacheTTL() = %s, want ~%s", ttl, tt.wantTTL)
+			}
+		})
+	}
+}
+
+func TestTokenCacheTTL_ExpiredTokenIsNotCacheable(t *testing.T) {
+	token := createTestJWTToken(map[string]interface{}{"exp": time.Now().Add(-time.Hour).Unix()})
+
+	ttl, err := tokenCacheTTL(token)
+	if !errors.Is(err, errTokenExpired) {
+		t.Fatalf("tokenCacheTTL() error = %v, want errTokenExpired", err)
+	}
+	// A zero TTL keeps CachedProvider from storing an unusable token.
+	if ttl != 0 {
+		t.Errorf("tokenCacheTTL() = %s, want 0 so the token is not cached", ttl)
+	}
+}

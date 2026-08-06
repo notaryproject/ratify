@@ -16,7 +16,12 @@ limitations under the License.
 package azure
 
 import (
+	"context"
+	"errors"
 	"testing"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 )
 
 func TestCreateCredentialChain(t *testing.T) {
@@ -283,5 +288,26 @@ func TestCreateCredentialChain_AllPaths(t *testing.T) {
 				t.Errorf("case %s (%s): expected non-nil credential", tc.name, tc.desc)
 			}
 		})
+	}
+}
+
+// stubCredential is a placeholder credential used to verify chain assembly.
+type stubCredential struct{}
+
+func (stubCredential) GetToken(_ context.Context, _ policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	return azcore.AccessToken{}, nil
+}
+
+func TestAppendCredential(t *testing.T) {
+	cred := stubCredential{}
+
+	got := appendCredential(nil, cred, nil, "workload identity", `clientID="id"`)
+	if len(got) != 1 {
+		t.Fatalf("expected a successfully created credential to be appended, got %d source(s)", len(got))
+	}
+
+	got = appendCredential(got, nil, errors.New("unavailable"), "managed identity", `clientID=""`)
+	if len(got) != 1 {
+		t.Fatalf("expected a failed credential to be skipped, got %d source(s)", len(got))
 	}
 }

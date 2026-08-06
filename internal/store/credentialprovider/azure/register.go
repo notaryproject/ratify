@@ -18,6 +18,7 @@ package azure
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,6 +33,25 @@ import (
 )
 
 var logOpt = logger.Option{ComponentType: logger.AuthProvider}
+
+// errTokenExpired is returned when the ACR refresh token is already expired.
+var errTokenExpired = errors.New("JWT token has already expired")
+
+// tokenCacheTTL reports how long an ACR refresh token may be cached, along with
+// any problem found while reading its expiry. An already-expired token gets a
+// zero TTL so that it is never cached and reused, while a token whose expiry
+// cannot be parsed falls back to the default TTL.
+func tokenCacheTTL(token string) (time.Duration, error) {
+	ttl, err := parseJWTTokenTTL(token)
+	switch {
+	case errors.Is(err, errTokenExpired):
+		return 0, err
+	case err != nil:
+		return DefaultACRTokenTTL, err
+	default:
+		return ttl, nil
+	}
+}
 
 const (
 	// GrantTypeAccessToken is the grant type for AAD access token
@@ -112,13 +132,12 @@ func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string)
 	}
 
 	// Step 3: Parse the JWT token to extract the actual TTL
-	ttl, err := parseJWTTokenTTL(acrRefreshToken)
+	ttl, err := tokenCacheTTL(acrRefreshToken)
 	if err != nil {
-		// If JWT parsing fails, fall back to the default TTL
-		log.Warnf("failed to parse ACR refresh token TTL for %s, falling back to the default: %v", serverAddress, err)
-		ttl = DefaultACRTokenTTL
+		log.Warnf("could not determine the ACR refresh token TTL for %s, caching it for %s instead: %v", serverAddress, ttl, err)
+	} else {
+		log.Debugf("resolved ACR credential for %s, expires in %s", serverAddress, ttl)
 	}
-	log.Debugf("resolved ACR credential for %s, expires in %s", serverAddress, ttl)
 
 	return credentialprovider.CredentialWithTTL{
 		Credential: ratify.RegistryCredential{
@@ -200,7 +219,7 @@ func parseJWTTokenTTL(token string) (time.Duration, error) {
 
 	// If token is already expired, return 0 TTL
 	if expTime.Before(now) {
-		return 0, fmt.Errorf("JWT token has already expired")
+		return 0, errTokenExpired
 	}
 
 	// Calculate TTL with a small buffer (subtract 1 minute for safety)

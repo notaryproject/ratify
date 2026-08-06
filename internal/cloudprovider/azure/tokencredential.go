@@ -16,6 +16,8 @@ limitations under the License.
 package azure
 
 import (
+	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/sirupsen/logrus"
@@ -33,12 +35,7 @@ func CreateCredentialChain(clientID, tenantID string) (azcore.TokenCredential, e
 		ClientID: clientID,
 		TenantID: tenantID,
 	})
-	if err == nil {
-		sources = append(sources, wiCred)
-		logrus.Debugf("azure: workload identity credential is available (clientID=%q, tenantID=%q)", clientID, tenantID)
-	} else {
-		logrus.Debugf("azure: workload identity credential is unavailable: %v", err)
-	}
+	sources = appendCredential(sources, wiCred, err, "workload identity", fmt.Sprintf("clientID=%q, tenantID=%q", clientID, tenantID))
 
 	// 2. Try Managed Identity second
 	miOpts := &azidentity.ManagedIdentityCredentialOptions{}
@@ -48,15 +45,22 @@ func CreateCredentialChain(clientID, tenantID string) (azcore.TokenCredential, e
 		miOpts.ID = azidentity.ClientID(clientID)
 	}
 	miCred, err := azidentity.NewManagedIdentityCredential(miOpts)
-	if err == nil {
-		sources = append(sources, miCred)
-		logrus.Debugf("azure: managed identity credential is available (clientID=%q)", clientID)
-	} else {
-		logrus.Debugf("azure: managed identity credential is unavailable: %v", err)
-	}
+	sources = appendCredential(sources, miCred, err, "managed identity", fmt.Sprintf("clientID=%q", clientID))
 
 	logrus.Debugf("azure: built credential chain with %d source(s)", len(sources))
 
 	// 3. Create chained credential
 	return azidentity.NewChainedTokenCredential(sources, nil)
+}
+
+// appendCredential adds cred to sources when it was created successfully. Both
+// outcomes are logged so that operators can tell which identity sources the
+// pod actually has available.
+func appendCredential(sources []azcore.TokenCredential, cred azcore.TokenCredential, err error, name, details string) []azcore.TokenCredential {
+	if err != nil {
+		logrus.Debugf("azure: %s credential is unavailable (%s): %v", name, details, err)
+		return sources
+	}
+	logrus.Debugf("azure: %s credential is available (%s)", name, details)
+	return append(sources, cred)
 }
