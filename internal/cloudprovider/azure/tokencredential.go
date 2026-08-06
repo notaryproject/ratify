@@ -16,6 +16,8 @@ limitations under the License.
 package azure
 
 import (
+	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 )
@@ -24,6 +26,21 @@ import (
 // order: workload identity, managed identity.
 // Note: credentials are cached in memory by default.
 func CreateCredentialChain(clientID, tenantID string) (azcore.TokenCredential, error) {
+	return CreateCredentialChainWithIdentityBinding(clientID, tenantID, nil)
+}
+
+// CreateCredentialChainWithIdentityBinding builds the Azure token credential
+// used to authenticate to ACR.
+func CreateCredentialChainWithIdentityBinding(clientID, tenantID string, ibConfig *IdentityBindingConfig) (azcore.TokenCredential, error) {
+	// Identity binding, when configured, is the sole credential source.
+	if ibConfig != nil && ibConfig.SNIName != "" {
+		ibCred, err := newIdentityBindingCredential(clientID, *ibConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create identity binding credential: %w", err)
+		}
+		return ibCred, nil
+	}
+
 	var sources []azcore.TokenCredential
 
 	// 1. Try Workload Identity first
@@ -46,6 +63,12 @@ func CreateCredentialChain(clientID, tenantID string) (azcore.TokenCredential, e
 	miCred, err := azidentity.NewManagedIdentityCredential(miOpts)
 	if err == nil {
 		sources = append(sources, miCred)
+	}
+
+	// Fail clearly when no credential source could be constructed rather than
+	// deferring to a less obvious error from the chained credential.
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("no Azure credential sources available: neither workload identity nor managed identity could be configured")
 	}
 
 	// 3. Create chained credential
