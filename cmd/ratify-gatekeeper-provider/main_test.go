@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"net"
 	"os"
@@ -26,6 +27,9 @@ import (
 )
 
 func TestMain_FailedStartingRatify(t *testing.T) {
+	origInitMetrics := initMetricsFunc
+	defer func() { initMetricsFunc = origInitMetrics }()
+	initMetricsFunc = func(string, int) error { return nil }
 	args := []string{
 		"-config=config.json",
 		"-cert-file=cert.pem",
@@ -61,6 +65,8 @@ func TestParse(t *testing.T) {
 				"-cert-file=cert.pem",
 				"-key-file=key.pem",
 				"-verify-timeout=10s",
+				"-enable-metrics",
+				"-metrics-port=9999",
 			},
 			expected: &options{
 				configFilePath:      "config.json",
@@ -70,6 +76,8 @@ func TestParse(t *testing.T) {
 				keyFile:             "key.pem",
 				verifyTimeout:       10 * time.Second,
 				mutateTimeout:       2 * time.Second,
+				enableMetrics:       true,
+				metricsPort:         9999,
 			},
 		},
 		{
@@ -82,6 +90,7 @@ func TestParse(t *testing.T) {
 				healthServerAddress: ":9099",
 				verifyTimeout:       30 * time.Second,
 				mutateTimeout:       10 * time.Second,
+				metricsPort:         8888,
 			},
 		},
 		{
@@ -91,6 +100,7 @@ func TestParse(t *testing.T) {
 				healthServerAddress: ":9099",
 				verifyTimeout:       5 * time.Second,
 				mutateTimeout:       2 * time.Second,
+				metricsPort:         8888,
 			},
 		},
 	}
@@ -114,11 +124,20 @@ func TestParse(t *testing.T) {
 }
 
 func TestStartRatify(t *testing.T) {
+	origStartManager := startManagerFunc
+	origInitMetrics := initMetricsFunc
+	defer func() {
+		startManagerFunc = origStartManager
+		initMetricsFunc = origInitMetrics
+	}()
 	startManagerFunc = func(_, _ chan struct{}, _, _ bool) {}
+	errMetricsInit := errors.New("metrics boom")
+	initMetricsFunc = func(string, int) error { return errMetricsInit }
 	tests := []struct {
 		name        string
 		opts        *options
 		expectError bool
+		notError    error
 	}{
 		{
 			name: "missing http server address",
@@ -141,6 +160,20 @@ func TestStartRatify(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "metrics init failure is non-fatal",
+			opts: &options{
+				httpServerAddress:   ":8080",
+				configFilePath:      "config.yaml",
+				certFile:            "cert.pem",
+				disableCertRotation: true,
+				disableCRDManager:   true,
+				enableMetrics:       true,
+				metricsPort:         8888,
+			},
+			expectError: true,
+			notError:    errMetricsInit,
+		},
 	}
 
 	for _, tt := range tests {
@@ -148,6 +181,9 @@ func TestStartRatify(t *testing.T) {
 			err := startRatify(tt.opts)
 			if (err != nil) != tt.expectError {
 				t.Errorf("startRatify() error = %v, expectError %v", err, tt.expectError)
+			}
+			if tt.notError != nil && errors.Is(err, tt.notError) {
+				t.Errorf("startRatify() returned the metrics init error %v; it should be non-fatal", err)
 			}
 		})
 	}
