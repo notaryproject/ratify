@@ -50,7 +50,7 @@ const (
 )
 
 type server struct {
-	getExecutor func() *executor.ScopedExecutor
+	getExecutor func(namespace string) *executor.ScopedExecutor
 	router      *mux.Router
 	mutateCache cache.Cache[string]
 	verifyCache cache.Cache[*result]
@@ -123,7 +123,7 @@ func StartServer(opts *ServerOptions, executorConfigPath string) error {
 
 func newServer(serverOpts *ServerOptions, executorConfigPath string) (*server, *config.Watcher, error) {
 	var configWatcher *config.Watcher
-	var getExecutorFunc func() *executor.ScopedExecutor
+	var getExecutorFunc func(namespace string) *executor.ScopedExecutor
 	var err error
 
 	if serverOpts.DisableCRDManager {

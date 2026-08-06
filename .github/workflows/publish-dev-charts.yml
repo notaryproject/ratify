@@ -21,3 +21,5 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           charts_dir: deployments
+          chart_version: "2.0.0-dev"
+          app_version: "dev"

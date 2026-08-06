@@ -151,4 +151,12 @@ func setupCRDControllers(mgr ctrl.Manager, disableCRDManager bool) {
 		setupLog.Error(err, "could not set up Executor reconciler")
 		os.Exit(1)
 	}
+
+	if err := (&controller.NamespacedExecutorReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "could not set up NamespacedExecutor reconciler")
+		os.Exit(1)
+	}
 }

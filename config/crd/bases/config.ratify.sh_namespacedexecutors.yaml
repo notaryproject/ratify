@@ -1,0 +1,163 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: namespacedexecutors.config.ratify.sh
+spec:
+  group: config.ratify.sh
+  names:
+    kind: NamespacedExecutor
+    listKind: NamespacedExecutorList
+    plural: namespacedexecutors
+    singular: namespacedexecutor
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.succeeded
+      name: Succeeded
+      type: boolean
+    - jsonPath: .status.briefError
+      name: Error
+      type: string
+    name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          NamespacedExecutor is the Schema for the namespaced executors API. It enables
+          multi-tenancy by allowing each namespace to define its own executor
+          configuration. A NamespacedExecutor only applies to validation requests for
+          workloads deployed in the same namespace. When no NamespacedExecutor matches
+          a request's namespace, Ratify falls back to the cluster-scoped Executor.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ExecutorSpec defines the desired state of Executor.
+            properties:
+              concurrency:
+                description: |-
+                  Concurrency limits the maximum number of concurrent execution per
+                  validation request. If less than or equal to 0, a default (currently 3)
+                  will be used. Optional.
+                type: integer
+              policyEnforcer:
+                description: |-
+                  PolicyEnforcer contains the configuration options for the policy
+                  enforcer. Optional.
+                properties:
+                  parameters:
+                    description: Parameters is additional parameters for the policy
+                      enforcer. Optional.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  type:
+                    description: Type represents a specific implementation of a policy
+                      enforcer. Required.
+                    minLength: 1
+                    type: string
+                required:
+                - type
+                type: object
+              scopes:
+                description: |-
+                  Scopes defines the scopes for which this executor is responsible. At
+                  least one non-empty scope must be provided. Required.
+                items:
+                  type: string
+                minItems: 1
+                type: array
+              stores:
+                description: |-
+                  Stores contains the configuration options for the stores. At least one
+                  store must be provided. Required.
+                items:
+                  properties:
+                    parameters:
+                      description: Parameters is additional parameters for the store.
+                        Optional.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    type:
+                      description: Type represents a specific implementation of a
+                        store. Required.
+                      minLength: 1
+                      type: string
+                  required:
+                  - type
+                  type: object
+                minItems: 1
+                type: array
+              verifiers:
+                description: |-
+                  Verifiers contains the configuration options for the verifiers. At least
+                  one verifier must be provided. Required.
+                items:
+                  properties:
+                    name:
+                      description: Name is the unique identifier of a verifier instance.
+                        Required.
+                      minLength: 1
+                      type: string
+                    parameters:
+                      description: Parameters is additional parameters of the verifier.
+                        Optional.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    type:
+                      description: |-
+                        Type represents a specific implementation of a verifier. Required.
+                        Note: there could be multiple verifiers of the same type with different
+                              names.
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                minItems: 1
+                type: array
+            required:
+            - scopes
+            - stores
+            - verifiers
+            type: object
+          status:
+            description: ExecutorStatus defines the observed state of Executor.
+            properties:
+              briefError:
+                description: Truncated error message if the message is too long.
+                type: string
+              error:
+                description: Error is the error message if the executor failed to
+                  start.
+                type: string
+              succeeded:
+                description: |-
+                  Succeeded indicates whether the executor has successfully started and is
+                  ready to process requests. Required.
+                type: boolean
+            required:
+            - succeeded
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
