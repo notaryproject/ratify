@@ -663,6 +663,7 @@ EOF
     assert_failure
 }
 
+
 @test "validate ratify/gatekeeper tls cert rotation" {
     teardown() {
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'

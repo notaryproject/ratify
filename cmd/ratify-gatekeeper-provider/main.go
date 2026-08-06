@@ -28,10 +28,13 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/httpserver"
 	"github.com/notaryproject/ratify/v2/internal/manager"
 	"github.com/notaryproject/ratify/v2/pkg/common"
+	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/sirupsen/logrus"
 )
 
 var startManagerFunc = manager.StartManager
+
+var initMetricsFunc = metrics.InitMetricsExporter
 
 // main is the entry point for the Ratify server.
 func main() {
@@ -54,6 +57,8 @@ type options struct {
 	disableCRDManager    bool
 	verifyTimeout        time.Duration
 	mutateTimeout        time.Duration
+	enableMetrics        bool
+	metricsPort          int
 }
 
 func parse() *options {
@@ -69,6 +74,8 @@ func parse() *options {
 	flag.BoolVar(&opts.disableCertRotation, "disable-cert-rotation", false, "Disable certificate rotation")
 	flag.BoolVar(&opts.disableMutation, "disable-mutation", false, "Disable mutation wehbook")
 	flag.BoolVar(&opts.disableCRDManager, "disable-crd-manager", false, "Disable CRD manager for Gatekeeper provider")
+	flag.BoolVar(&opts.enableMetrics, "enable-metrics", false, "Enable the Prometheus metrics exporter")
+	flag.IntVar(&opts.metricsPort, "metrics-port", 8888, "Port for the Prometheus /metrics endpoint")
 
 	flag.Parse()
 	logrus.Infof("Starting Ratify with options: %+v", opts)
@@ -78,6 +85,11 @@ func parse() *options {
 func startRatify(opts *options) error {
 	if len(opts.httpServerAddress) == 0 {
 		return errors.New("HTTP server address is required")
+	}
+	if opts.enableMetrics {
+		if err := initMetricsFunc("prometheus", opts.metricsPort); err != nil {
+			logrus.Errorf("failed to initialize metrics exporter: %v", err)
+		}
 	}
 	var certRotatorReady chan struct{}
 	if !opts.disableCertRotation {

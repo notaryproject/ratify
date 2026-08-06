@@ -23,7 +23,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
 	"github.com/sirupsen/logrus"
 	"oras.land/oras-go/v2/registry"
@@ -31,6 +33,8 @@ import (
 
 // verify handles the verification request from Gatekeeper.
 func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	start := time.Now()
+	defer func() { metrics.ReportVerificationRequest(ctx, time.Since(start).Milliseconds()) }()
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -84,6 +88,8 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 // mutate handles the mutation request from Gatekeeper.
 func (s *server) mutate(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	start := time.Now()
+	defer func() { metrics.ReportMutationRequest(ctx, time.Since(start).Milliseconds()) }()
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
