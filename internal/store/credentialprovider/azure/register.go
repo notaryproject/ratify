@@ -25,6 +25,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	azcontainerregistry "github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry"
+	dcontext "github.com/docker/distribution/context"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/cloudprovider/azure"
@@ -37,19 +38,23 @@ var logOpt = logger.Option{ComponentType: logger.AuthProvider}
 // errTokenExpired is returned when the ACR refresh token is already expired.
 var errTokenExpired = errors.New("JWT token has already expired")
 
-// tokenCacheTTL reports how long an ACR refresh token may be cached, along with
-// any problem found while reading its expiry. An already-expired token gets a
-// zero TTL so that it is never cached and reused, while a token whose expiry
-// cannot be parsed falls back to the default TTL.
-func tokenCacheTTL(token string) (time.Duration, error) {
+// resolveTokenTTL reports how long an ACR refresh token may be cached and
+// records why. A token whose expiry cannot be parsed falls back to
+// DefaultACRTokenTTL, but an already-expired one gets a zero TTL: CachedProvider
+// only caches a positive TTL, so the token is discarded instead of being replayed
+// for hours and returning 401 on every request.
+func resolveTokenTTL(log dcontext.Logger, serverAddress, token string) time.Duration {
 	ttl, err := parseJWTTokenTTL(token)
 	switch {
 	case errors.Is(err, errTokenExpired):
-		return 0, err
+		log.Warnf("ACR returned an already-expired refresh token for %s; it will not be cached", serverAddress)
+		return 0
 	case err != nil:
-		return DefaultACRTokenTTL, err
+		log.Warnf("failed to parse the ACR refresh token TTL for %s, falling back to %s: %v", serverAddress, DefaultACRTokenTTL, err)
+		return DefaultACRTokenTTL
 	default:
-		return ttl, nil
+		log.Debugf("resolved ACR credential for %s, expires in %s", serverAddress, ttl)
+		return ttl
 	}
 }
 
@@ -156,12 +161,7 @@ func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string)
 	}
 
 	// Step 3: Parse the JWT token to extract the actual TTL
-	ttl, err := tokenCacheTTL(acrRefreshToken)
-	if err != nil {
-		log.Warnf("could not determine the ACR refresh token TTL for %s, caching it for %s instead: %v", serverAddress, ttl, err)
-	} else {
-		log.Debugf("resolved ACR credential for %s, expires in %s", serverAddress, ttl)
-	}
+	ttl := resolveTokenTTL(log, serverAddress, acrRefreshToken)
 
 	return credentialprovider.CredentialWithTTL{
 		Credential: ratify.RegistryCredential{
