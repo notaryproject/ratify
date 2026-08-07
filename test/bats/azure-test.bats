@@ -375,6 +375,30 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_mutate_success
 }
 
+@test "notation identity binding test" {
+    teardown() {
+        echo "cleaning up"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo1 --namespace default --force --ignore-not-found=true'
+    }
+
+    run kubectl apply -f ./library/default/template.yaml
+    assert_success
+    sleep 5
+    run kubectl apply -f ./library/default/samples/constraint.yaml
+    assert_success
+    sleep 5
+
+    # signed image, pulled from ACR via identity binding and validated against
+    # the inline notation certificate, should pass
+    run wait_for_process 20 10 'kubectl run demo --namespace default --image=${TEST_REGISTRY}/notation:signed'
+    assert_success
+
+    # unsigned image should be rejected
+    run kubectl run demo1 --namespace default --image=${TEST_REGISTRY}/notation:unsigned
+    assert_failure
+}
+
 @test "validate refresher reconcile count" {
     skip "no KeyManagementProvider/refresher in the v2 gatekeeper provider"
     teardown() {

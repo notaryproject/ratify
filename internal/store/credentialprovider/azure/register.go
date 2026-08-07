@@ -47,6 +47,7 @@ const (
 type IdentityProvider struct {
 	clientID string
 	tenantID string
+	ibConfig *azure.IdentityBindingConfig
 }
 
 // IdentityProviderOptions contains configuration options for the Azure identity
@@ -57,6 +58,18 @@ type IdentityProviderOptions struct {
 	ClientID string `json:"clientID,omitempty"`
 	// TenantID is the Azure AD tenant ID where the application is registered
 	TenantID string `json:"tenantID,omitempty"`
+	// IdentityBinding, when set, enables ACR authentication via the Kubernetes
+	// identity binding token exchange
+	IdentityBinding *IdentityBindingOptions `json:"identityBinding,omitempty"`
+}
+
+// IdentityBindingOptions is the user-facing switch for Kubernetes identity
+// binding based ACR authentication.
+type IdentityBindingOptions struct {
+	// Enabled turns on identity binding authentication. The cluster-specific
+	// endpoint configuration is resolved from platform-injected environment
+	// variables (see azure.LoadIdentityBindingConfigFromEnv).
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 func init() {
@@ -83,6 +96,16 @@ func createAzureIdentityProvider(opts credentialprovider.Options) (ratify.Regist
 		clientID: azureOpts.ClientID,
 		tenantID: azureOpts.TenantID,
 	}
+	if ib := azureOpts.IdentityBinding; ib != nil && ib.Enabled {
+		ibConfig, err := azure.LoadIdentityBindingConfigFromEnv()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load identity binding configuration: %w", err)
+		}
+		if ibConfig == nil {
+			return nil, fmt.Errorf("identity binding is enabled but not configured: set %s (or the AKS-injected %s) so the token endpoint can be resolved", azure.EnvIdentityBindingSNIName, azure.EnvAKSIdentityBindingSNIName)
+		}
+		azureProvider.ibConfig = ibConfig
+	}
 
 	// Wrap with caching provider
 	return credentialprovider.NewCachedProvider(azureProvider)
@@ -91,9 +114,10 @@ func createAzureIdentityProvider(opts credentialprovider.Options) (ratify.Regist
 // GetWithTTL implements credentialprovider.CredentialSourceProvider interface.
 // It retrieves the registry credentials from Azure with TTL information.
 func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string) (credentialprovider.CredentialWithTTL, error) {
-	// Step 1: Create a ChainedTokenCredential in the order: workload identity,
-	// managed identity.
-	chain, err := azure.CreateCredentialChain(p.clientID, p.tenantID)
+	// Step 1: Create the Azure token credential. When identity binding is
+	// configured it is used exclusively; otherwise the chain is workload
+	// identity followed by managed identity.
+	chain, err := azure.CreateCredentialChainWithIdentityBinding(p.clientID, p.tenantID, p.ibConfig)
 	if err != nil {
 		return credentialprovider.CredentialWithTTL{}, fmt.Errorf("failed to create credential chain: %w", err)
 	}
