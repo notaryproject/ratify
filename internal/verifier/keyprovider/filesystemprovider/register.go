@@ -23,9 +23,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 
 	notationx509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
+	verifiertruststore "github.com/notaryproject/ratify/v2/internal/verifier/truststore"
 	"github.com/sirupsen/logrus"
 )
 
@@ -36,6 +38,8 @@ const fileSystemProviderName = "files"
 type FileSystemProvider struct {
 	certPaths    []string
 	certificates []*x509.Certificate
+	watcher      *verifiertruststore.Watcher
+	mu           sync.RWMutex
 }
 
 func init() {
@@ -53,29 +57,54 @@ func init() {
 			return nil, fmt.Errorf("no file paths provided")
 		}
 
-		// Load certificates during initialization
-		var allCertificates []*x509.Certificate
-		for _, certPath := range paths {
-			certificates, err := loadCertificatesFromPath(certPath)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load certificates from path %s: %w", certPath, err)
-			}
-			allCertificates = append(allCertificates, certificates...)
+		provider := &FileSystemProvider{certPaths: paths}
+		if err := provider.reloadCertificates(); err != nil {
+			return nil, err
 		}
 
-		return &FileSystemProvider{
-			certPaths:    paths,
-			certificates: allCertificates,
-		}, nil
+		watcher, err := verifiertruststore.NewWatcher(paths, func() {
+			if err := provider.reloadCertificates(); err != nil {
+				logrus.WithError(err).Error("failed to reload trust store certificates")
+			}
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create trust store watcher: %w", err)
+		}
+		if err := watcher.Start(); err != nil {
+			watcher.Stop()
+			return nil, fmt.Errorf("failed to start trust store watcher: %w", err)
+		}
+		provider.watcher = watcher
+		return provider, nil
 	})
 }
 
 // FileSystemProvider implements GetCertificates of [truststore.X509TrustStore]
 // interface.
 func (f *FileSystemProvider) GetCertificates(_ context.Context) ([]*x509.Certificate, error) {
-	// Return cached certificates loaded during initialization
-	logrus.Debugf("Returning %d cached certificate(s) from file system", len(f.certificates))
-	return f.certificates, nil
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	certificates := make([]*x509.Certificate, len(f.certificates))
+	copy(certificates, f.certificates)
+	logrus.Debugf("Returning %d cached certificate(s) from file system", len(certificates))
+	return certificates, nil
+}
+
+func (f *FileSystemProvider) reloadCertificates() error {
+	var allCertificates []*x509.Certificate
+	for _, certPath := range f.certPaths {
+		certificates, err := loadCertificatesFromPath(certPath)
+		if err != nil {
+			return fmt.Errorf("failed to load certificates from path %s: %w", certPath, err)
+		}
+		allCertificates = append(allCertificates, certificates...)
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.certificates = allCertificates
+	return nil
 }
 
 func (f *FileSystemProvider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
