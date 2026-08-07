@@ -346,3 +346,74 @@ func TestCachedProvider_Interface_Compliance(t *testing.T) {
 	// Verify that CachedProvider implements ratify.RegistryCredentialGetter interface
 	var _ ratify.RegistryCredentialGetter = provider
 }
+
+// failingCache is unhealthy rather than empty: it reports a backend error from
+// both Get and Set, which must stay distinguishable from a plain cache miss.
+type failingCache struct{}
+
+func (failingCache) Get(_ context.Context, _ string) (ratify.RegistryCredential, error) {
+	return ratify.RegistryCredential{}, errors.New("cache backend is unavailable")
+}
+
+func (failingCache) Set(_ context.Context, _ string, _ ratify.RegistryCredential, _ time.Duration) error {
+	return errors.New("cache is full")
+}
+
+func (failingCache) Delete(_ context.Context, _ string) error {
+	return nil
+}
+
+func TestCachedProvider_Get_CacheSetFailure(t *testing.T) {
+	mockSource := newMockCredentialSourceProvider()
+	provider, err := NewCachedProvider(mockSource)
+	if err != nil {
+		t.Fatalf("NewCachedProvider() error = %v", err)
+	}
+	provider.cache = failingCache{}
+
+	expected := ratify.RegistryCredential{Username: "u", Password: "p"}
+	mockSource.setCredential(testServerAddress, CredentialWithTTL{Credential: expected, TTL: time.Minute})
+
+	// A failing cache must not fail the request; the credential is still returned.
+	got, err := provider.Get(context.Background(), testServerAddress)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got != expected {
+		t.Errorf("Get() = %v, want %v", got, expected)
+	}
+
+	// The credential was never cached, so the source is consulted again.
+	if _, err = provider.Get(context.Background(), testServerAddress); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if calls := mockSource.getCallCount(testServerAddress); calls != 2 {
+		t.Errorf("expected the source to be called twice when caching fails, got %d", calls)
+	}
+}
+
+func TestCachedProvider_Get_NoTTLIsNotCached(t *testing.T) {
+	mockSource := newMockCredentialSourceProvider()
+	provider, err := NewCachedProvider(mockSource)
+	if err != nil {
+		t.Fatalf("NewCachedProvider() error = %v", err)
+	}
+
+	expected := ratify.RegistryCredential{Username: "u", Password: "p"}
+	mockSource.setCredential(testServerAddress, CredentialWithTTL{Credential: expected})
+
+	for i := 0; i < 2; i++ {
+		got, err := provider.Get(context.Background(), testServerAddress)
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+		if got != expected {
+			t.Errorf("Get() = %v, want %v", got, expected)
+		}
+	}
+
+	// A credential without a TTL must not be cached.
+	if calls := mockSource.getCallCount(testServerAddress); calls != 2 {
+		t.Errorf("expected the source to be called twice for an uncacheable credential, got %d", calls)
+	}
+}
