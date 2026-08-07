@@ -5,8 +5,17 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - config.ratify.sh
   resources:
+  - executorpodstatuses
   - executors
   - namespacedexecutors
   verbs:
@@ -20,16 +29,17 @@ rules:
 - apiGroups:
   - config.ratify.sh
   resources:
-  - executors/finalizers
-  - namespacedexecutors/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - config.ratify.sh
-  resources:
+  - executorpodstatuses/status
   - executors/status
   - namespacedexecutors/status
   verbs:
   - get
   - patch
+  - update
+- apiGroups:
+  - config.ratify.sh
+  resources:
+  - executors/finalizers
+  - namespacedexecutors/finalizers
+  verbs:
   - update
