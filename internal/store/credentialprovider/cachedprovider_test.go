@@ -347,11 +347,12 @@ func TestCachedProvider_Interface_Compliance(t *testing.T) {
 	var _ ratify.RegistryCredentialGetter = provider
 }
 
-// failingCache fails every Set so the caching failure path can be exercised.
+// failingCache is unhealthy rather than empty: it reports a backend error from
+// both Get and Set, which must stay distinguishable from a plain cache miss.
 type failingCache struct{}
 
 func (failingCache) Get(_ context.Context, _ string) (ratify.RegistryCredential, error) {
-	return ratify.RegistryCredential{}, errors.New("not found")
+	return ratify.RegistryCredential{}, errors.New("cache backend is unavailable")
 }
 
 func (failingCache) Set(_ context.Context, _ string, _ ratify.RegistryCredential, _ time.Duration) error {
