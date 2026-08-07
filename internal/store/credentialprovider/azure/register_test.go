@@ -25,6 +25,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/notaryproject/ratify/v2/internal/cloudprovider/azure"
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
 )
 
@@ -160,6 +161,74 @@ func TestCreateAzureIdentityProvider(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateAzureIdentityProvider_IdentityBinding(t *testing.T) {
+	clearIBEnv := func(t *testing.T) {
+		t.Helper()
+		for _, k := range []string{
+			azure.EnvIdentityBindingSNIName,
+			azure.EnvIdentityBindingAPIServerHost,
+			azure.EnvIdentityBindingTokenFile,
+			azure.EnvIdentityBindingCACertPath,
+			azure.EnvAKSIdentityBindingSNIName,
+			azure.EnvAKSIdentityBindingTokenProxy,
+			azure.EnvAKSIdentityBindingCAFile,
+			azure.EnvAKSFederatedTokenFile,
+		} {
+			t.Setenv(k, "")
+		}
+	}
+
+	t.Run("enabled but not configured returns error", func(t *testing.T) {
+		clearIBEnv(t)
+		_, err := createAzureIdentityProvider(credentialprovider.Options{
+			"clientID": "cid",
+			"identityBinding": map[string]any{
+				"enabled": true,
+			},
+		})
+		if err == nil {
+			t.Fatal("expected error when identity binding is enabled but not configured")
+		}
+	})
+
+	t.Run("enabled and configured via env succeeds", func(t *testing.T) {
+		clearIBEnv(t)
+		t.Setenv(azure.EnvIdentityBindingSNIName, "sni.example.com")
+		t.Setenv(azure.EnvIdentityBindingAPIServerHost, "apiserver.example.com")
+
+		provider, err := createAzureIdentityProvider(credentialprovider.Options{
+			"clientID": "cid",
+			"identityBinding": map[string]any{
+				"enabled": true,
+			},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if provider == nil {
+			t.Fatal("expected non-nil provider")
+		}
+	})
+
+	t.Run("present but disabled does not configure identity binding", func(t *testing.T) {
+		clearIBEnv(t)
+		// No IB env set; if the disabled block were treated as enabled this
+		// would error. It must succeed instead.
+		provider, err := createAzureIdentityProvider(credentialprovider.Options{
+			"clientID": "cid",
+			"identityBinding": map[string]any{
+				"enabled": false,
+			},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if provider == nil {
+			t.Fatal("expected non-nil provider")
+		}
+	})
 }
 
 func TestCreateAzureIdentityProvider_MarshalError(t *testing.T) {

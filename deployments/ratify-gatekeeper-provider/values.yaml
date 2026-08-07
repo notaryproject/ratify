@@ -72,6 +72,9 @@ stores:
     # provider: "azure" # use "azure" to use Azure Workload Identity
     # clientID: "" # optional
     # tenantID: "" # optional
+    # identityBinding: # optional, use AKS identity binding instead of workload identity federation
+    #   enabled: true # annotates the pod with azure.workload.identity/use-identity-binding
+    #                 # so the AKS webhook injects the identity binding token endpoint config
 provider:
   tls:
     crt: "" # crt used by ratify (httpserver), please provide your own crt
