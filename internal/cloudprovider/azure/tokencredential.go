@@ -20,6 +20,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/sirupsen/logrus"
 )
 
 // CreateCredentialChain creates a ChainedTokenCredential with the specified
@@ -36,8 +37,10 @@ func CreateCredentialChainWithIdentityBinding(clientID, tenantID string, ibConfi
 	if ibConfig != nil && ibConfig.SNIName != "" {
 		ibCred, err := newIdentityBindingCredential(clientID, *ibConfig)
 		if err != nil {
+			logrus.Debugf("azure: identity binding credential is unavailable (clientID=%q, sniName=%q): %v", clientID, ibConfig.SNIName, err)
 			return nil, fmt.Errorf("failed to create identity binding credential: %w", err)
 		}
+		logrus.Debugf("azure: using the identity binding credential exclusively (clientID=%q, sniName=%q)", clientID, ibConfig.SNIName)
 		return ibCred, nil
 	}
 
@@ -49,9 +52,7 @@ func CreateCredentialChainWithIdentityBinding(clientID, tenantID string, ibConfi
 		ClientID: clientID,
 		TenantID: tenantID,
 	})
-	if err == nil {
-		sources = append(sources, wiCred)
-	}
+	sources = appendCredential(sources, wiCred, err, "workload identity", fmt.Sprintf("clientID=%q, tenantID=%q", clientID, tenantID))
 
 	// 2. Try Managed Identity second
 	miOpts := &azidentity.ManagedIdentityCredentialOptions{}
@@ -61,9 +62,9 @@ func CreateCredentialChainWithIdentityBinding(clientID, tenantID string, ibConfi
 		miOpts.ID = azidentity.ClientID(clientID)
 	}
 	miCred, err := azidentity.NewManagedIdentityCredential(miOpts)
-	if err == nil {
-		sources = append(sources, miCred)
-	}
+	sources = appendCredential(sources, miCred, err, "managed identity", fmt.Sprintf("clientID=%q", clientID))
+
+	logrus.Debugf("azure: built credential chain with %d source(s)", len(sources))
 
 	// Fail clearly when no credential source could be constructed rather than
 	// deferring to a less obvious error from the chained credential.
@@ -73,4 +74,16 @@ func CreateCredentialChainWithIdentityBinding(clientID, tenantID string, ibConfi
 
 	// 3. Create chained credential
 	return azidentity.NewChainedTokenCredential(sources, nil)
+}
+
+// appendCredential adds cred to sources when it was created successfully. Both
+// outcomes are logged so that operators can tell which identity sources the
+// pod actually has available.
+func appendCredential(sources []azcore.TokenCredential, cred azcore.TokenCredential, err error, name, details string) []azcore.TokenCredential {
+	if err != nil {
+		logrus.Debugf("azure: %s credential is unavailable (%s): %v", name, details, err)
+		return sources
+	}
+	logrus.Debugf("azure: %s credential is available (%s)", name, details)
+	return append(sources, cred)
 }

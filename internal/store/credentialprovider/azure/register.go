@@ -18,17 +18,45 @@ package azure
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	azcontainerregistry "github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry"
+	dcontext "github.com/docker/distribution/context"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/cloudprovider/azure"
+	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
 )
+
+var logOpt = logger.Option{ComponentType: logger.AuthProvider}
+
+// errTokenExpired is returned when the ACR refresh token is already expired.
+var errTokenExpired = errors.New("JWT token has already expired")
+
+// resolveTokenTTL reports how long an ACR refresh token may be cached and
+// records why. A token whose expiry cannot be parsed falls back to
+// DefaultACRTokenTTL, but an already-expired one gets a zero TTL: CachedProvider
+// only caches a positive TTL, so the token is discarded instead of being replayed
+// for hours and returning 401 on every request.
+func resolveTokenTTL(log dcontext.Logger, serverAddress, token string) time.Duration {
+	ttl, err := parseJWTTokenTTL(token)
+	switch {
+	case errors.Is(err, errTokenExpired):
+		log.Warnf("ACR returned an already-expired refresh token for %s; it will not be cached", serverAddress)
+		return 0
+	case err != nil:
+		log.Warnf("failed to parse the ACR refresh token TTL for %s, falling back to %s: %v", serverAddress, DefaultACRTokenTTL, err)
+		return DefaultACRTokenTTL
+	default:
+		log.Debugf("resolved ACR credential for %s, expires in %s", serverAddress, ttl)
+		return ttl
+	}
+}
 
 const (
 	// GrantTypeAccessToken is the grant type for AAD access token
@@ -117,23 +145,23 @@ func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string)
 	// Step 1: Create the Azure token credential. When identity binding is
 	// configured it is used exclusively; otherwise the chain is workload
 	// identity followed by managed identity.
+	log := logger.GetLogger(ctx, logOpt)
+	log.Debugf("resolving ACR credential for %s (clientID=%q, tenantID=%q, identityBinding=%t)", serverAddress, p.clientID, p.tenantID, p.ibConfig != nil)
 	chain, err := azure.CreateCredentialChainWithIdentityBinding(p.clientID, p.tenantID, p.ibConfig)
 	if err != nil {
+		log.Errorf("failed to create Azure credential chain for %s: %v", serverAddress, err)
 		return credentialprovider.CredentialWithTTL{}, fmt.Errorf("failed to create credential chain: %w", err)
 	}
 
 	// Step 2: Exchange an AAD token for an ACR refresh token using ExchangeAADAccessTokenForACRRefreshToken
 	acrRefreshToken, err := p.exchangeAADTokenForACRToken(ctx, chain, serverAddress)
 	if err != nil {
+		log.Errorf("failed to exchange AAD token for ACR refresh token for %s: %v", serverAddress, err)
 		return credentialprovider.CredentialWithTTL{}, fmt.Errorf("failed to exchange AAD token for ACR refresh token: %w", err)
 	}
 
 	// Step 3: Parse the JWT token to extract the actual TTL
-	ttl, err := parseJWTTokenTTL(acrRefreshToken)
-	if err != nil {
-		// If JWT parsing fails, fall back to the default TTL
-		ttl = DefaultACRTokenTTL
-	}
+	ttl := resolveTokenTTL(log, serverAddress, acrRefreshToken)
 
 	return credentialprovider.CredentialWithTTL{
 		Credential: ratify.RegistryCredential{
@@ -146,13 +174,16 @@ func (p *IdentityProvider) GetWithTTL(ctx context.Context, serverAddress string)
 // exchangeAADTokenForACRToken exchanges an AAD access token for an ACR refresh
 // token.
 func (p *IdentityProvider) exchangeAADTokenForACRToken(ctx context.Context, credential azcore.TokenCredential, serverAddress string) (string, error) {
+	log := logger.GetLogger(ctx, logOpt)
 	// Get an AAD access token
+	start := time.Now()
 	token, err := credential.GetToken(ctx, policy.TokenRequestOptions{
 		Scopes: []string{AADResource},
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to get AAD access token: %w", err)
 	}
+	log.Debugf("acquired AAD access token for scope %s in %dms", AADResource, time.Since(start).Milliseconds())
 
 	// Create ACR authentication client
 	serverURL := "https://" + serverAddress
@@ -162,6 +193,7 @@ func (p *IdentityProvider) exchangeAADTokenForACRToken(ctx context.Context, cred
 	}
 
 	// Exchange AAD token for ACR refresh token
+	exchangeStart := time.Now()
 	response, err := client.ExchangeAADAccessTokenForACRRefreshToken(
 		ctx,
 		azcontainerregistry.PostContentSchemaGrantType(GrantTypeAccessToken),
@@ -178,6 +210,7 @@ func (p *IdentityProvider) exchangeAADTokenForACRToken(ctx context.Context, cred
 	if response.RefreshToken == nil {
 		return "", fmt.Errorf("received nil refresh token from ACR")
 	}
+	log.Debugf("exchanged AAD token for an ACR refresh token at %s in %dms", serverAddress, time.Since(exchangeStart).Milliseconds())
 
 	return *response.RefreshToken, nil
 }
@@ -210,7 +243,7 @@ func parseJWTTokenTTL(token string) (time.Duration, error) {
 
 	// If token is already expired, return 0 TTL
 	if expTime.Before(now) {
-		return 0, fmt.Errorf("JWT token has already expired")
+		return 0, errTokenExpired
 	}
 
 	// Calculate TTL with a small buffer (subtract 1 minute for safety)
