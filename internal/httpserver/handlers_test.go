@@ -28,6 +28,8 @@ import (
 
 	"github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -398,5 +400,86 @@ func TestVerifyStripsNamespacePrefix(t *testing.T) {
 	}
 	if strings.Contains(itemErr, "parse") {
 		t.Errorf("prefixed key should be stripped before parsing; got parse error: %q", itemErr)
+	}
+}
+
+func newHandlerTestServer() *server {
+	return &server{
+		getExecutor: func(_ string) *executor.ScopedExecutor { return nil },
+		sfGroup:     &singleflight.Group{},
+		verifyCache: &mockResultCache{entries: make(map[string]*result)},
+		mutateCache: &mockCache{entries: make(map[string]string)},
+	}
+}
+
+// findEntry returns the first log entry at the given level whose message
+// contains want. The logrus hook is global, so tests must match on their own
+// message rather than assuming they are the only writer.
+func findEntry(hook *test.Hook, level logrus.Level, want string) *logrus.Entry {
+	for _, entry := range hook.AllEntries() {
+		if entry.Level == level && strings.Contains(entry.Message, want) {
+			return entry
+		}
+	}
+	return nil
+}
+
+func TestVerifyHandler(t *testing.T) {
+	srv := newHandlerTestServer()
+	body := `{"apiVersion":"externaldata.gatekeeper.sh/v1beta1","kind":"ProviderRequest","request":{"keys":["ghcr.io/org/image:v1"]}}`
+	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.verifyHandler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("verifyHandler() status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+func TestVerifyHandler_LogsFailure(t *testing.T) {
+	hook := test.NewLocal(logrus.StandardLogger())
+	defer hook.Reset()
+
+	srv := newHandlerTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader("not json"))
+	srv.verifyHandler().ServeHTTP(httptest.NewRecorder(), req)
+
+	entry := findEntry(hook, logrus.ErrorLevel, "failed to handle the verification request")
+	if entry == nil {
+		t.Fatal("expected the verify handler to log the error it previously discarded")
+	}
+	if entry.Data["trace-id"] == nil {
+		t.Error("expected the logged entry to carry a trace ID")
+	}
+}
+
+func TestMutateHandler(t *testing.T) {
+	srv := newHandlerTestServer()
+	body := `{"apiVersion":"externaldata.gatekeeper.sh/v1beta1","kind":"ProviderRequest","request":{"keys":["ghcr.io/org/image:v1"]}}`
+	req := httptest.NewRequest(http.MethodPost, "/mutate", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	srv.mutateHandler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("mutateHandler() status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+func TestMutateHandler_LogsFailure(t *testing.T) {
+	hook := test.NewLocal(logrus.StandardLogger())
+	defer hook.Reset()
+
+	srv := newHandlerTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/mutate", strings.NewReader("not json"))
+	srv.mutateHandler().ServeHTTP(httptest.NewRecorder(), req)
+
+	entry := findEntry(hook, logrus.ErrorLevel, "failed to handle the mutation request")
+	if entry == nil {
+		t.Fatal("expected the mutate handler to log the error it previously discarded")
+	}
+	if entry.Data["trace-id"] == nil {
+		t.Error("expected the logged entry to carry a trace ID")
 	}
 }

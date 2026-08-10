@@ -201,13 +201,19 @@ func (s *server) registerVerifyHandler() error {
 
 func (s *server) verifyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_ = s.verify(logger.InitContext(r.Context(), r), w, r)
+		ctx := logger.InitContext(r.Context(), r)
+		if err := s.verify(ctx, w, r); err != nil {
+			logger.GetLogger(ctx, logOpt).Errorf("failed to handle the verification request: %v", err)
+		}
 	}
 }
 
 func (s *server) mutateHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_ = s.mutate(logger.InitContext(r.Context(), r), w, r)
+		ctx := logger.InitContext(r.Context(), r)
+		if err := s.mutate(ctx, w, r); err != nil {
+			logger.GetLogger(ctx, logOpt).Errorf("failed to handle the mutation request: %v", err)
+		}
 	}
 }
 
