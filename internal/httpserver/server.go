@@ -33,6 +33,7 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/notaryproject/ratify/v2/internal/httpserver/config"
 	"github.com/notaryproject/ratify/v2/internal/httpserver/tlssecret"
+	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
 )
@@ -200,13 +201,19 @@ func (s *server) registerVerifyHandler() error {
 
 func (s *server) verifyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_ = s.verify(r.Context(), w, r)
+		ctx := logger.InitContext(r.Context(), r)
+		if err := s.verify(ctx, w, r); err != nil {
+			logger.GetLogger(ctx, logOpt).Errorf("failed to handle the verification request: %v", err)
+		}
 	}
 }
 
 func (s *server) mutateHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_ = s.mutate(r.Context(), w, r)
+		ctx := logger.InitContext(r.Context(), r)
+		if err := s.mutate(ctx, w, r); err != nil {
+			logger.GetLogger(ctx, logOpt).Errorf("failed to handle the mutation request: %v", err)
+		}
 	}
 }
 
