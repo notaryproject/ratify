@@ -25,17 +25,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
-	"github.com/sirupsen/logrus"
 	"oras.land/oras-go/v2/registry"
 )
+
+var logOpt = logger.Option{ComponentType: logger.Server}
 
 // verify handles the verification request from Gatekeeper.
 func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	start := time.Now()
 	defer func() { metrics.ReportVerificationRequest(ctx, time.Since(start).Milliseconds()) }()
 	defer r.Body.Close()
+	log := logger.GetLogger(ctx, logOpt)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read request body: %w", err)
@@ -46,6 +49,7 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		return fmt.Errorf("failed to unmarshal request body to provider request: %w", err)
 	}
 
+	log.Debugf("verifying %d artifact(s)", len(providerRequest.Request.Keys))
 	results := make([]externaldata.Item, len(providerRequest.Request.Keys))
 	for idx, artifact := range providerRequest.Request.Keys {
 		results[idx] = externaldata.Item{
@@ -54,11 +58,14 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		key := verifyKey(artifact)
 
 		// Fetch the cache value first.
-		result, err := s.verifyCache.Get(ctx, key)
-		if err == nil && result != nil {
-			results[idx].Value = result
+		cached, err := s.verifyCache.Get(ctx, key)
+		if err == nil && cached != nil {
+			log.Debugf("verify cache hit for %s", artifact)
+			logVerificationResult(log, artifact, cached)
+			results[idx].Value = cached
 			continue
 		}
+		log.Debugf("verify cache miss for %s", artifact)
 
 		// Cache is missed, block multiple goroutines from validating the same
 		// artifact.
@@ -73,16 +80,21 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 			}
 			renderedResult := convertResult(result)
 			if err = s.verifyCache.Set(ctx, key, renderedResult, 0); err != nil {
-				logrus.Warnf("failed to set verify cache for image %s: %v", artifact, err)
+				log.Warnf("failed to set verify cache for image %s: %v", artifact, err)
 			}
 			return renderedResult, nil
 		})
 		if err != nil {
+			log.Errorf("failed to verify %s: %v", artifact, err)
 			results[idx].Error = err.Error()
+			metrics.ReportSystemError(ctx, "verify_artifact")
+		} else if res, ok := val.(*result); ok && res != nil {
+			logVerificationResult(log, artifact, res)
 		}
 		results[idx].Value = val
 	}
 
+	log.Debugf("verified %d artifact(s) in %dms", len(providerRequest.Request.Keys), time.Since(start).Milliseconds())
 	return sendResponse(results, w, http.StatusOK, false)
 }
 
@@ -100,6 +112,7 @@ func (s *server) mutate(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	if err = json.Unmarshal(body, &providerRequest); err != nil {
 		return fmt.Errorf("failed to unmarshal request body to provider request: %w", err)
 	}
+	logger.GetLogger(ctx, logOpt).Debugf("mutating %d reference(s)", len(providerRequest.Request.Keys))
 	results := make([]externaldata.Item, len(providerRequest.Request.Keys))
 	for idx, key := range providerRequest.Request.Keys {
 		results[idx] = s.resolveReference(ctx, key)
@@ -109,6 +122,7 @@ func (s *server) mutate(ctx context.Context, w http.ResponseWriter, r *http.Requ
 }
 
 func (s *server) resolveReference(ctx context.Context, key string) externaldata.Item {
+	log := logger.GetLogger(ctx, logOpt)
 	namespace := extractNamespace(key)
 	reference := stripNamespacePrefix(key)
 	item := externaldata.Item{
@@ -119,6 +133,8 @@ func (s *server) resolveReference(ctx context.Context, key string) externaldata.
 	ref, err := registry.ParseReference(reference)
 	if err != nil {
 		item.Error = fmt.Sprintf("failed to parse reference: %v", err)
+		log.Errorf("failed to parse reference %s: %v", reference, err)
+		metrics.ReportSystemError(ctx, "mutate_parse_reference")
 		return item
 	}
 	if _, err = ref.Digest(); err == nil {
@@ -131,9 +147,11 @@ func (s *server) resolveReference(ctx context.Context, key string) externaldata.
 	cacheKey := mutateKey(key)
 	result, err := s.mutateCache.Get(ctx, cacheKey)
 	if err == nil && result != "" {
+		log.Debugf("mutate cache hit for %s", reference)
 		item.Value = result
 		return item
 	}
+	log.Debugf("mutate cache miss for %s", reference)
 
 	// Cache is missed, block multiple goroutines from resolving the same
 	// reference.
@@ -150,13 +168,16 @@ func (s *server) resolveReference(ctx context.Context, key string) externaldata.
 		resolvedRef := ref.String()
 
 		if err = s.mutateCache.Set(ctx, cacheKey, resolvedRef, 0); err != nil {
-			logrus.Warnf("failed to set mutate cache for image %s: %v", reference, err)
+			log.Warnf("failed to set mutate cache for image %s: %v", reference, err)
 		}
 		return resolvedRef, nil
 	})
 	if err != nil {
+		log.Errorf("failed to resolve %s: %v", reference, err)
 		item.Error = err.Error()
+		metrics.ReportSystemError(ctx, "mutate_resolve_reference")
 	} else {
+		log.Debugf("resolved %s to %v", reference, val)
 		item.Value = val
 	}
 	return item
@@ -210,4 +231,19 @@ func stripNamespacePrefix(key string) string {
 		}
 	}
 	return key
+}
+
+// resultLogger is the subset of the request logger used to report results.
+type resultLogger interface {
+	Infof(format string, args ...interface{})
+}
+
+// logVerificationResult logs the whole report, so the log shows which verifier
+// produced which outcome and why, not just whether the artifact passed.
+func logVerificationResult(log resultLogger, artifact string, res *result) {
+	if detail, err := json.Marshal(res); err == nil {
+		log.Infof("verification result for %s: succeeded=%t, report=%s", artifact, res.Succeeded, detail)
+		return
+	}
+	log.Infof("verification result for %s: succeeded=%t", artifact, res.Succeeded)
 }
