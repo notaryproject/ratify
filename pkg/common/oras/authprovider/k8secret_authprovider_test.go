@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	ratifyerrors "github.com/ratify-project/ratify/errors"
 	core "k8s.io/api/core/v1"
@@ -329,6 +330,7 @@ func TestProvider_SecretFound_ReturnsSuccess(t *testing.T) {
 // TestProvide_ServiceAccountSecretFound_ReturnsSuccess tests that the Provide method
 // returns auth config when a matching credential is found for a service account image pull secret
 func TestProvider_ServiceAccountSecretFound_ReturnsSuccess(t *testing.T) {
+	secretTimeout := uint32(7200)
 	k8secretprovider := k8SecretAuthProvider{
 		ratifyNamespace: "gatekeeper-system",
 		clusterClientSet: fake.NewSimpleClientset(&core.ServiceAccount{
@@ -353,10 +355,65 @@ func TestProvider_ServiceAccountSecretFound_ReturnsSuccess(t *testing.T) {
 		}),
 		config: k8SecretAuthProviderConf{
 			ServiceAccountName: "ratify-admin",
+			SecretTimeout:      &secretTimeout,
 		},
 	}
 
-	if _, err := k8secretprovider.Provide(context.Background(), "index.docker.io/artifact:v1"); err != nil {
+	if k8secretprovider.getSecretTimeout() != 7200*time.Second {
+		t.Fatalf("time passed in config but could not verify the correct secret expiration time")
+	}
+
+	authConfig, err := k8secretprovider.Provide(context.Background(), "index.docker.io/artifact:v1")
+	if err != nil {
 		t.Fatalf("Provide failed to get credential with err %v", err)
+	}
+
+	timeDifference := time.Now().Add(time.Duration(secretTimeout) * time.Second).Sub(authConfig.ExpiresOn).Abs()
+	epsilon := 5 * time.Second
+	if timeDifference > epsilon { // using 5 seconds as epsilon value for comparison to account for execution delays
+		t.Fatalf("auth config ExpiresOn is not set properly - expected to be set to 2 hours from current time: %v", err)
+	}
+}
+
+func TestProvider_NilSecretTimeoutReturnsDefault(t *testing.T) {
+	authConfig := AuthProviderConfig{
+		"name":               "k8Secrets",
+		"serviceAccountName": "ratify-admin",
+	}
+	parsedAuthConf, err := parseAuthProviderConfig(authConfig)
+	if err != nil {
+		t.Fatalf("could not parse auth config properly: %v", err)
+	}
+
+	if parsedAuthConf.SecretTimeout != nil {
+		t.Fatalf("expected SecretTimeout to be nil due to no secretTimeout config in auth provider config")
+	}
+
+	authProvider := &k8SecretAuthProvider{
+		config: parsedAuthConf,
+	}
+	if authProvider.getSecretTimeout() != defaultSecretTimeout {
+		t.Fatalf("expected secret timeout to be defaulted to 12h due to nil secret timeout in auth config")
+	}
+}
+
+func TestProvider_Deserialization_Success(t *testing.T) {
+	authProviderConfig := AuthProviderConfig{
+		"name":               "k8Secrets",
+		"serviceAccountName": "ratify-admin",
+		"secretTimeout":      7200,
+	}
+
+	conf, err := parseAuthProviderConfig(authProviderConfig)
+	if err != nil {
+		t.Fatalf("Unable to parse auth provider config: %v", err)
+	}
+
+	if conf.Name != "k8Secrets" ||
+		conf.ServiceAccountName != "ratify-admin" ||
+		conf.SecretTimeout == nil ||
+		*conf.SecretTimeout != 7200 ||
+		conf.Secrets != nil {
+		t.Fatalf("Parsed auth config does not match the input: %v", err)
 	}
 }

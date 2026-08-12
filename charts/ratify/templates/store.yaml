@@ -33,6 +33,7 @@ spec:
     authProvider:
       name: k8Secrets
       serviceAccountName: {{ include "ratify.serviceAccountName" . }} 
+      secretTimeout: {{ .Values.oras.authProviders.k8secretsSecretTimeout }}
     {{- end }}
     {{- if .Values.oras.authProviders.awsEcrBasicEnabled }}
     authProvider:
