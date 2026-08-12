@@ -15,7 +15,7 @@ spec:
       labels:
         {{- include "ratify.podLabels" . | nindent 8 }}
         {{- include "ratify.selectorLabels" . | nindent 8 }}
-        {{- if ne .Values.azureWorkloadIdentity.clientId "" }}
+        {{- if .Values.azureWorkloadIdentity.clientId }}
         azure.workload.identity/use: "true"
         {{- end }}
       annotations:
