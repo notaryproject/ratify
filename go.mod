@@ -35,7 +35,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-jose/go-jose/v3 v3.0.5
 	github.com/golang/protobuf v1.5.4
-	github.com/google/go-containerregistry v0.21.8
+	github.com/google/go-containerregistry v0.21.9
 	github.com/gorilla/mux v1.8.1
 	github.com/in-toto/attestation v1.2.0
 	github.com/notaryproject/notation-core-go v1.3.0
