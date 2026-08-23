@@ -671,6 +671,7 @@ e2e-helm-deploy-ratify:
 	--set cosign.keys.provider=inline \
 	--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
 	--set cosign.ignoreTLog=true \
+	--set cosign.ignoreObserverTimestamps=true \
 	--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 	rm mount_config.json
@@ -694,6 +695,7 @@ e2e-helm-deploy-ratify-without-tls-certs:
 	--set cosign.keys.provider=inline \
 	--set cosign.keys.key="$$(cat .staging/cosign/cosign.pub)" \
 	--set cosign.ignoreTLog=true \
+	--set cosign.ignoreObserverTimestamps=true \
 	--set gatekeeper.namespace=${GATEKEEPER_NAMESPACE}
 
 	rm mount_config.json
@@ -742,6 +744,9 @@ e2e-helm-deploy-ratify-replica: e2e-helm-deploy-redis e2e-notation-setup $(BUILD
 
 e2e-aks:
 	./scripts/azure-ci-test.sh ${KUBERNETES_VERSION} ${GATEKEEPER_VERSION} ${TENANT_ID} ${GATEKEEPER_NAMESPACE} ${CERT_DIR} ${AZURE_SP_OBJECT_ID}
+
+e2e-aks-identity-binding:
+	./scripts/azure-ci-test-identity-binding.sh ${KUBERNETES_VERSION} ${GATEKEEPER_VERSION} ${GATEKEEPER_NAMESPACE} ${CERT_DIR}
 
 e2e-cleanup:
 	./scripts/azure-ci-test-cleanup.sh ${AZURE_SUBSCRIPTION_ID}

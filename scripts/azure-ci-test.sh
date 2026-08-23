@@ -78,10 +78,8 @@ upload_cert_to_akv() {
     -n ${NOTATION_PEM_NAME} \
     -f notation.pem
 
-  # TODO(follow-up: notation leaf-cert chain): the v2 notation verifier does
-  # not yet distinguish a leaf cert from a root cert in an inline trust store,
-  # so the leaf-cert chain is not uploaded yet. Re-enable this together with
-  # the "validate image signed by leaf cert" bats case.
+  # The leaf-cert test configures the generated certs as inline trust stores,
+  # so the leaf signing chain does not need to be uploaded to AKV.
   # rm -f notationchain.pem
   # cat .staging/notation/leaf-test/leaf.key >>notationchain.pem
   # cat .staging/notation/leaf-test/leaf.crt >>notationchain.pem
@@ -174,10 +172,8 @@ main() {
   local ACR_PASSWORD=$(az acr login --name ${ACR_NAME} --expose-token --output tsv --query accessToken)
 
   # Build and push the notation signed/unsigned test images to ACR and sign
-  # the signed image with the ratify-bats-test certificate. This replaces the
-  # v1 `make e2e-azure-setup` (which also provisioned the cosign key and KMP
-  # inputs); the full setup returns once those verifiers land in v2.
-  make e2e-create-all-image e2e-notation-setup \
+  # the signed image with the ratify-bats-test certificate.
+  make e2e-create-all-image e2e-notation-setup e2e-notation-leaf-cert-setup \
     TEST_REGISTRY=$REGISTRY \
     TEST_REGISTRY_USERNAME=${ACR_USER_NAME} \
     TEST_REGISTRY_PASSWORD=${ACR_PASSWORD}

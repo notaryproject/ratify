@@ -16,6 +16,7 @@ limitations under the License.
 package manager
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"os"
@@ -31,6 +32,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -50,7 +52,7 @@ func init() {
 
 // StartManager creates a new Manager which is responsible for creating
 // Controllers.
-func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableCRDManager bool) {
+func StartManager(certRotatorReady chan struct{}, executorManagerReady chan struct{}, disableMutation bool, disableCRDManager bool) {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
@@ -63,10 +65,34 @@ func StartManager(certRotatorReady chan struct{}, disableMutation bool, disableC
 	setupCertRotator(certRotatorReady, mgr, disableMutation)
 	setupCRDControllers(mgr, disableCRDManager)
 
+	if err := addExecutorReadySignal(mgr, executorManagerReady, disableCRDManager); err != nil {
+		setupLog.Error(err, "could not register executor readiness signal")
+		os.Exit(1)
+	}
+
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "could not start manager")
 		os.Exit(1)
 	}
+}
+
+// runnableAdder is the subset of ctrl.Manager used to register the executor
+// readiness signal.
+type runnableAdder interface {
+	Add(manager.Runnable) error
+}
+
+// addExecutorReadySignal registers a runnable that closes executorManagerReady
+// once the manager's caches have synced, so readiness reflects that the
+// executor state is known (loaded, or confirmed absent).
+func addExecutorReadySignal(mgr runnableAdder, executorManagerReady chan struct{}, disableCRDManager bool) error {
+	if disableCRDManager || executorManagerReady == nil {
+		return nil
+	}
+	return mgr.Add(manager.RunnableFunc(func(context.Context) error {
+		close(executorManagerReady)
+		return nil
+	}))
 }
 
 func setupCertRotator(certRotatorReady chan struct{}, mgr ctrl.Manager, disableMutation bool) {
@@ -123,6 +149,14 @@ func setupCRDControllers(mgr ctrl.Manager, disableCRDManager bool) {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "could not set up Executor reconciler")
+		os.Exit(1)
+	}
+
+	if err := (&controller.NamespacedExecutorReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "could not set up NamespacedExecutor reconciler")
 		os.Exit(1)
 	}
 }

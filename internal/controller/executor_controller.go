@@ -34,9 +34,9 @@ type ExecutorReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=config.ratify.dev,resources=executors,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=config.ratify.dev,resources=executors/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=config.ratify.dev,resources=executors/finalizers,verbs=update
+// +kubebuilder:rbac:groups=config.ratify.sh,resources=executors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=config.ratify.sh,resources=executors/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=config.ratify.sh,resources=executors/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -65,7 +65,7 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	err := GlobalExecutorManager.upsertExecutor(req.Namespace, req.Name, &executor)
+	err := GlobalExecutorManager.upsertExecutor(req.Namespace, req.Name, &executor.Spec)
 	if err != nil {
 		log.Error(err, "Failed to upsert Executor", "executor", req.Name)
 	}

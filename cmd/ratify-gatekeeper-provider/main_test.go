@@ -16,7 +16,10 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
+	"net"
 	"os"
 	"reflect"
 	"testing"
@@ -24,6 +27,9 @@ import (
 )
 
 func TestMain_FailedStartingRatify(t *testing.T) {
+	origInitMetrics := initMetricsFunc
+	defer func() { initMetricsFunc = origInitMetrics }()
+	initMetricsFunc = func(string, int) error { return nil }
 	args := []string{
 		"-config=config.json",
 		"-cert-file=cert.pem",
@@ -59,14 +65,19 @@ func TestParse(t *testing.T) {
 				"-cert-file=cert.pem",
 				"-key-file=key.pem",
 				"-verify-timeout=10s",
+				"-enable-metrics",
+				"-metrics-port=9999",
 			},
 			expected: &options{
-				configFilePath:    "config.json",
-				httpServerAddress: ":8080",
-				certFile:          "cert.pem",
-				keyFile:           "key.pem",
-				verifyTimeout:     10 * time.Second,
-				mutateTimeout:     2 * time.Second,
+				configFilePath:      "config.json",
+				httpServerAddress:   ":8080",
+				healthServerAddress: ":9099",
+				certFile:            "cert.pem",
+				keyFile:             "key.pem",
+				verifyTimeout:       10 * time.Second,
+				mutateTimeout:       2 * time.Second,
+				enableMetrics:       true,
+				metricsPort:         9999,
 			},
 		},
 		{
@@ -76,16 +87,20 @@ func TestParse(t *testing.T) {
 				"-mutate-timeout=10s",
 			},
 			expected: &options{
-				verifyTimeout: 30 * time.Second,
-				mutateTimeout: 10 * time.Second,
+				healthServerAddress: ":9099",
+				verifyTimeout:       30 * time.Second,
+				mutateTimeout:       10 * time.Second,
+				metricsPort:         8888,
 			},
 		},
 		{
 			name: "default values",
 			args: []string{},
 			expected: &options{
-				verifyTimeout: 5 * time.Second,
-				mutateTimeout: 2 * time.Second,
+				healthServerAddress: ":9099",
+				verifyTimeout:       5 * time.Second,
+				mutateTimeout:       2 * time.Second,
+				metricsPort:         8888,
 			},
 		},
 	}
@@ -109,11 +124,20 @@ func TestParse(t *testing.T) {
 }
 
 func TestStartRatify(t *testing.T) {
-	startManagerFunc = func(_ chan struct{}, _, _ bool) {}
+	origStartManager := startManagerFunc
+	origInitMetrics := initMetricsFunc
+	defer func() {
+		startManagerFunc = origStartManager
+		initMetricsFunc = origInitMetrics
+	}()
+	startManagerFunc = func(_, _ chan struct{}, _, _ bool) {}
+	errMetricsInit := errors.New("metrics boom")
+	initMetricsFunc = func(string, int) error { return errMetricsInit }
 	tests := []struct {
 		name        string
 		opts        *options
 		expectError bool
+		notError    error
 	}{
 		{
 			name: "missing http server address",
@@ -136,6 +160,20 @@ func TestStartRatify(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "metrics init failure is non-fatal",
+			opts: &options{
+				httpServerAddress:   ":8080",
+				configFilePath:      "config.yaml",
+				certFile:            "cert.pem",
+				disableCertRotation: true,
+				disableCRDManager:   true,
+				enableMetrics:       true,
+				metricsPort:         8888,
+			},
+			expectError: true,
+			notError:    errMetricsInit,
+		},
 	}
 
 	for _, tt := range tests {
@@ -144,6 +182,99 @@ func TestStartRatify(t *testing.T) {
 			if (err != nil) != tt.expectError {
 				t.Errorf("startRatify() error = %v, expectError %v", err, tt.expectError)
 			}
+			if tt.notError != nil && errors.Is(err, tt.notError) {
+				t.Errorf("startRatify() returned the metrics init error %v; it should be non-fatal", err)
+			}
 		})
 	}
+}
+
+func TestRunHealthServer(t *testing.T) {
+	t.Run("empty address is a no-op", func(_ *testing.T) {
+		// Should return immediately without starting a server.
+		runHealthServer(context.Background(), "", nil, nil)
+	})
+
+	t.Run("stops when context is cancelled", func(t *testing.T) {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("failed to reserve a port: %v", err)
+		}
+		addr := ln.Addr().String()
+		_ = ln.Close()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			runHealthServer(ctx, addr, nil, nil)
+			close(done)
+		}()
+
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatal("runHealthServer did not stop after context cancel")
+		}
+	})
+
+	t.Run("returns on invalid address", func(_ *testing.T) {
+		// An out-of-range port makes the server fail to listen and return,
+		// exercising the error-logging branch.
+		runHealthServer(context.Background(), "127.0.0.1:99999", nil, nil)
+	})
+}
+
+func TestIsExecutorReady(t *testing.T) {
+	notLoaded := func() bool { return false }
+	loaded := func() bool { return true }
+	open := make(chan struct{})
+	closed := make(chan struct{})
+	close(closed)
+
+	tests := []struct {
+		name           string
+		executorLoaded func() bool
+		managerSynced  <-chan struct{}
+		want           bool
+	}{
+		{name: "executor loaded is ready", executorLoaded: loaded, managerSynced: open, want: true},
+		{name: "not loaded and not synced is not ready", executorLoaded: notLoaded, managerSynced: open, want: false},
+		{name: "not loaded but synced is ready", executorLoaded: notLoaded, managerSynced: closed, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isExecutorReady(tt.executorLoaded, tt.managerSynced); got != tt.want {
+				t.Errorf("isExecutorReady() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewExecutorReadiness(t *testing.T) {
+	t.Run("disabled CRD manager returns no gating", func(t *testing.T) {
+		managerSynced, executorReady := newExecutorReadiness(true)
+		if managerSynced != nil {
+			t.Error("expected a nil manager-sync channel when the CRD manager is disabled")
+		}
+		if executorReady != nil {
+			t.Error("expected a nil readiness check when the CRD manager is disabled")
+		}
+	})
+
+	t.Run("becomes ready once the manager signals sync", func(t *testing.T) {
+		managerSynced, executorReady := newExecutorReadiness(false)
+		if managerSynced == nil || executorReady == nil {
+			t.Fatal("expected a manager-sync channel and readiness check in CRD-manager mode")
+		}
+		if executorReady() {
+			t.Error("expected not ready before the manager has synced")
+		}
+
+		close(managerSynced)
+		if !executorReady() {
+			t.Error("expected ready once the manager has synced")
+		}
+	})
 }

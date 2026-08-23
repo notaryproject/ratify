@@ -25,4 +25,7 @@ resources:
 - executor_admin_role.yaml
 - executor_editor_role.yaml
 - executor_viewer_role.yaml
+- namespacedexecutor_admin_role.yaml
+- namespacedexecutor_editor_role.yaml
+- namespacedexecutor_viewer_role.yaml
 

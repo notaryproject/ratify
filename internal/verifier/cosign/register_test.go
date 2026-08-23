@@ -20,6 +20,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
 	"testing"
 	"time"
 
@@ -693,6 +694,19 @@ func TestToVerifierOptions(t *testing.T) {
 			},
 		},
 		{
+			name:         "keyless honors ignoreCTLog false",
+			verifierName: "test-policy",
+			input: &ScopedOptions{
+				IgnoreCTLog: false,
+			},
+			wantErr: false,
+			validate: func(t *testing.T, opts *cosign.VerifierOptions) {
+				if opts.IgnoreCTLog {
+					t.Errorf("IgnoreCTLog = %v, want false (honored for keyless)", opts.IgnoreCTLog)
+				}
+			},
+		},
+		{
 			name:         "with certificate identity",
 			verifierName: "test-policy",
 			input: &ScopedOptions{
@@ -754,8 +768,7 @@ func TestToVerifierOptions(t *testing.T) {
 						"keys": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END PUBLIC KEY-----",
 					},
 				},
-				IgnoreTLog:  true,  // Should be overridden to false for key-based
-				IgnoreCTLog: false, // Should be overridden to true for key-based
+				IgnoreTLog: true, // Honored for key-based verification
 			},
 			wantErr:     true, // inline provider not registered in test context
 			errContains: "failed to create key provider",
@@ -802,6 +815,67 @@ func TestToVerifierOptions(t *testing.T) {
 
 			if tt.validate != nil {
 				tt.validate(t, opts)
+			}
+		})
+	}
+}
+
+type mockKeyProvider struct{}
+
+func (mockKeyProvider) GetCertificates(context.Context) ([]*x509.Certificate, error) {
+	return nil, nil
+}
+
+func (mockKeyProvider) GetKeys(context.Context) ([]*keyprovider.PublicKey, error) {
+	return nil, nil
+}
+
+// TestToVerifierOptions_KeyBasedTimestampOptions verifies that key-based
+// verification honors IgnoreTLog and IgnoreObserverTimestamps (so offline,
+// key-signed images without a timestamp can be verified) and passes IgnoreCTLog
+// through unchanged, since the certificate transparency log never applies to
+// public keys.
+func TestToVerifierOptions_KeyBasedTimestampOptions(t *testing.T) {
+	const providerName = "mock-key-provider-timestamp"
+	keyprovider.RegisterKeyProvider(providerName, func(any) (keyprovider.KeyProvider, error) {
+		return mockKeyProvider{}, nil
+	})
+
+	tests := []struct {
+		name                     string
+		ignoreTLog               bool
+		ignoreObserverTimestamps bool
+		ignoreCTLog              bool
+	}{
+		{name: "offline key verification", ignoreTLog: true, ignoreObserverTimestamps: true},
+		{name: "defaults preserved", ignoreTLog: false, ignoreObserverTimestamps: false},
+		{name: "ignoreCTLog false is passed through", ignoreCTLog: false},
+		{name: "ignoreCTLog true is passed through", ignoreCTLog: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts, err := toVerifierOptions(&ScopedOptions{
+				IgnoreTLog:               tt.ignoreTLog,
+				IgnoreObserverTimestamps: tt.ignoreObserverTimestamps,
+				IgnoreCTLog:              tt.ignoreCTLog,
+				Keys: map[string]any{
+					providerName: map[string]any{},
+				},
+			}, "test-policy")
+			if err != nil {
+				t.Fatalf("toVerifierOptions() unexpected error = %v", err)
+			}
+			if opts.IgnoreTLog != tt.ignoreTLog {
+				t.Errorf("IgnoreTLog = %v, want %v", opts.IgnoreTLog, tt.ignoreTLog)
+			}
+			if opts.IgnoreCTLog != tt.ignoreCTLog {
+				t.Errorf("IgnoreCTLog = %v, want %v", opts.IgnoreCTLog, tt.ignoreCTLog)
+			}
+			if opts.IgnoreObserverTimestamps != tt.ignoreObserverTimestamps {
+				t.Errorf("IgnoreObserverTimestamps = %v, want %v", opts.IgnoreObserverTimestamps, tt.ignoreObserverTimestamps)
+			}
+			if opts.GetPublicKeys == nil {
+				t.Error("GetPublicKeys = nil, want non-nil for key-based verification")
 			}
 		})
 	}

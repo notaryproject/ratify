@@ -1,0 +1,53 @@
+apiVersion: config.ratify.sh/v2alpha1
+kind: NamespacedExecutor
+metadata:
+  name: executor-notation-namespaced
+spec:
+  scopes:
+    - "registry:5000"
+  concurrency: 3
+  stores:
+    - type: registry-store
+      parameters:
+        plainHttp: true
+        credential:
+          provider: "static"
+          username: "test_user"
+          password: "test_pw"
+  verifiers:
+    - name: notation
+      type: notation
+      parameters:
+        certificates:
+          # Valid but unrelated CA (does not match ratify-bats-test), so a
+          # normally-signed image fails verification under this executor.
+          - type: "ca"
+            inline:
+              certs: |
+                -----BEGIN CERTIFICATE-----
+                MIIDQzCCAiugAwIBAgIUDxHQ9JxxmnrLWTA5rAtIZCzY8mMwDQYJKoZIhvcNAQEL
+                BQAwKTEPMA0GA1UECgwGUmF0aWZ5MRYwFAYDVQQDDA1SYXRpZnkgU2FtcGxlMB4X
+                DTIzMDYyOTA1MjgzMloXDTMzMDYyNjA1MjgzMlowKTEPMA0GA1UECgwGUmF0aWZ5
+                MRYwFAYDVQQDDA1SYXRpZnkgU2FtcGxlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
+                MIIBCgKCAQEAshmsL2VM9ojhgTVUUuEsZro9jfI27VKZJ4naWSHJihmOki7IoZS8
+                3/3ATpkE1lGbduJ77M9UxQbEW1PnESB0bWtMQtjIbser3mFCn15yz4nBXiTIu/K4
+                FYv6HVdc6/cds3jgfEFNw/8RVMBUGNUiSEWa1lV1zDM2v/8GekUr6SNvMyqtY8oo
+                ItwxfUvlhgMNlLgd96mVnnPVLmPkCmXFN9iBMhSce6sn6P9oDIB+pr1ZpE4F5bwa
+                gRBg2tWN3Tz9H/z2a51Xbn7hCT5OLBRlkorHJl2HKKRoXz1hBgR8xOL+zRySH9Qo
+                3yx6WvluYDNfVbCREzKJf9fFiQeVe0EJOwIDAQABo2MwYTAdBgNVHQ4EFgQUKzci
+                EKCDwPBn4I1YZ+sDdnxEir4wHwYDVR0jBBgwFoAUKzciEKCDwPBn4I1YZ+sDdnxE
+                ir4wDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAgQwDQYJKoZIhvcNAQEL
+                BQADggEBAGh6duwc1MvV+PUYvIkDfgj158KtYX+bv4PmcV/aemQUoArqM1ECYFjt
+                BlBVmTRJA0lijU5I0oZje80zW7P8M8pra0BM6x3cPnh/oZGrsuMizd4h5b5TnwuJ
+                hRvKFFUVeHn9kORbyQwRQ5SpL8cRGyYp+T6ncEmo0jdIOM5dgfdhwHgb+i3TejcF
+                90sUs65zovUjv1wa11SqOdu12cCj/MYp+H8j2lpaLL2t0cbFJlBY6DNJgxr5qync
+                cz8gbXrZmNbzC7W5QK5J7fcx6tlffOpt5cm427f9NiK2tira50HU7gC3HJkbiSTp
+                Xw10iXXMZzSbQ0/Hj2BF4B40WfAkgRg=
+                -----END CERTIFICATE-----
+  policyEnforcer:
+    type: "threshold-policy"
+    parameters:
+      policy:
+        threshold: 1
+        rules:
+          - verifierName: "notation"

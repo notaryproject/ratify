@@ -25,7 +25,11 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	dcontext "github.com/docker/distribution/context"
+	"github.com/notaryproject/ratify/v2/internal/cloudprovider/azure"
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 )
 
 const (
@@ -160,6 +164,74 @@ func TestCreateAzureIdentityProvider(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateAzureIdentityProvider_IdentityBinding(t *testing.T) {
+	clearIBEnv := func(t *testing.T) {
+		t.Helper()
+		for _, k := range []string{
+			azure.EnvIdentityBindingSNIName,
+			azure.EnvIdentityBindingAPIServerHost,
+			azure.EnvIdentityBindingTokenFile,
+			azure.EnvIdentityBindingCACertPath,
+			azure.EnvAKSIdentityBindingSNIName,
+			azure.EnvAKSIdentityBindingTokenProxy,
+			azure.EnvAKSIdentityBindingCAFile,
+			azure.EnvAKSFederatedTokenFile,
+		} {
+			t.Setenv(k, "")
+		}
+	}
+
+	t.Run("enabled but not configured returns error", func(t *testing.T) {
+		clearIBEnv(t)
+		_, err := createAzureIdentityProvider(credentialprovider.Options{
+			"clientID": "cid",
+			"identityBinding": map[string]any{
+				"enabled": true,
+			},
+		})
+		if err == nil {
+			t.Fatal("expected error when identity binding is enabled but not configured")
+		}
+	})
+
+	t.Run("enabled and configured via env succeeds", func(t *testing.T) {
+		clearIBEnv(t)
+		t.Setenv(azure.EnvIdentityBindingSNIName, "sni.example.com")
+		t.Setenv(azure.EnvIdentityBindingAPIServerHost, "apiserver.example.com")
+
+		provider, err := createAzureIdentityProvider(credentialprovider.Options{
+			"clientID": "cid",
+			"identityBinding": map[string]any{
+				"enabled": true,
+			},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if provider == nil {
+			t.Fatal("expected non-nil provider")
+		}
+	})
+
+	t.Run("present but disabled does not configure identity binding", func(t *testing.T) {
+		clearIBEnv(t)
+		// No IB env set; if the disabled block were treated as enabled this
+		// would error. It must succeed instead.
+		provider, err := createAzureIdentityProvider(credentialprovider.Options{
+			"clientID": "cid",
+			"identityBinding": map[string]any{
+				"enabled": false,
+			},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if provider == nil {
+			t.Fatal("expected non-nil provider")
+		}
+	})
 }
 
 func TestCreateAzureIdentityProvider_MarshalError(t *testing.T) {
@@ -903,4 +975,78 @@ func contains(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestResolveTokenTTL(t *testing.T) {
+	tests := []struct {
+		name    string
+		token   string
+		wantTTL time.Duration
+		wantLog string
+	}{
+		{
+			name:    "valid token keeps its own TTL",
+			token:   createTestJWTToken(map[string]interface{}{"exp": time.Now().Add(time.Hour).Unix()}),
+			wantTTL: 55 * time.Minute,
+			wantLog: "resolved ACR credential",
+		},
+		{
+			name:    "unparseable token falls back to the default TTL",
+			token:   "invalid.jwt.token",
+			wantTTL: DefaultACRTokenTTL,
+			wantLog: "falling back to",
+		},
+		{
+			name:    "expired token is never cached",
+			token:   createTestJWTToken(map[string]interface{}{"exp": time.Now().Add(-time.Hour).Unix()}),
+			wantTTL: 0,
+			wantLog: "already-expired refresh token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log, hook := newTestLogger()
+			ttl := resolveTokenTTL(log, testRegistry, tt.token)
+
+			// Allow a small delta because the TTL is computed from time.Now().
+			if delta := ttl - tt.wantTTL; delta > time.Minute || delta < -time.Minute {
+				t.Errorf("resolveTokenTTL() = %s, want ~%s", ttl, tt.wantTTL)
+			}
+			entry := hook.LastEntry()
+			if entry == nil {
+				t.Fatalf("resolveTokenTTL() logged nothing, want a message containing %q", tt.wantLog)
+			}
+			if !contains(entry.Message, tt.wantLog) {
+				t.Errorf("resolveTokenTTL() logged %q, want it to contain %q", entry.Message, tt.wantLog)
+			}
+		})
+	}
+}
+
+// An expired token and an unreadable one must not be reported identically: only
+// the expired one is dropped from the cache.
+func TestResolveTokenTTL_ExpiredAndUnparseableDiffer(t *testing.T) {
+	expiredLog, expiredHook := newTestLogger()
+	expiredTTL := resolveTokenTTL(expiredLog, testRegistry, createTestJWTToken(map[string]interface{}{"exp": time.Now().Add(-time.Hour).Unix()}))
+
+	unparseableLog, unparseableHook := newTestLogger()
+	unparseableTTL := resolveTokenTTL(unparseableLog, testRegistry, "invalid.jwt.token")
+
+	if expiredTTL != 0 {
+		t.Errorf("expired token TTL = %s, want 0 so it is not cached", expiredTTL)
+	}
+	if unparseableTTL != DefaultACRTokenTTL {
+		t.Errorf("unparseable token TTL = %s, want %s", unparseableTTL, DefaultACRTokenTTL)
+	}
+	if expiredHook.LastEntry().Message == unparseableHook.LastEntry().Message {
+		t.Errorf("expired and unparseable tokens logged the same message: %q", expiredHook.LastEntry().Message)
+	}
+}
+
+func newTestLogger() (dcontext.Logger, *test.Hook) {
+	base := logrus.New()
+	base.SetLevel(logrus.DebugLevel)
+	hook := test.NewLocal(base)
+	return logrus.NewEntry(base), hook
 }

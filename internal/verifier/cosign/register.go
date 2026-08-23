@@ -87,8 +87,21 @@ type ScopedOptions struct {
 	IgnoreTLog bool `json:"ignoreTLog,omitempty"`
 
 	// IgnoreCTLog indicates whether to ignore the certificate transparency log
-	// during verification. Optional.
+	// during verification. Only applies to keyless (certificate-based)
+	// verification; it has no effect on key-based verification because public
+	// keys carry no Fulcio certificate and therefore no signed certificate
+	// timestamps. Optional.
 	IgnoreCTLog bool `json:"ignoreCTLog,omitempty"`
+
+	// IgnoreObserverTimestamps indicates whether to skip observer timestamp
+	// verification (an RFC3161 timestamp or a transparency-log
+	// SignedEntryTimestamp) for key-based verification. This allows verifying
+	// offline, key-signed images that carry no transparency-log entry and no
+	// timestamp. Only applies to key-based verification. To verify a fully
+	// offline image (signed with `cosign sign --tlog-upload=false`), combine this
+	// with IgnoreTLog=true, otherwise the transparency-log check still requires a
+	// log entry. Optional.
+	IgnoreObserverTimestamps bool `json:"ignoreObserverTimestamps,omitempty"`
 
 	// Keys provides public keys to be used for signature verification.
 	// Optional. If not provided, keyless verification is used. If both keys and
@@ -302,10 +315,11 @@ func toVerifierOptions(s *ScopedOptions, name string) (*cosign.VerifierOptions, 
 	opts := &cosign.VerifierOptions{
 		Name: name,
 	}
+	// The underlying verifier skips the certificate transparency log for public
+	// keys, so IgnoreCTLog only takes effect for keyless verification.
+	opts.IgnoreCTLog = s.IgnoreCTLog
+	opts.IgnoreTLog = s.IgnoreTLog
 	if len(s.Keys) == 0 {
-		opts.IgnoreCTLog = s.IgnoreCTLog
-		opts.IgnoreTLog = s.IgnoreTLog
-
 		if s.CertificateIdentity != "" || s.CertificateIdentityRegex != "" ||
 			s.CertificateOIDCIssuer != "" || s.CertificateOIDCIssuerRegex != "" {
 			// Create certificate identity using the sigstore verify package
@@ -326,12 +340,7 @@ func toVerifierOptions(s *ScopedOptions, name string) (*cosign.VerifierOptions, 
 		}
 		return opts, nil
 	}
-	// If keys are provided, use key-based verification and ignore CTLog.
-	// And [verify.Verifier] requires timestamps from either an RFC3161
-	// timestamp authority or a log's SignedEntryTimestamp. So IgnoreTlog must
-	// be false.
-	opts.IgnoreCTLog = true
-	opts.IgnoreTLog = false
+	opts.IgnoreObserverTimestamps = s.IgnoreObserverTimestamps
 	opts.IdentityPolicies = []verify.PolicyOption{
 		verify.WithKey(),
 	}

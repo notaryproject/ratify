@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: executors.config.ratify.dev
+  name: executors.config.ratify.sh
 spec:
-  group: config.ratify.dev
+  group: config.ratify.sh
   names:
     kind: Executor
     listKind: ExecutorList

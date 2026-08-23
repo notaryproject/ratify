@@ -29,6 +29,9 @@ import (
 
 const inlineProviderName = "inline"
 
+// certificatePEMType is the PEM block type for X.509 certificates.
+const certificatePEMType = "CERTIFICATE"
+
 // InlineProvider is a key provider that loads certificates from a string
 // containing PEM-encoded certificates and caches them in memory.
 type InlineProvider struct {
@@ -106,7 +109,7 @@ func parseCertificatesFromPEM(certificatesInPem string) ([]*x509.Certificate, er
 	}
 
 	for block != nil {
-		if block.Type == "CERTIFICATE" {
+		if block.Type == certificatePEMType {
 			cert, err := x509.ParseCertificate(block.Bytes)
 			if err != nil {
 				return nil, errors.New("failed to parse x509 certificate")

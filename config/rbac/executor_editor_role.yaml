@@ -1,7 +1,7 @@
 # This rule is not used by the project crd itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants permissions to create, update, and delete resources within the config.ratify.dev.
+# Grants permissions to create, update, and delete resources within the config.ratify.sh.
 # This role is intended for users who need to manage these resources
 # but should not control RBAC or manage permissions for others.
 
@@ -14,7 +14,7 @@ metadata:
   name: executor-editor-role
 rules:
 - apiGroups:
-  - config.ratify.dev
+  - config.ratify.sh
   resources:
   - executors
   verbs:
@@ -26,7 +26,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - config.ratify.dev
+  - config.ratify.sh
   resources:
   - executors/status
   verbs:

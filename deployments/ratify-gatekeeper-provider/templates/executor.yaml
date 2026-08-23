@@ -1,4 +1,4 @@
-apiVersion: config.ratify.dev/v2alpha1
+apiVersion: config.ratify.sh/v2alpha1
 kind: Executor
 metadata:
   name: {{ include "ratify.fullname" . }}-executor-1
@@ -29,6 +29,18 @@ spec:
           {{- if eq .credential.provider "static" }}
           username: "{{ .credential.username }}"
           password: "{{ .credential.password }}"
+          {{- end }}
+          {{- if eq .credential.provider "azure" }}
+          {{- if .credential.clientID }}
+          clientID: "{{ .credential.clientID }}"
+          {{- end }}
+          {{- if .credential.tenantID }}
+          tenantID: "{{ .credential.tenantID }}"
+          {{- end }}
+          {{- if and .credential.identityBinding .credential.identityBinding.enabled }}
+          identityBinding:
+            enabled: true
+          {{- end }}
           {{- end }}
         {{- if .plainHttp }}
         {{- if or .caBase64 .caPem }}
@@ -62,7 +74,10 @@ spec:
             certificateOIDCIssuer: "{{ .Values.cosign.certificateOIDCIssuer }}"
             certificateOIDCIssuerRegex: "{{ .Values.cosign.certificateOIDCIssuerRegex }}"
             ignoreTLog: {{ .Values.cosign.ignoreTLog }}
+            {{- if not .Values.cosign.keys }}
             ignoreCTLog: {{ .Values.cosign.ignoreCTLog }}
+            {{- end }}
+            ignoreObserverTimestamps: {{ .Values.cosign.ignoreObserverTimestamps }}
             {{- if .Values.cosign.keys }}
             {{- if eq .Values.cosign.keys.provider "inline" }}
             {{- if .Values.cosign.keys.key }}

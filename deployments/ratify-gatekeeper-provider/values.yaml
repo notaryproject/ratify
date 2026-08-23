@@ -1,9 +1,26 @@
 image:
   repository: "ghcr.io/notaryproject/ratify-gatekeeper-provider"
   pullPolicy: IfNotPresent
-  tag: "dev"
+  tag: "v2.0.0-beta.1"
 
 replicaCount: 1
+
+logger:
+  level: info
+
+# resources sets the container resource requests and limits. Requests are
+# required for CPU-based autoscaling (HPA). Defaults match the v1 chart.
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 600m
+    memory: 512Mi
+
+metrics:
+  enabled: true
+  port: 8888
 
 executor:
   scopes: []
@@ -29,6 +46,7 @@ cosign:
   certificateOIDCIssuerRegex: ""
   ignoreTLog: false
   ignoreCTLog: false
+  ignoreObserverTimestamps: false
   keys:
     # provider: "inline"
     # key: "" # PEM encoded public key  e.g. "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
@@ -54,6 +72,9 @@ stores:
     # provider: "azure" # use "azure" to use Azure Workload Identity
     # clientID: "" # optional
     # tenantID: "" # optional
+    # identityBinding: # optional, use AKS identity binding instead of workload identity federation
+    #   enabled: true # annotates the pod with azure.workload.identity/use-identity-binding
+    #                 # so the AKS webhook injects the identity binding token endpoint config
 provider:
   tls:
     crt: "" # crt used by ratify (httpserver), please provide your own crt
@@ -62,6 +83,7 @@ provider:
     disableCertRotation: false
   disableMutation: false
   disableCRDManager: false
+  mutationExcludedNamespaces: []
   timeout:
     # timeout values must match gatekeeper webhook timeouts
     validationTimeoutSeconds: 5
