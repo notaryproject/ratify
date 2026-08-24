@@ -6,9 +6,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry v0.2.3
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates v0.9.0
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.10.0
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets v0.12.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.5.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.7.0
@@ -30,7 +27,6 @@ require (
 	github.com/docker/cli v29.5.3+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-jose/go-jose/v3 v3.0.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gorilla/mux v1.8.1
 	github.com/notaryproject/notation-core-go v1.3.0
@@ -46,7 +42,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/errors v0.9.1
-	github.com/sigstore/sigstore v1.10.9
 	github.com/sigstore/sigstore-go v1.2.2
 	github.com/sirupsen/logrus v1.9.4
 	go.opentelemetry.io/otel/exporters/prometheus v0.66.0
@@ -54,7 +49,6 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.44.0
 	go.step.sm/crypto v0.81.1
 	golang.org/x/sync v0.22.0
-	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.33.13
 	k8s.io/apimachinery v0.33.13
 	k8s.io/client-go v0.33.13
@@ -64,7 +58,6 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.7.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect
 	github.com/Azure/go-ntlmssp v0.1.1 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
@@ -85,6 +78,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.7 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.10 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/runtime/server-middleware v0.30.0 // indirect
@@ -118,6 +112,7 @@ require (
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/sigstore/protobuf-specs v0.5.1 // indirect
 	github.com/sigstore/rekor-tiles/v2 v2.3.0 // indirect
+	github.com/sigstore/sigstore v1.10.9 // indirect
 	github.com/sigstore/timestamp-authority/v2 v2.1.2 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.2 // indirect
@@ -219,7 +214,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.3 // indirect
-	gopkg.in/yaml.v3 v3.0.1
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.33.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
