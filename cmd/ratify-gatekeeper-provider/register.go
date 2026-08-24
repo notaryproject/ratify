@@ -24,6 +24,7 @@ import (
 	_ "github.com/notaryproject/ratify/v2/internal/store/registrystore"      // Register the registry store
 
 	// Register credential providers
+	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/aws"    // Register the AWS ECR credential provider factory
 	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/azure"  // Register the Azure credential provider factory
 	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/static" // Register the static credential provider factory
 
