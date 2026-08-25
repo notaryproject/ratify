@@ -1,0 +1,19 @@
+[[IgnoredVulns]]
+id = "CVE-2022-48174"
+reason = "Test manifest file(trivy_scan_report.json)"
+
+[[IgnoredVulns]]
+id = "CVE-2023-42366"
+reason = "Test manifest file(trivy_scan_report.json)"
+
+[[IgnoredVulns]]
+id = "CVE-2023-42363"
+reason = "Test manifest file(trivy_scan_report.json)"
+
+[[IgnoredVulns]]
+id = "CVE-2023-42364"
+reason = "Test manifest file(trivy_scan_report.json)"
+
+[[IgnoredVulns]]
+id = "CVE-2023-42365"
+reason = "Test manifest file(trivy_scan_report.json)"

@@ -1,0 +1,98 @@
+{
+    "SPDXID": "SPDXRef-DOCUMENT",
+    "name": "SBOM-SPDX-7d465ef1-69aa-4b69-9957-3e5f8ace888f",
+    "creationInfo": {
+      "created": "2023-04-11T16:42:56Z",
+      "creators": [
+        "Tool: bom-v0.5.1"
+      ],
+      "licenseListVersion": "3.20"
+    },
+    "dataLicense": "CC0-1.0",
+    "documentNamespace": "https://spdx.org/spdxdocs/k8s-releng-bom-69a90f8a-decc-4678-b8da-a61e0cfdb74d",
+    "documentDescribes": [
+      "SPDXRef-Package-demo2"
+    ],
+    "files": [
+      {
+        "SPDXID": "SPDXRef-File-demo2-go.mod",
+        "fileName": "go.mod",
+        "copyrightText": "NOASSERTION",
+        "fileTypes": [
+          "OTHER"
+        ],
+        "licenseInfoInFiles": [
+          "NONE"
+        ],
+        "checksums": [
+          {
+            "algorithm": "SHA256",
+            "checksumValue": "556a93d912a114b04ceb8187ebbf8395680cda467e08ac0080952932f3c370e2"
+          },
+          {
+            "algorithm": "SHA512",
+            "checksumValue": "c4f0d7f2838d18dd8fc96eff38535889522768b62da194348e6c672953a8979b2783f9d5aaead2ee4ff2067b7d788cbcdfd13bb9a446c16e7c60993a2b16860e"
+          },
+          {
+            "algorithm": "SHA1",
+            "checksumValue": "194215c6bfae739a649b92b28d1cc583b5fa99ef"
+          }
+        ]
+      },
+      {
+        "SPDXID": "SPDXRef-File-demo2-main.go",
+        "fileName": "main.go",
+        "copyrightText": "NOASSERTION",
+        "fileTypes": [
+          "SOURCE"
+        ],
+        "licenseInfoInFiles": [
+          "NONE"
+        ],
+        "checksums": [
+          {
+            "algorithm": "SHA512",
+            "checksumValue": "77ec79541bb49829bab859367eeb8fd11948cdc634754136049285a02c95e66ff56f2006804b2b7070732148431697d6a8feb13fd07aebef4041c30c20882780"
+          },
+          {
+            "algorithm": "SHA1",
+            "checksumValue": "c34d7fea5f9c09e6e876e4f98c0d1ca30babe034"
+          },
+          {
+            "algorithm": "SHA256",
+            "checksumValue": "fc3c41bf3de8295fc920f7da4ed98e3772bf5a849cc335722d6e33b405160908"
+          }
+        ]
+      }
+    ],
+    "packages": [
+      {
+        "SPDXID": "SPDXRef-Package-demo2",
+        "name": "demo2",
+        "versionInfo": "",
+        "filesAnalyzed": true,
+        "downloadLocation": "NONE",
+        "copyrightText": "NOASSERTION",
+        "hasFiles": [
+          "SPDXRef-File-demo2-main.go",
+          "SPDXRef-File-demo2-go.mod"
+        ],
+        "checksums": [],
+        "packageVerificationCode": {
+          "packageVerificationCodeValue": "34ac7b8817933e27e7bfad817f7e757b57c1a9e8"
+        }
+      }
+    ],
+    "relationships": [
+      {
+        "spdxElementId": "SPDXRef-Package-demo2",
+        "relationshipType": "CONTAINS",
+        "relatedSpdxElement": "SPDXRef-File-demo2-main.go"
+      },
+      {
+        "spdxElementId": "SPDXRef-Package-demo2",
+        "relationshipType": "CONTAINS",
+        "relatedSpdxElement": "SPDXRef-File-demo2-go.mod"
+      }
+    ]
+  }

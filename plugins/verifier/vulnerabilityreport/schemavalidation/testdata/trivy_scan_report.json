@@ -1,0 +1,1889 @@
+{
+    "version": "2.1.0",
+    "$schema": "https://json.schemastore.org/sarif-2.1.0-rtm.5.json",
+    "runs": [
+        {
+            "tool": {
+                "driver": {
+                    "fullName": "Trivy Vulnerability Scanner",
+                    "informationUri": "https://github.com/aquasecurity/trivy",
+                    "name": "Trivy",
+                    "rules": [
+                        {
+                            "id": "CVE-2021-36159",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": ""
+                            },
+                            "fullDescription": {
+                                "text": "libfetch before 2021-07-26, as used in apk-tools, xbps, and other products, mishandles numeric strings for the FTP and HTTP protocols. The FTP passive mode implementation allows an out-of-bounds read because strtol is used to parse the relevant numbers into address bytes. It does not check if the line ends prematurely. If it does, the for-loop condition checks for the &#39;\\0&#39; terminator one byte too late."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-36159",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-36159\nSeverity: CRITICAL\nPackage: apk-tools\nFixed Version: 2.10.7-r0\nLink: [CVE-2021-36159](https://avd.aquasec.com/nvd/cve-2021-36159)\nlibfetch before 2021-07-26, as used in apk-tools, xbps, and other products, mishandles numeric strings for the FTP and HTTP protocols. The FTP passive mode implementation allows an out-of-bounds read because strtol is used to parse the relevant numbers into address bytes. It does not check if the line ends prematurely. If it does, the for-loop condition checks for the '\\0' terminator one byte too late.",
+                                "markdown": "**Vulnerability CVE-2021-36159**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|CRITICAL|apk-tools|2.10.7-r0|[CVE-2021-36159](https://avd.aquasec.com/nvd/cve-2021-36159)|\n\nlibfetch before 2021-07-26, as used in apk-tools, xbps, and other products, mishandles numeric strings for the FTP and HTTP protocols. The FTP passive mode implementation allows an out-of-bounds read because strtol is used to parse the relevant numbers into address bytes. It does not check if the line ends prematurely. If it does, the for-loop condition checks for the '\\0' terminator one byte too late."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "9.1",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "CRITICAL"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-30139",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": ""
+                            },
+                            "fullDescription": {
+                                "text": "In Alpine Linux apk-tools before 2.12.5, the tarball parser allows a buffer overflow and crash."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-30139",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-30139\nSeverity: HIGH\nPackage: apk-tools\nFixed Version: 2.10.6-r0\nLink: [CVE-2021-30139](https://avd.aquasec.com/nvd/cve-2021-30139)\nIn Alpine Linux apk-tools before 2.12.5, the tarball parser allows a buffer overflow and crash.",
+                                "markdown": "**Vulnerability CVE-2021-30139**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|apk-tools|2.10.6-r0|[CVE-2021-30139](https://avd.aquasec.com/nvd/cve-2021-30139)|\n\nIn Alpine Linux apk-tools before 2.12.5, the tarball parser allows a buffer overflow and crash."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.5",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-28831",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: invalid free or segmentation fault via malformed gzip data"
+                            },
+                            "fullDescription": {
+                                "text": "decompress_gunzip.c in BusyBox through 1.32.1 mishandles the error bit on the huft_build result pointer, with a resultant invalid free or segmentation fault, via malformed gzip data."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-28831",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-28831\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r10\nLink: [CVE-2021-28831](https://avd.aquasec.com/nvd/cve-2021-28831)\ndecompress_gunzip.c in BusyBox through 1.32.1 mishandles the error bit on the huft_build result pointer, with a resultant invalid free or segmentation fault, via malformed gzip data.",
+                                "markdown": "**Vulnerability CVE-2021-28831**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r10|[CVE-2021-28831](https://avd.aquasec.com/nvd/cve-2021-28831)|\n\ndecompress_gunzip.c in BusyBox through 1.32.1 mishandles the error bit on the huft_build result pointer, with a resultant invalid free or segmentation fault, via malformed gzip data."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.5",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42378",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: use-after-free in awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the getvar_i()"
+                            },
+                            "fullDescription": {
+                                "text": "A use-after-free in Busybox&#39;s awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the getvar_i function"
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42378",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42378\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42378](https://avd.aquasec.com/nvd/cve-2021-42378)\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the getvar_i function",
+                                "markdown": "**Vulnerability CVE-2021-42378**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r11|[CVE-2021-42378](https://avd.aquasec.com/nvd/cve-2021-42378)|\n\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the getvar_i function"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.2",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42379",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: use-after-free in awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the next_input_file()"
+                            },
+                            "fullDescription": {
+                                "text": "A use-after-free in Busybox&#39;s awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the next_input_file function"
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42379",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42379\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42379](https://avd.aquasec.com/nvd/cve-2021-42379)\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the next_input_file function",
+                                "markdown": "**Vulnerability CVE-2021-42379**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r11|[CVE-2021-42379](https://avd.aquasec.com/nvd/cve-2021-42379)|\n\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the next_input_file function"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.2",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42380",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: use-after-free in awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the clrvar()"
+                            },
+                            "fullDescription": {
+                                "text": "A use-after-free in Busybox&#39;s awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the clrvar function"
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42380",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42380\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42380](https://avd.aquasec.com/nvd/cve-2021-42380)\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the clrvar function",
+                                "markdown": "**Vulnerability CVE-2021-42380**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r11|[CVE-2021-42380](https://avd.aquasec.com/nvd/cve-2021-42380)|\n\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the clrvar function"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.2",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42381",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: use-after-free in awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the hash_init()"
+                            },
+                            "fullDescription": {
+                                "text": "A use-after-free in Busybox&#39;s awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the hash_init function"
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42381",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42381\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42381](https://avd.aquasec.com/nvd/cve-2021-42381)\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the hash_init function",
+                                "markdown": "**Vulnerability CVE-2021-42381**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r11|[CVE-2021-42381](https://avd.aquasec.com/nvd/cve-2021-42381)|\n\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the hash_init function"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.2",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42382",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: use-after-free in awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the getvar_s()"
+                            },
+                            "fullDescription": {
+                                "text": "A use-after-free in Busybox&#39;s awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the getvar_s function"
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42382",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42382\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42382](https://avd.aquasec.com/nvd/cve-2021-42382)\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the getvar_s function",
+                                "markdown": "**Vulnerability CVE-2021-42382**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r11|[CVE-2021-42382](https://avd.aquasec.com/nvd/cve-2021-42382)|\n\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the getvar_s function"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.2",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42383",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: use-after-free in awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the evaluate()"
+                            },
+                            "fullDescription": {
+                                "text": "A use-after-free in Busybox&#39;s awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the evaluate function"
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42383",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42383\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42383](https://avd.aquasec.com/nvd/cve-2021-42383)\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the evaluate function",
+                                "markdown": "**Vulnerability CVE-2021-42383**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r11|[CVE-2021-42383](https://avd.aquasec.com/nvd/cve-2021-42383)|\n\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the evaluate function"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.2",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42384",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: use-after-free in awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the handle_special()"
+                            },
+                            "fullDescription": {
+                                "text": "A use-after-free in Busybox&#39;s awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the handle_special function"
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42384",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42384\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42384](https://avd.aquasec.com/nvd/cve-2021-42384)\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the handle_special function",
+                                "markdown": "**Vulnerability CVE-2021-42384**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r11|[CVE-2021-42384](https://avd.aquasec.com/nvd/cve-2021-42384)|\n\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the handle_special function"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.2",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42385",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: use-after-free in awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the evaluate()"
+                            },
+                            "fullDescription": {
+                                "text": "A use-after-free in Busybox&#39;s awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the evaluate function"
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42385",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42385\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42385](https://avd.aquasec.com/nvd/cve-2021-42385)\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the evaluate function",
+                                "markdown": "**Vulnerability CVE-2021-42385**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r11|[CVE-2021-42385](https://avd.aquasec.com/nvd/cve-2021-42385)|\n\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the evaluate function"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.2",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42386",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: use-after-free in awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the nvalloc()"
+                            },
+                            "fullDescription": {
+                                "text": "A use-after-free in Busybox&#39;s awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the nvalloc function"
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42386",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42386\nSeverity: HIGH\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42386](https://avd.aquasec.com/nvd/cve-2021-42386)\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the nvalloc function",
+                                "markdown": "**Vulnerability CVE-2021-42386**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|ssl_client|1.31.1-r11|[CVE-2021-42386](https://avd.aquasec.com/nvd/cve-2021-42386)|\n\nA use-after-free in Busybox's awk applet leads to denial of service and possibly code execution when processing a crafted awk pattern in the nvalloc function"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.2",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-42374",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "busybox: out-of-bounds read in unlzma applet leads to information leak and denial of service when crafted LZMA-compressed input is decompressed"
+                            },
+                            "fullDescription": {
+                                "text": "An out-of-bounds heap read in Busybox&#39;s unlzma applet leads to information leak and denial of service when crafted LZMA-compressed input is decompressed. This can be triggered by any applet/format that"
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-42374",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-42374\nSeverity: MEDIUM\nPackage: ssl_client\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42374](https://avd.aquasec.com/nvd/cve-2021-42374)\nAn out-of-bounds heap read in Busybox's unlzma applet leads to information leak and denial of service when crafted LZMA-compressed input is decompressed. This can be triggered by any applet/format that",
+                                "markdown": "**Vulnerability CVE-2021-42374**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|MEDIUM|ssl_client|1.31.1-r11|[CVE-2021-42374](https://avd.aquasec.com/nvd/cve-2021-42374)|\n\nAn out-of-bounds heap read in Busybox's unlzma applet leads to information leak and denial of service when crafted LZMA-compressed input is decompressed. This can be triggered by any applet/format that"
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "5.3",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "MEDIUM"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-3711",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "openssl: SM2 Decryption Buffer Overflow"
+                            },
+                            "fullDescription": {
+                                "text": "In order to decrypt SM2 encrypted data an application is expected to call the API function EVP_PKEY_decrypt(). Typically an application will call this function twice. The first time, on entry, the &#34;out&#34; parameter can be NULL and, on exit, the &#34;outlen&#34; parameter is populated with the buffer size required to hold the decrypted plaintext. The application can then allocate a sufficiently sized buffer and call EVP_PKEY_decrypt() again, but this time passing a non-NULL value for the &#34;out&#34; parameter. A bug in the implementation of the SM2 decryption code means that the calculation of the buffer size required to hold the plaintext returned by the first call to EVP_PKEY_decrypt() can be smaller than the actual size required by the second call. This can lead to a buffer overflow when EVP_PKEY_decrypt() is called by the application a second time with a buffer that is too small. A malicious attacker who is able present SM2 content for decryption to an application could cause attacker chosen data to overflow the buffer by up to a maximum of 62 bytes altering the contents of other data held after the buffer, possibly changing application behaviour or causing the application to crash. The location of the buffer is application dependent but is typically heap allocated. Fixed in OpenSSL 1.1.1l (Affected 1.1.1-1.1.1k)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-3711",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-3711\nSeverity: CRITICAL\nPackage: libssl1.1\nFixed Version: 1.1.1l-r0\nLink: [CVE-2021-3711](https://avd.aquasec.com/nvd/cve-2021-3711)\nIn order to decrypt SM2 encrypted data an application is expected to call the API function EVP_PKEY_decrypt(). Typically an application will call this function twice. The first time, on entry, the \"out\" parameter can be NULL and, on exit, the \"outlen\" parameter is populated with the buffer size required to hold the decrypted plaintext. The application can then allocate a sufficiently sized buffer and call EVP_PKEY_decrypt() again, but this time passing a non-NULL value for the \"out\" parameter. A bug in the implementation of the SM2 decryption code means that the calculation of the buffer size required to hold the plaintext returned by the first call to EVP_PKEY_decrypt() can be smaller than the actual size required by the second call. This can lead to a buffer overflow when EVP_PKEY_decrypt() is called by the application a second time with a buffer that is too small. A malicious attacker who is able present SM2 content for decryption to an application could cause attacker chosen data to overflow the buffer by up to a maximum of 62 bytes altering the contents of other data held after the buffer, possibly changing application behaviour or causing the application to crash. The location of the buffer is application dependent but is typically heap allocated. Fixed in OpenSSL 1.1.1l (Affected 1.1.1-1.1.1k).",
+                                "markdown": "**Vulnerability CVE-2021-3711**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|CRITICAL|libssl1.1|1.1.1l-r0|[CVE-2021-3711](https://avd.aquasec.com/nvd/cve-2021-3711)|\n\nIn order to decrypt SM2 encrypted data an application is expected to call the API function EVP_PKEY_decrypt(). Typically an application will call this function twice. The first time, on entry, the \"out\" parameter can be NULL and, on exit, the \"outlen\" parameter is populated with the buffer size required to hold the decrypted plaintext. The application can then allocate a sufficiently sized buffer and call EVP_PKEY_decrypt() again, but this time passing a non-NULL value for the \"out\" parameter. A bug in the implementation of the SM2 decryption code means that the calculation of the buffer size required to hold the plaintext returned by the first call to EVP_PKEY_decrypt() can be smaller than the actual size required by the second call. This can lead to a buffer overflow when EVP_PKEY_decrypt() is called by the application a second time with a buffer that is too small. A malicious attacker who is able present SM2 content for decryption to an application could cause attacker chosen data to overflow the buffer by up to a maximum of 62 bytes altering the contents of other data held after the buffer, possibly changing application behaviour or causing the application to crash. The location of the buffer is application dependent but is typically heap allocated. Fixed in OpenSSL 1.1.1l (Affected 1.1.1-1.1.1k)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "9.8",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "CRITICAL"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2020-1967",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "openssl: Segmentation fault in SSL_check_chain causes denial of service"
+                            },
+                            "fullDescription": {
+                                "text": "Server or client applications that call the SSL_check_chain() function during or after a TLS 1.3 handshake may crash due to a NULL pointer dereference as a result of incorrect handling of the &#34;signature_algorithms_cert&#34; TLS extension. The crash occurs if an invalid or unrecognised signature algorithm is received from the peer. This could be exploited by a malicious peer in a Denial of Service attack. OpenSSL version 1.1.1d, 1.1.1e, and 1.1.1f are affected by this issue. This issue did not affect OpenSSL versions prior to 1.1.1d. Fixed in OpenSSL 1.1.1g (Affected 1.1.1d-1.1.1f)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2020-1967",
+                            "help": {
+                                "text": "Vulnerability CVE-2020-1967\nSeverity: HIGH\nPackage: libssl1.1\nFixed Version: 1.1.1g-r0\nLink: [CVE-2020-1967](https://avd.aquasec.com/nvd/cve-2020-1967)\nServer or client applications that call the SSL_check_chain() function during or after a TLS 1.3 handshake may crash due to a NULL pointer dereference as a result of incorrect handling of the \"signature_algorithms_cert\" TLS extension. The crash occurs if an invalid or unrecognised signature algorithm is received from the peer. This could be exploited by a malicious peer in a Denial of Service attack. OpenSSL version 1.1.1d, 1.1.1e, and 1.1.1f are affected by this issue. This issue did not affect OpenSSL versions prior to 1.1.1d. Fixed in OpenSSL 1.1.1g (Affected 1.1.1d-1.1.1f).",
+                                "markdown": "**Vulnerability CVE-2020-1967**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|libssl1.1|1.1.1g-r0|[CVE-2020-1967](https://avd.aquasec.com/nvd/cve-2020-1967)|\n\nServer or client applications that call the SSL_check_chain() function during or after a TLS 1.3 handshake may crash due to a NULL pointer dereference as a result of incorrect handling of the \"signature_algorithms_cert\" TLS extension. The crash occurs if an invalid or unrecognised signature algorithm is received from the peer. This could be exploited by a malicious peer in a Denial of Service attack. OpenSSL version 1.1.1d, 1.1.1e, and 1.1.1f are affected by this issue. This issue did not affect OpenSSL versions prior to 1.1.1d. Fixed in OpenSSL 1.1.1g (Affected 1.1.1d-1.1.1f)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.5",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-23840",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "openssl: integer overflow in CipherUpdate"
+                            },
+                            "fullDescription": {
+                                "text": "Calls to EVP_CipherUpdate, EVP_EncryptUpdate and EVP_DecryptUpdate may overflow the output length argument in some cases where the input length is close to the maximum permissible length for an integer on the platform. In such cases the return value from the function call will be 1 (indicating success), but the output length value will be negative. This could cause applications to behave incorrectly or crash. OpenSSL versions 1.1.1i and below are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1j. OpenSSL versions 1.0.2x and below are affected by this issue. However OpenSSL 1.0.2 is out of support and no longer receiving public updates. Premium support customers of OpenSSL 1.0.2 should upgrade to 1.0.2y. Other users should upgrade to 1.1.1j. Fixed in OpenSSL 1.1.1j (Affected 1.1.1-1.1.1i). Fixed in OpenSSL 1.0.2y (Affected 1.0.2-1.0.2x)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-23840",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-23840\nSeverity: HIGH\nPackage: libssl1.1\nFixed Version: 1.1.1j-r0\nLink: [CVE-2021-23840](https://avd.aquasec.com/nvd/cve-2021-23840)\nCalls to EVP_CipherUpdate, EVP_EncryptUpdate and EVP_DecryptUpdate may overflow the output length argument in some cases where the input length is close to the maximum permissible length for an integer on the platform. In such cases the return value from the function call will be 1 (indicating success), but the output length value will be negative. This could cause applications to behave incorrectly or crash. OpenSSL versions 1.1.1i and below are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1j. OpenSSL versions 1.0.2x and below are affected by this issue. However OpenSSL 1.0.2 is out of support and no longer receiving public updates. Premium support customers of OpenSSL 1.0.2 should upgrade to 1.0.2y. Other users should upgrade to 1.1.1j. Fixed in OpenSSL 1.1.1j (Affected 1.1.1-1.1.1i). Fixed in OpenSSL 1.0.2y (Affected 1.0.2-1.0.2x).",
+                                "markdown": "**Vulnerability CVE-2021-23840**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|libssl1.1|1.1.1j-r0|[CVE-2021-23840](https://avd.aquasec.com/nvd/cve-2021-23840)|\n\nCalls to EVP_CipherUpdate, EVP_EncryptUpdate and EVP_DecryptUpdate may overflow the output length argument in some cases where the input length is close to the maximum permissible length for an integer on the platform. In such cases the return value from the function call will be 1 (indicating success), but the output length value will be negative. This could cause applications to behave incorrectly or crash. OpenSSL versions 1.1.1i and below are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1j. OpenSSL versions 1.0.2x and below are affected by this issue. However OpenSSL 1.0.2 is out of support and no longer receiving public updates. Premium support customers of OpenSSL 1.0.2 should upgrade to 1.0.2y. Other users should upgrade to 1.1.1j. Fixed in OpenSSL 1.1.1j (Affected 1.1.1-1.1.1i). Fixed in OpenSSL 1.0.2y (Affected 1.0.2-1.0.2x)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.5",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-3450",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "openssl: CA certificate check bypass with X509_V_FLAG_X509_STRICT"
+                            },
+                            "fullDescription": {
+                                "text": "The X509_V_FLAG_X509_STRICT flag enables additional security checks of the certificates present in a certificate chain. It is not set by default. Starting from OpenSSL version 1.1.1h a check to disallow certificates in the chain that have explicitly encoded elliptic curve parameters was added as an additional strict check. An error in the implementation of this check meant that the result of a previous check to confirm that certificates in the chain are valid CA certificates was overwritten. This effectively bypasses the check that non-CA certificates must not be able to issue other certificates. If a &#34;purpose&#34; has been configured then there is a subsequent opportunity for checks that the certificate is a valid CA. All of the named &#34;purpose&#34; values implemented in libcrypto perform this check. Therefore, where a purpose is set the certificate chain will still be rejected even when the strict flag has been used. A purpose is set by default in libssl client and server certificate verification routines, but it can be overridden or removed by an application. In order to be affected, an application must explicitly set the X509_V_FLAG_X509_STRICT verification flag and either not set a purpose for the certificate verification or, in the case of TLS client or server applications, override the default purpose. OpenSSL versions 1.1.1h and newer are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1k. OpenSSL 1.0.2 is not impacted by this issue. Fixed in OpenSSL 1.1.1k (Affected 1.1.1h-1.1.1j)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-3450",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-3450\nSeverity: HIGH\nPackage: libssl1.1\nFixed Version: 1.1.1k-r0\nLink: [CVE-2021-3450](https://avd.aquasec.com/nvd/cve-2021-3450)\nThe X509_V_FLAG_X509_STRICT flag enables additional security checks of the certificates present in a certificate chain. It is not set by default. Starting from OpenSSL version 1.1.1h a check to disallow certificates in the chain that have explicitly encoded elliptic curve parameters was added as an additional strict check. An error in the implementation of this check meant that the result of a previous check to confirm that certificates in the chain are valid CA certificates was overwritten. This effectively bypasses the check that non-CA certificates must not be able to issue other certificates. If a \"purpose\" has been configured then there is a subsequent opportunity for checks that the certificate is a valid CA. All of the named \"purpose\" values implemented in libcrypto perform this check. Therefore, where a purpose is set the certificate chain will still be rejected even when the strict flag has been used. A purpose is set by default in libssl client and server certificate verification routines, but it can be overridden or removed by an application. In order to be affected, an application must explicitly set the X509_V_FLAG_X509_STRICT verification flag and either not set a purpose for the certificate verification or, in the case of TLS client or server applications, override the default purpose. OpenSSL versions 1.1.1h and newer are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1k. OpenSSL 1.0.2 is not impacted by this issue. Fixed in OpenSSL 1.1.1k (Affected 1.1.1h-1.1.1j).",
+                                "markdown": "**Vulnerability CVE-2021-3450**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|libssl1.1|1.1.1k-r0|[CVE-2021-3450](https://avd.aquasec.com/nvd/cve-2021-3450)|\n\nThe X509_V_FLAG_X509_STRICT flag enables additional security checks of the certificates present in a certificate chain. It is not set by default. Starting from OpenSSL version 1.1.1h a check to disallow certificates in the chain that have explicitly encoded elliptic curve parameters was added as an additional strict check. An error in the implementation of this check meant that the result of a previous check to confirm that certificates in the chain are valid CA certificates was overwritten. This effectively bypasses the check that non-CA certificates must not be able to issue other certificates. If a \"purpose\" has been configured then there is a subsequent opportunity for checks that the certificate is a valid CA. All of the named \"purpose\" values implemented in libcrypto perform this check. Therefore, where a purpose is set the certificate chain will still be rejected even when the strict flag has been used. A purpose is set by default in libssl client and server certificate verification routines, but it can be overridden or removed by an application. In order to be affected, an application must explicitly set the X509_V_FLAG_X509_STRICT verification flag and either not set a purpose for the certificate verification or, in the case of TLS client or server applications, override the default purpose. OpenSSL versions 1.1.1h and newer are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1k. OpenSSL 1.0.2 is not impacted by this issue. Fixed in OpenSSL 1.1.1k (Affected 1.1.1h-1.1.1j)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.4",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-3712",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "openssl: Read buffer overruns processing ASN.1 strings"
+                            },
+                            "fullDescription": {
+                                "text": "ASN.1 strings are represented internally within OpenSSL as an ASN1_STRING structure which contains a buffer holding the string data and a field holding the buffer length. This contrasts with normal C strings which are repesented as a buffer for the string data which is terminated with a NUL (0) byte. Although not a strict requirement, ASN.1 strings that are parsed using OpenSSL&#39;s own &#34;d2i&#34; functions (and other similar parsing functions) as well as any string whose value has been set with the ASN1_STRING_set() function will additionally NUL terminate the byte array in the ASN1_STRING structure. However, it is possible for applications to directly construct valid ASN1_STRING structures which do not NUL terminate the byte array by directly setting the &#34;data&#34; and &#34;length&#34; fields in the ASN1_STRING array. This can also happen by using the ASN1_STRING_set0() function. Numerous OpenSSL functions that print ASN.1 data have been found to assume that the ASN1_STRING byte array will be NUL terminated, even though this is not guaranteed for strings that have been directly constructed. Where an application requests an ASN.1 structure to be printed, and where that ASN.1 structure contains ASN1_STRINGs that have been directly constructed by the application without NUL terminating the &#34;data&#34; field, then a read buffer overrun can occur. The same thing can also occur during name constraints processing of certificates (for example if a certificate has been directly constructed by the application instead of loading it via the OpenSSL parsing functions, and the certificate contains non NUL terminated ASN1_STRING structures). It can also occur in the X509_get1_email(), X509_REQ_get1_email() and X509_get1_ocsp() functions. If a malicious actor can cause an application to directly construct an ASN1_STRING and then process it through one of the affected OpenSSL functions then this issue could be hit. This might result in a crash (causing a Denial of Service attack). It could also result in the disclosure of private memory contents (such as private keys, or sensitive plaintext). Fixed in OpenSSL 1.1.1l (Affected 1.1.1-1.1.1k). Fixed in OpenSSL 1.0.2za (Affected 1.0.2-1.0.2y)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-3712",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-3712\nSeverity: HIGH\nPackage: libssl1.1\nFixed Version: 1.1.1l-r0\nLink: [CVE-2021-3712](https://avd.aquasec.com/nvd/cve-2021-3712)\nASN.1 strings are represented internally within OpenSSL as an ASN1_STRING structure which contains a buffer holding the string data and a field holding the buffer length. This contrasts with normal C strings which are repesented as a buffer for the string data which is terminated with a NUL (0) byte. Although not a strict requirement, ASN.1 strings that are parsed using OpenSSL's own \"d2i\" functions (and other similar parsing functions) as well as any string whose value has been set with the ASN1_STRING_set() function will additionally NUL terminate the byte array in the ASN1_STRING structure. However, it is possible for applications to directly construct valid ASN1_STRING structures which do not NUL terminate the byte array by directly setting the \"data\" and \"length\" fields in the ASN1_STRING array. This can also happen by using the ASN1_STRING_set0() function. Numerous OpenSSL functions that print ASN.1 data have been found to assume that the ASN1_STRING byte array will be NUL terminated, even though this is not guaranteed for strings that have been directly constructed. Where an application requests an ASN.1 structure to be printed, and where that ASN.1 structure contains ASN1_STRINGs that have been directly constructed by the application without NUL terminating the \"data\" field, then a read buffer overrun can occur. The same thing can also occur during name constraints processing of certificates (for example if a certificate has been directly constructed by the application instead of loading it via the OpenSSL parsing functions, and the certificate contains non NUL terminated ASN1_STRING structures). It can also occur in the X509_get1_email(), X509_REQ_get1_email() and X509_get1_ocsp() functions. If a malicious actor can cause an application to directly construct an ASN1_STRING and then process it through one of the affected OpenSSL functions then this issue could be hit. This might result in a crash (causing a Denial of Service attack). It could also result in the disclosure of private memory contents (such as private keys, or sensitive plaintext). Fixed in OpenSSL 1.1.1l (Affected 1.1.1-1.1.1k). Fixed in OpenSSL 1.0.2za (Affected 1.0.2-1.0.2y).",
+                                "markdown": "**Vulnerability CVE-2021-3712**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|libssl1.1|1.1.1l-r0|[CVE-2021-3712](https://avd.aquasec.com/nvd/cve-2021-3712)|\n\nASN.1 strings are represented internally within OpenSSL as an ASN1_STRING structure which contains a buffer holding the string data and a field holding the buffer length. This contrasts with normal C strings which are repesented as a buffer for the string data which is terminated with a NUL (0) byte. Although not a strict requirement, ASN.1 strings that are parsed using OpenSSL's own \"d2i\" functions (and other similar parsing functions) as well as any string whose value has been set with the ASN1_STRING_set() function will additionally NUL terminate the byte array in the ASN1_STRING structure. However, it is possible for applications to directly construct valid ASN1_STRING structures which do not NUL terminate the byte array by directly setting the \"data\" and \"length\" fields in the ASN1_STRING array. This can also happen by using the ASN1_STRING_set0() function. Numerous OpenSSL functions that print ASN.1 data have been found to assume that the ASN1_STRING byte array will be NUL terminated, even though this is not guaranteed for strings that have been directly constructed. Where an application requests an ASN.1 structure to be printed, and where that ASN.1 structure contains ASN1_STRINGs that have been directly constructed by the application without NUL terminating the \"data\" field, then a read buffer overrun can occur. The same thing can also occur during name constraints processing of certificates (for example if a certificate has been directly constructed by the application instead of loading it via the OpenSSL parsing functions, and the certificate contains non NUL terminated ASN1_STRING structures). It can also occur in the X509_get1_email(), X509_REQ_get1_email() and X509_get1_ocsp() functions. If a malicious actor can cause an application to directly construct an ASN1_STRING and then process it through one of the affected OpenSSL functions then this issue could be hit. This might result in a crash (causing a Denial of Service attack). It could also result in the disclosure of private memory contents (such as private keys, or sensitive plaintext). Fixed in OpenSSL 1.1.1l (Affected 1.1.1-1.1.1k). Fixed in OpenSSL 1.0.2za (Affected 1.0.2-1.0.2y)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "7.4",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "HIGH"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2020-1971",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "openssl: EDIPARTYNAME NULL pointer de-reference"
+                            },
+                            "fullDescription": {
+                                "text": "The X.509 GeneralName type is a generic type for representing different types of names. One of those name types is known as EDIPartyName. OpenSSL provides a function GENERAL_NAME_cmp which compares different instances of a GENERAL_NAME to see if they are equal or not. This function behaves incorrectly when both GENERAL_NAMEs contain an EDIPARTYNAME. A NULL pointer dereference and a crash may occur leading to a possible denial of service attack. OpenSSL itself uses the GENERAL_NAME_cmp function for two purposes: 1) Comparing CRL distribution point names between an available CRL and a CRL distribution point embedded in an X509 certificate 2) When verifying that a timestamp response token signer matches the timestamp authority name (exposed via the API functions TS_RESP_verify_response and TS_RESP_verify_token) If an attacker can control both items being compared then that attacker could trigger a crash. For example if the attacker can trick a client or server into checking a malicious certificate against a malicious CRL then this may occur. Note that some applications automatically download CRLs based on a URL embedded in a certificate. This checking happens prior to the signatures on the certificate and CRL being verified. OpenSSL&#39;s s_server, s_client and verify tools have support for the &#34;-crl_download&#34; option which implements automatic CRL downloading and this attack has been demonstrated to work against those tools. Note that an unrelated bug means that affected versions of OpenSSL cannot parse or construct correct encodings of EDIPARTYNAME. However it is possible to construct a malformed EDIPARTYNAME that OpenSSL&#39;s parser will accept and hence trigger this attack. All OpenSSL 1.1.1 and 1.0.2 versions are affected by this issue. Other OpenSSL releases are out of support and have not been checked. Fixed in OpenSSL 1.1.1i (Affected 1.1.1-1.1.1h). Fixed in OpenSSL 1.0.2x (Affected 1.0.2-1.0.2w)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2020-1971",
+                            "help": {
+                                "text": "Vulnerability CVE-2020-1971\nSeverity: MEDIUM\nPackage: libssl1.1\nFixed Version: 1.1.1i-r0\nLink: [CVE-2020-1971](https://avd.aquasec.com/nvd/cve-2020-1971)\nThe X.509 GeneralName type is a generic type for representing different types of names. One of those name types is known as EDIPartyName. OpenSSL provides a function GENERAL_NAME_cmp which compares different instances of a GENERAL_NAME to see if they are equal or not. This function behaves incorrectly when both GENERAL_NAMEs contain an EDIPARTYNAME. A NULL pointer dereference and a crash may occur leading to a possible denial of service attack. OpenSSL itself uses the GENERAL_NAME_cmp function for two purposes: 1) Comparing CRL distribution point names between an available CRL and a CRL distribution point embedded in an X509 certificate 2) When verifying that a timestamp response token signer matches the timestamp authority name (exposed via the API functions TS_RESP_verify_response and TS_RESP_verify_token) If an attacker can control both items being compared then that attacker could trigger a crash. For example if the attacker can trick a client or server into checking a malicious certificate against a malicious CRL then this may occur. Note that some applications automatically download CRLs based on a URL embedded in a certificate. This checking happens prior to the signatures on the certificate and CRL being verified. OpenSSL's s_server, s_client and verify tools have support for the \"-crl_download\" option which implements automatic CRL downloading and this attack has been demonstrated to work against those tools. Note that an unrelated bug means that affected versions of OpenSSL cannot parse or construct correct encodings of EDIPARTYNAME. However it is possible to construct a malformed EDIPARTYNAME that OpenSSL's parser will accept and hence trigger this attack. All OpenSSL 1.1.1 and 1.0.2 versions are affected by this issue. Other OpenSSL releases are out of support and have not been checked. Fixed in OpenSSL 1.1.1i (Affected 1.1.1-1.1.1h). Fixed in OpenSSL 1.0.2x (Affected 1.0.2-1.0.2w).",
+                                "markdown": "**Vulnerability CVE-2020-1971**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|MEDIUM|libssl1.1|1.1.1i-r0|[CVE-2020-1971](https://avd.aquasec.com/nvd/cve-2020-1971)|\n\nThe X.509 GeneralName type is a generic type for representing different types of names. One of those name types is known as EDIPartyName. OpenSSL provides a function GENERAL_NAME_cmp which compares different instances of a GENERAL_NAME to see if they are equal or not. This function behaves incorrectly when both GENERAL_NAMEs contain an EDIPARTYNAME. A NULL pointer dereference and a crash may occur leading to a possible denial of service attack. OpenSSL itself uses the GENERAL_NAME_cmp function for two purposes: 1) Comparing CRL distribution point names between an available CRL and a CRL distribution point embedded in an X509 certificate 2) When verifying that a timestamp response token signer matches the timestamp authority name (exposed via the API functions TS_RESP_verify_response and TS_RESP_verify_token) If an attacker can control both items being compared then that attacker could trigger a crash. For example if the attacker can trick a client or server into checking a malicious certificate against a malicious CRL then this may occur. Note that some applications automatically download CRLs based on a URL embedded in a certificate. This checking happens prior to the signatures on the certificate and CRL being verified. OpenSSL's s_server, s_client and verify tools have support for the \"-crl_download\" option which implements automatic CRL downloading and this attack has been demonstrated to work against those tools. Note that an unrelated bug means that affected versions of OpenSSL cannot parse or construct correct encodings of EDIPARTYNAME. However it is possible to construct a malformed EDIPARTYNAME that OpenSSL's parser will accept and hence trigger this attack. All OpenSSL 1.1.1 and 1.0.2 versions are affected by this issue. Other OpenSSL releases are out of support and have not been checked. Fixed in OpenSSL 1.1.1i (Affected 1.1.1-1.1.1h). Fixed in OpenSSL 1.0.2x (Affected 1.0.2-1.0.2w)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "5.9",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "MEDIUM"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-23841",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "openssl: NULL pointer dereference in X509_issuer_and_serial_hash()"
+                            },
+                            "fullDescription": {
+                                "text": "The OpenSSL public API function X509_issuer_and_serial_hash() attempts to create a unique hash value based on the issuer and serial number data contained within an X509 certificate. However it fails to correctly handle any errors that may occur while parsing the issuer field (which might occur if the issuer field is maliciously constructed). This may subsequently result in a NULL pointer deref and a crash leading to a potential denial of service attack. The function X509_issuer_and_serial_hash() is never directly called by OpenSSL itself so applications are only vulnerable if they use this function directly and they use it on certificates that may have been obtained from untrusted sources. OpenSSL versions 1.1.1i and below are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1j. OpenSSL versions 1.0.2x and below are affected by this issue. However OpenSSL 1.0.2 is out of support and no longer receiving public updates. Premium support customers of OpenSSL 1.0.2 should upgrade to 1.0.2y. Other users should upgrade to 1.1.1j. Fixed in OpenSSL 1.1.1j (Affected 1.1.1-1.1.1i). Fixed in OpenSSL 1.0.2y (Affected 1.0.2-1.0.2x)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-23841",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-23841\nSeverity: MEDIUM\nPackage: libssl1.1\nFixed Version: 1.1.1j-r0\nLink: [CVE-2021-23841](https://avd.aquasec.com/nvd/cve-2021-23841)\nThe OpenSSL public API function X509_issuer_and_serial_hash() attempts to create a unique hash value based on the issuer and serial number data contained within an X509 certificate. However it fails to correctly handle any errors that may occur while parsing the issuer field (which might occur if the issuer field is maliciously constructed). This may subsequently result in a NULL pointer deref and a crash leading to a potential denial of service attack. The function X509_issuer_and_serial_hash() is never directly called by OpenSSL itself so applications are only vulnerable if they use this function directly and they use it on certificates that may have been obtained from untrusted sources. OpenSSL versions 1.1.1i and below are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1j. OpenSSL versions 1.0.2x and below are affected by this issue. However OpenSSL 1.0.2 is out of support and no longer receiving public updates. Premium support customers of OpenSSL 1.0.2 should upgrade to 1.0.2y. Other users should upgrade to 1.1.1j. Fixed in OpenSSL 1.1.1j (Affected 1.1.1-1.1.1i). Fixed in OpenSSL 1.0.2y (Affected 1.0.2-1.0.2x).",
+                                "markdown": "**Vulnerability CVE-2021-23841**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|MEDIUM|libssl1.1|1.1.1j-r0|[CVE-2021-23841](https://avd.aquasec.com/nvd/cve-2021-23841)|\n\nThe OpenSSL public API function X509_issuer_and_serial_hash() attempts to create a unique hash value based on the issuer and serial number data contained within an X509 certificate. However it fails to correctly handle any errors that may occur while parsing the issuer field (which might occur if the issuer field is maliciously constructed). This may subsequently result in a NULL pointer deref and a crash leading to a potential denial of service attack. The function X509_issuer_and_serial_hash() is never directly called by OpenSSL itself so applications are only vulnerable if they use this function directly and they use it on certificates that may have been obtained from untrusted sources. OpenSSL versions 1.1.1i and below are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1j. OpenSSL versions 1.0.2x and below are affected by this issue. However OpenSSL 1.0.2 is out of support and no longer receiving public updates. Premium support customers of OpenSSL 1.0.2 should upgrade to 1.0.2y. Other users should upgrade to 1.1.1j. Fixed in OpenSSL 1.1.1j (Affected 1.1.1-1.1.1i). Fixed in OpenSSL 1.0.2y (Affected 1.0.2-1.0.2x)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "5.9",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "MEDIUM"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-3449",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "openssl: NULL pointer dereference in signature_algorithms processing"
+                            },
+                            "fullDescription": {
+                                "text": "An OpenSSL TLS server may crash if sent a maliciously crafted renegotiation ClientHello message from a client. If a TLSv1.2 renegotiation ClientHello omits the signature_algorithms extension (where it was present in the initial ClientHello), but includes a signature_algorithms_cert extension then a NULL pointer dereference will result, leading to a crash and a denial of service attack. A server is only vulnerable if it has TLSv1.2 and renegotiation enabled (which is the default configuration). OpenSSL TLS clients are not impacted by this issue. All OpenSSL 1.1.1 versions are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1k. OpenSSL 1.0.2 is not impacted by this issue. Fixed in OpenSSL 1.1.1k (Affected 1.1.1-1.1.1j)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-3449",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-3449\nSeverity: MEDIUM\nPackage: libssl1.1\nFixed Version: 1.1.1k-r0\nLink: [CVE-2021-3449](https://avd.aquasec.com/nvd/cve-2021-3449)\nAn OpenSSL TLS server may crash if sent a maliciously crafted renegotiation ClientHello message from a client. If a TLSv1.2 renegotiation ClientHello omits the signature_algorithms extension (where it was present in the initial ClientHello), but includes a signature_algorithms_cert extension then a NULL pointer dereference will result, leading to a crash and a denial of service attack. A server is only vulnerable if it has TLSv1.2 and renegotiation enabled (which is the default configuration). OpenSSL TLS clients are not impacted by this issue. All OpenSSL 1.1.1 versions are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1k. OpenSSL 1.0.2 is not impacted by this issue. Fixed in OpenSSL 1.1.1k (Affected 1.1.1-1.1.1j).",
+                                "markdown": "**Vulnerability CVE-2021-3449**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|MEDIUM|libssl1.1|1.1.1k-r0|[CVE-2021-3449](https://avd.aquasec.com/nvd/cve-2021-3449)|\n\nAn OpenSSL TLS server may crash if sent a maliciously crafted renegotiation ClientHello message from a client. If a TLSv1.2 renegotiation ClientHello omits the signature_algorithms extension (where it was present in the initial ClientHello), but includes a signature_algorithms_cert extension then a NULL pointer dereference will result, leading to a crash and a denial of service attack. A server is only vulnerable if it has TLSv1.2 and renegotiation enabled (which is the default configuration). OpenSSL TLS clients are not impacted by this issue. All OpenSSL 1.1.1 versions are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1k. OpenSSL 1.0.2 is not impacted by this issue. Fixed in OpenSSL 1.1.1k (Affected 1.1.1-1.1.1j)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "5.9",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "MEDIUM"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2021-23839",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "openssl: incorrect SSLv2 rollback protection"
+                            },
+                            "fullDescription": {
+                                "text": "OpenSSL 1.0.2 supports SSLv2. If a client attempts to negotiate SSLv2 with a server that is configured to support both SSLv2 and more recent SSL and TLS versions then a check is made for a version rollback attack when unpadding an RSA signature. Clients that support SSL or TLS versions greater than SSLv2 are supposed to use a special form of padding. A server that supports greater than SSLv2 is supposed to reject connection attempts from a client where this special form of padding is present, because this indicates that a version rollback has occurred (i.e. both client and server support greater than SSLv2, and yet this is the version that is being requested). The implementation of this padding check inverted the logic so that the connection attempt is accepted if the padding is present, and rejected if it is absent. This means that such as server will accept a connection if a version rollback attack has occurred. Further the server will erroneously reject a connection if a normal SSLv2 connection attempt is made. Only OpenSSL 1.0.2 servers from version 1.0.2s to 1.0.2x are affected by this issue. In order to be vulnerable a 1.0.2 server must: 1) have configured SSLv2 support at compile time (this is off by default), 2) have configured SSLv2 support at runtime (this is off by default), 3) have configured SSLv2 ciphersuites (these are not in the default ciphersuite list) OpenSSL 1.1.1 does not have SSLv2 support and therefore is not vulnerable to this issue. The underlying error is in the implementation of the RSA_padding_check_SSLv23() function. This also affects the RSA_SSLV23_PADDING padding mode used by various other functions. Although 1.1.1 does not support SSLv2 the RSA_padding_check_SSLv23() function still exists, as does the RSA_SSLV23_PADDING padding mode. Applications that directly call that function or use that padding mode will encounter this issue. However since there is no support for the SSLv2 protocol in 1.1.1 this is considered a bug and not a security issue in that version. OpenSSL 1.0.2 is out of support and no longer receiving public updates. Premium support customers of OpenSSL 1.0.2 should upgrade to 1.0.2y. Other users should upgrade to 1.1.1j. Fixed in OpenSSL 1.0.2y (Affected 1.0.2s-1.0.2x)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "note"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2021-23839",
+                            "help": {
+                                "text": "Vulnerability CVE-2021-23839\nSeverity: LOW\nPackage: libssl1.1\nFixed Version: 1.1.1j-r0\nLink: [CVE-2021-23839](https://avd.aquasec.com/nvd/cve-2021-23839)\nOpenSSL 1.0.2 supports SSLv2. If a client attempts to negotiate SSLv2 with a server that is configured to support both SSLv2 and more recent SSL and TLS versions then a check is made for a version rollback attack when unpadding an RSA signature. Clients that support SSL or TLS versions greater than SSLv2 are supposed to use a special form of padding. A server that supports greater than SSLv2 is supposed to reject connection attempts from a client where this special form of padding is present, because this indicates that a version rollback has occurred (i.e. both client and server support greater than SSLv2, and yet this is the version that is being requested). The implementation of this padding check inverted the logic so that the connection attempt is accepted if the padding is present, and rejected if it is absent. This means that such as server will accept a connection if a version rollback attack has occurred. Further the server will erroneously reject a connection if a normal SSLv2 connection attempt is made. Only OpenSSL 1.0.2 servers from version 1.0.2s to 1.0.2x are affected by this issue. In order to be vulnerable a 1.0.2 server must: 1) have configured SSLv2 support at compile time (this is off by default), 2) have configured SSLv2 support at runtime (this is off by default), 3) have configured SSLv2 ciphersuites (these are not in the default ciphersuite list) OpenSSL 1.1.1 does not have SSLv2 support and therefore is not vulnerable to this issue. The underlying error is in the implementation of the RSA_padding_check_SSLv23() function. This also affects the RSA_SSLV23_PADDING padding mode used by various other functions. Although 1.1.1 does not support SSLv2 the RSA_padding_check_SSLv23() function still exists, as does the RSA_SSLV23_PADDING padding mode. Applications that directly call that function or use that padding mode will encounter this issue. However since there is no support for the SSLv2 protocol in 1.1.1 this is considered a bug and not a security issue in that version. OpenSSL 1.0.2 is out of support and no longer receiving public updates. Premium support customers of OpenSSL 1.0.2 should upgrade to 1.0.2y. Other users should upgrade to 1.1.1j. Fixed in OpenSSL 1.0.2y (Affected 1.0.2s-1.0.2x).",
+                                "markdown": "**Vulnerability CVE-2021-23839**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|LOW|libssl1.1|1.1.1j-r0|[CVE-2021-23839](https://avd.aquasec.com/nvd/cve-2021-23839)|\n\nOpenSSL 1.0.2 supports SSLv2. If a client attempts to negotiate SSLv2 with a server that is configured to support both SSLv2 and more recent SSL and TLS versions then a check is made for a version rollback attack when unpadding an RSA signature. Clients that support SSL or TLS versions greater than SSLv2 are supposed to use a special form of padding. A server that supports greater than SSLv2 is supposed to reject connection attempts from a client where this special form of padding is present, because this indicates that a version rollback has occurred (i.e. both client and server support greater than SSLv2, and yet this is the version that is being requested). The implementation of this padding check inverted the logic so that the connection attempt is accepted if the padding is present, and rejected if it is absent. This means that such as server will accept a connection if a version rollback attack has occurred. Further the server will erroneously reject a connection if a normal SSLv2 connection attempt is made. Only OpenSSL 1.0.2 servers from version 1.0.2s to 1.0.2x are affected by this issue. In order to be vulnerable a 1.0.2 server must: 1) have configured SSLv2 support at compile time (this is off by default), 2) have configured SSLv2 support at runtime (this is off by default), 3) have configured SSLv2 ciphersuites (these are not in the default ciphersuite list) OpenSSL 1.1.1 does not have SSLv2 support and therefore is not vulnerable to this issue. The underlying error is in the implementation of the RSA_padding_check_SSLv23() function. This also affects the RSA_SSLV23_PADDING padding mode used by various other functions. Although 1.1.1 does not support SSLv2 the RSA_padding_check_SSLv23() function still exists, as does the RSA_SSLV23_PADDING padding mode. Applications that directly call that function or use that padding mode will encounter this issue. However since there is no support for the SSLv2 protocol in 1.1.1 this is considered a bug and not a security issue in that version. OpenSSL 1.0.2 is out of support and no longer receiving public updates. Premium support customers of OpenSSL 1.0.2 should upgrade to 1.0.2y. Other users should upgrade to 1.1.1j. Fixed in OpenSSL 1.0.2y (Affected 1.0.2s-1.0.2x)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "3.7",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "LOW"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2020-28928",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "In musl libc through 1.2.1, wcsnrtombs mishandles particular combinati ..."
+                            },
+                            "fullDescription": {
+                                "text": "In musl libc through 1.2.1, wcsnrtombs mishandles particular combinations of destination buffer size and source character limit, as demonstrated by an invalid write access (buffer overflow)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "warning"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2020-28928",
+                            "help": {
+                                "text": "Vulnerability CVE-2020-28928\nSeverity: MEDIUM\nPackage: musl-utils\nFixed Version: 1.1.24-r3\nLink: [CVE-2020-28928](https://avd.aquasec.com/nvd/cve-2020-28928)\nIn musl libc through 1.2.1, wcsnrtombs mishandles particular combinations of destination buffer size and source character limit, as demonstrated by an invalid write access (buffer overflow).",
+                                "markdown": "**Vulnerability CVE-2020-28928**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|MEDIUM|musl-utils|1.1.24-r3|[CVE-2020-28928](https://avd.aquasec.com/nvd/cve-2020-28928)|\n\nIn musl libc through 1.2.1, wcsnrtombs mishandles particular combinations of destination buffer size and source character limit, as demonstrated by an invalid write access (buffer overflow)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "5.5",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "MEDIUM"
+                                ]
+                            }
+                        },
+                        {
+                            "id": "CVE-2022-37434",
+                            "name": "OsPackageVulnerability",
+                            "shortDescription": {
+                                "text": "zlib: heap-based buffer over-read and overflow in inflate() in inflate.c via a large gzip header extra field"
+                            },
+                            "fullDescription": {
+                                "text": "zlib through 1.2.12 has a heap-based buffer over-read or buffer overflow in inflate in inflate.c via a large gzip header extra field. NOTE: only applications that call inflateGetHeader are affected. Some common applications bundle the affected zlib source code but may be unable to call inflateGetHeader (e.g., see the nodejs/node reference)."
+                            },
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "helpUri": "https://avd.aquasec.com/nvd/cve-2022-37434",
+                            "help": {
+                                "text": "Vulnerability CVE-2022-37434\nSeverity: CRITICAL\nPackage: zlib\nFixed Version: 1.2.11-r4\nLink: [CVE-2022-37434](https://avd.aquasec.com/nvd/cve-2022-37434)\nzlib through 1.2.12 has a heap-based buffer over-read or buffer overflow in inflate in inflate.c via a large gzip header extra field. NOTE: only applications that call inflateGetHeader are affected. Some common applications bundle the affected zlib source code but may be unable to call inflateGetHeader (e.g., see the nodejs/node reference).",
+                                "markdown": "**Vulnerability CVE-2022-37434**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|CRITICAL|zlib|1.2.11-r4|[CVE-2022-37434](https://avd.aquasec.com/nvd/cve-2022-37434)|\n\nzlib through 1.2.12 has a heap-based buffer over-read or buffer overflow in inflate in inflate.c via a large gzip header extra field. NOTE: only applications that call inflateGetHeader are affected. Some common applications bundle the affected zlib source code but may be unable to call inflateGetHeader (e.g., see the nodejs/node reference)."
+                            },
+                            "properties": {
+                                "precision": "very-high",
+                                "security-severity": "9.8",
+                                "tags": [
+                                    "vulnerability",
+                                    "security",
+                                    "CRITICAL"
+                                ]
+                            }
+                        }
+                    ],
+                    "version": "0.35.0"
+                }
+            },
+            "results": [
+                {
+                    "ruleId": "CVE-2021-36159",
+                    "ruleIndex": 0,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: apk-tools\nInstalled Version: 2.10.4-r3\nVulnerability CVE-2021-36159\nSeverity: CRITICAL\nFixed Version: 2.10.7-r0\nLink: [CVE-2021-36159](https://avd.aquasec.com/nvd/cve-2021-36159)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: apk-tools@2.10.4-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-30139",
+                    "ruleIndex": 1,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: apk-tools\nInstalled Version: 2.10.4-r3\nVulnerability CVE-2021-30139\nSeverity: HIGH\nFixed Version: 2.10.6-r0\nLink: [CVE-2021-30139](https://avd.aquasec.com/nvd/cve-2021-30139)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: apk-tools@2.10.4-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-28831",
+                    "ruleIndex": 2,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-28831\nSeverity: HIGH\nFixed Version: 1.31.1-r10\nLink: [CVE-2021-28831](https://avd.aquasec.com/nvd/cve-2021-28831)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42378",
+                    "ruleIndex": 3,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42378\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42378](https://avd.aquasec.com/nvd/cve-2021-42378)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42379",
+                    "ruleIndex": 4,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42379\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42379](https://avd.aquasec.com/nvd/cve-2021-42379)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42380",
+                    "ruleIndex": 5,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42380\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42380](https://avd.aquasec.com/nvd/cve-2021-42380)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42381",
+                    "ruleIndex": 6,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42381\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42381](https://avd.aquasec.com/nvd/cve-2021-42381)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42382",
+                    "ruleIndex": 7,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42382\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42382](https://avd.aquasec.com/nvd/cve-2021-42382)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42383",
+                    "ruleIndex": 8,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42383\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42383](https://avd.aquasec.com/nvd/cve-2021-42383)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42384",
+                    "ruleIndex": 9,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42384\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42384](https://avd.aquasec.com/nvd/cve-2021-42384)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42385",
+                    "ruleIndex": 10,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42385\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42385](https://avd.aquasec.com/nvd/cve-2021-42385)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42386",
+                    "ruleIndex": 11,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42386\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42386](https://avd.aquasec.com/nvd/cve-2021-42386)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42374",
+                    "ruleIndex": 12,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: busybox\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42374\nSeverity: MEDIUM\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42374](https://avd.aquasec.com/nvd/cve-2021-42374)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: busybox@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-3711",
+                    "ruleIndex": 13,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libcrypto1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-3711\nSeverity: CRITICAL\nFixed Version: 1.1.1l-r0\nLink: [CVE-2021-3711](https://avd.aquasec.com/nvd/cve-2021-3711)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libcrypto1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2020-1967",
+                    "ruleIndex": 14,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libcrypto1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2020-1967\nSeverity: HIGH\nFixed Version: 1.1.1g-r0\nLink: [CVE-2020-1967](https://avd.aquasec.com/nvd/cve-2020-1967)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libcrypto1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-23840",
+                    "ruleIndex": 15,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libcrypto1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-23840\nSeverity: HIGH\nFixed Version: 1.1.1j-r0\nLink: [CVE-2021-23840](https://avd.aquasec.com/nvd/cve-2021-23840)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libcrypto1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-3450",
+                    "ruleIndex": 16,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libcrypto1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-3450\nSeverity: HIGH\nFixed Version: 1.1.1k-r0\nLink: [CVE-2021-3450](https://avd.aquasec.com/nvd/cve-2021-3450)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libcrypto1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-3712",
+                    "ruleIndex": 17,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libcrypto1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-3712\nSeverity: HIGH\nFixed Version: 1.1.1l-r0\nLink: [CVE-2021-3712](https://avd.aquasec.com/nvd/cve-2021-3712)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libcrypto1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2020-1971",
+                    "ruleIndex": 18,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: libcrypto1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2020-1971\nSeverity: MEDIUM\nFixed Version: 1.1.1i-r0\nLink: [CVE-2020-1971](https://avd.aquasec.com/nvd/cve-2020-1971)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libcrypto1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-23841",
+                    "ruleIndex": 19,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: libcrypto1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-23841\nSeverity: MEDIUM\nFixed Version: 1.1.1j-r0\nLink: [CVE-2021-23841](https://avd.aquasec.com/nvd/cve-2021-23841)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libcrypto1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-3449",
+                    "ruleIndex": 20,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: libcrypto1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-3449\nSeverity: MEDIUM\nFixed Version: 1.1.1k-r0\nLink: [CVE-2021-3449](https://avd.aquasec.com/nvd/cve-2021-3449)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libcrypto1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-23839",
+                    "ruleIndex": 21,
+                    "level": "note",
+                    "message": {
+                        "text": "Package: libcrypto1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-23839\nSeverity: LOW\nFixed Version: 1.1.1j-r0\nLink: [CVE-2021-23839](https://avd.aquasec.com/nvd/cve-2021-23839)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libcrypto1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-3711",
+                    "ruleIndex": 13,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libssl1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-3711\nSeverity: CRITICAL\nFixed Version: 1.1.1l-r0\nLink: [CVE-2021-3711](https://avd.aquasec.com/nvd/cve-2021-3711)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libssl1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2020-1967",
+                    "ruleIndex": 14,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libssl1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2020-1967\nSeverity: HIGH\nFixed Version: 1.1.1g-r0\nLink: [CVE-2020-1967](https://avd.aquasec.com/nvd/cve-2020-1967)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libssl1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-23840",
+                    "ruleIndex": 15,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libssl1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-23840\nSeverity: HIGH\nFixed Version: 1.1.1j-r0\nLink: [CVE-2021-23840](https://avd.aquasec.com/nvd/cve-2021-23840)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libssl1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-3450",
+                    "ruleIndex": 16,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libssl1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-3450\nSeverity: HIGH\nFixed Version: 1.1.1k-r0\nLink: [CVE-2021-3450](https://avd.aquasec.com/nvd/cve-2021-3450)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libssl1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-3712",
+                    "ruleIndex": 17,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: libssl1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-3712\nSeverity: HIGH\nFixed Version: 1.1.1l-r0\nLink: [CVE-2021-3712](https://avd.aquasec.com/nvd/cve-2021-3712)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libssl1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2020-1971",
+                    "ruleIndex": 18,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: libssl1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2020-1971\nSeverity: MEDIUM\nFixed Version: 1.1.1i-r0\nLink: [CVE-2020-1971](https://avd.aquasec.com/nvd/cve-2020-1971)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libssl1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-23841",
+                    "ruleIndex": 19,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: libssl1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-23841\nSeverity: MEDIUM\nFixed Version: 1.1.1j-r0\nLink: [CVE-2021-23841](https://avd.aquasec.com/nvd/cve-2021-23841)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libssl1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-3449",
+                    "ruleIndex": 20,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: libssl1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-3449\nSeverity: MEDIUM\nFixed Version: 1.1.1k-r0\nLink: [CVE-2021-3449](https://avd.aquasec.com/nvd/cve-2021-3449)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libssl1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-23839",
+                    "ruleIndex": 21,
+                    "level": "note",
+                    "message": {
+                        "text": "Package: libssl1.1\nInstalled Version: 1.1.1d-r3\nVulnerability CVE-2021-23839\nSeverity: LOW\nFixed Version: 1.1.1j-r0\nLink: [CVE-2021-23839](https://avd.aquasec.com/nvd/cve-2021-23839)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: libssl1.1@1.1.1d-r3"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2020-28928",
+                    "ruleIndex": 22,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: musl\nInstalled Version: 1.1.24-r0\nVulnerability CVE-2020-28928\nSeverity: MEDIUM\nFixed Version: 1.1.24-r3\nLink: [CVE-2020-28928](https://avd.aquasec.com/nvd/cve-2020-28928)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: musl@1.1.24-r0"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2020-28928",
+                    "ruleIndex": 22,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: musl-utils\nInstalled Version: 1.1.24-r0\nVulnerability CVE-2020-28928\nSeverity: MEDIUM\nFixed Version: 1.1.24-r3\nLink: [CVE-2020-28928](https://avd.aquasec.com/nvd/cve-2020-28928)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: musl-utils@1.1.24-r0"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-28831",
+                    "ruleIndex": 2,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-28831\nSeverity: HIGH\nFixed Version: 1.31.1-r10\nLink: [CVE-2021-28831](https://avd.aquasec.com/nvd/cve-2021-28831)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42378",
+                    "ruleIndex": 3,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42378\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42378](https://avd.aquasec.com/nvd/cve-2021-42378)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42379",
+                    "ruleIndex": 4,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42379\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42379](https://avd.aquasec.com/nvd/cve-2021-42379)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42380",
+                    "ruleIndex": 5,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42380\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42380](https://avd.aquasec.com/nvd/cve-2021-42380)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42381",
+                    "ruleIndex": 6,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42381\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42381](https://avd.aquasec.com/nvd/cve-2021-42381)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42382",
+                    "ruleIndex": 7,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42382\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42382](https://avd.aquasec.com/nvd/cve-2021-42382)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42383",
+                    "ruleIndex": 8,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42383\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42383](https://avd.aquasec.com/nvd/cve-2021-42383)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42384",
+                    "ruleIndex": 9,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42384\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42384](https://avd.aquasec.com/nvd/cve-2021-42384)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42385",
+                    "ruleIndex": 10,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42385\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42385](https://avd.aquasec.com/nvd/cve-2021-42385)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42386",
+                    "ruleIndex": 11,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42386\nSeverity: HIGH\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42386](https://avd.aquasec.com/nvd/cve-2021-42386)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2021-42374",
+                    "ruleIndex": 12,
+                    "level": "warning",
+                    "message": {
+                        "text": "Package: ssl_client\nInstalled Version: 1.31.1-r9\nVulnerability CVE-2021-42374\nSeverity: MEDIUM\nFixed Version: 1.31.1-r11\nLink: [CVE-2021-42374](https://avd.aquasec.com/nvd/cve-2021-42374)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: ssl_client@1.31.1-r9"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "ruleId": "CVE-2022-37434",
+                    "ruleIndex": 23,
+                    "level": "error",
+                    "message": {
+                        "text": "Package: zlib\nInstalled Version: 1.2.11-r3\nVulnerability CVE-2022-37434\nSeverity: CRITICAL\nFixed Version: 1.2.11-r4\nLink: [CVE-2022-37434](https://avd.aquasec.com/nvd/cve-2022-37434)"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "helloworld",
+                                    "uriBaseId": "ROOTPATH"
+                                },
+                                "region": {
+                                    "startLine": 1,
+                                    "startColumn": 1,
+                                    "endLine": 1,
+                                    "endColumn": 1
+                                }
+                            },
+                            "message": {
+                                "text": "helloworld: zlib@1.2.11-r3"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "columnKind": "utf16CodeUnits",
+            "originalUriBaseIds": {
+                "ROOTPATH": {
+                    "uri": "file:///"
+                }
+            }
+        }
+    ]
+}
