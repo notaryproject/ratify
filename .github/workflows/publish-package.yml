@@ -57,9 +57,6 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "repository=${REPOSITORY}" >> $GITHUB_OUTPUT
           echo "ref=${REPOSITORY}:${VERSION}" >> $GITHUB_OUTPUT
-      - name: Get tag
-        run: |
-          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
       - name: docker login
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
