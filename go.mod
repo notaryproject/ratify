@@ -22,7 +22,7 @@ require (
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.9
 	github.com/aliyun/credentials-go v1.4.13
 	github.com/aws/aws-sdk-go-v2 v1.44.0
-	github.com/aws/aws-sdk-go-v2/config v1.32.38
+	github.com/aws/aws-sdk-go-v2/config v1.32.40
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.39
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.55.4
 	github.com/carabiner-dev/signer v0.3.7
