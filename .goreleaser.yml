@@ -40,6 +40,7 @@ builds:
       - -X github.com/notaryproject/ratify/v2/internal/version.Version={{ .Version }}
       - -X github.com/notaryproject/ratify/v2/internal/version.GitTag={{ .Tag }}
       - -X github.com/notaryproject/ratify/v2/internal/version.GitCommitHash={{ .FullCommit }}
+      - -X github.com/notaryproject/ratify/v2/internal/version.GitTreeState=unmodified
 
 release:
   prerelease: auto

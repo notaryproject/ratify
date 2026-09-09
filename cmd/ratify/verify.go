@@ -67,7 +67,9 @@ the policy or if an error occurs during verification.`,
 	flags.StringVarP(&opts.subject, "subject", "s", "", "subject artifact reference to verify (required)")
 	flags.StringVarP(&opts.configPath, "config", "c", "", "path to the ratify configuration file (default \"$HOME/.ratify/config.json\")")
 	flags.StringVarP(&opts.output, "output", "o", outputText, "output format, one of: text, json")
-	_ = cmd.MarkFlagRequired("subject")
+	if err := cmd.MarkFlagRequired("subject"); err != nil {
+		panic(fmt.Sprintf("failed to mark %q flag as required: %v", "subject", err))
+	}
 	return cmd
 }
 
