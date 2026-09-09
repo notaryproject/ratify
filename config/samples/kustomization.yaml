@@ -1,5 +1,5 @@
 ## Append samples of your project ##
 resources:
-- config_v2alpha1_executor.yaml
-- config_v2alpha1_namespacedexecutor.yaml
+- config_v2beta1_executor.yaml
+- config_v2beta1_namespacedexecutor.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

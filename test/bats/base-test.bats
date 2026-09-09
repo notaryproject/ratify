@@ -134,7 +134,7 @@ EOF
 }
 
 @test "crd version test" {
-    skip "v2 executor CRD has only one version (v2alpha1), no version conversion to test"
+    skip "v2 executor CRD has only one version (v2beta1), no version conversion to test"
     run kubectl delete verifiers.config.ratify.deislabs.io/verifier-notation
     assert_success
     run kubectl apply -f ./config/samples/clustered/verifier/config_v1alpha1_verifier_notation.yaml
@@ -873,7 +873,7 @@ EOF
     # executor does not). Built from the runner's generated root cert.
     run bash -c 'ROOT_CERT=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
         jq -n --arg root_cert "$ROOT_CERT" --arg ns "'"${NS}"'" '"'"'{
-            apiVersion: "config.ratify.sh/v2alpha1",
+            apiVersion: "config.ratify.sh/v2beta1",
             kind: "NamespacedExecutor",
             metadata: {name: "executor-notation-leaf", namespace: $ns},
             spec: {

@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
+	configv2beta1 "github.com/notaryproject/ratify/v2/api/v2beta1"
 )
 
 // ExecutorReconciler reconciles a Executor object
@@ -50,7 +50,7 @@ type ExecutorReconciler struct {
 func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
-	var executor configv2alpha1.Executor
+	var executor configv2beta1.Executor
 	log.Info("Reconciling Executor", "executor", req.Name)
 
 	if err := r.Get(ctx, req.NamespacedName, &executor); err != nil {
@@ -77,11 +77,11 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // SetupWithManager sets up the controller with the Manager.
 func (r *ExecutorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&configv2alpha1.Executor{}).
+		For(&configv2beta1.Executor{}).
 		Complete(r)
 }
 
-func (r *ExecutorReconciler) updateStatus(ctx context.Context, executor *configv2alpha1.Executor, err error) {
+func (r *ExecutorReconciler) updateStatus(ctx context.Context, executor *configv2beta1.Executor, err error) {
 	if err != nil {
 		executor.Status.Succeeded = false
 		executor.Status.Error = err.Error()

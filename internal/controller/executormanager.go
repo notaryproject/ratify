@@ -21,7 +21,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
+	configv2beta1 "github.com/notaryproject/ratify/v2/api/v2beta1"
 	e "github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
@@ -77,7 +77,7 @@ func (m *executorManager) GetExecutor(namespace string) *e.ScopedExecutor {
 
 // upsertExecutor updates or inserts an executor instance under the given
 // namespace and name.
-func (m *executorManager) upsertExecutor(namespace, name string, opts *configv2alpha1.ExecutorSpec) error {
+func (m *executorManager) upsertExecutor(namespace, name string, opts *configv2beta1.ExecutorSpec) error {
 	if opts == nil {
 		return fmt.Errorf("executor options cannot be nil")
 	}
@@ -149,9 +149,9 @@ func (m *executorManager) refreshExecutor(namespace string) error {
 	return nil
 }
 
-// convertOptions converts the provided configv2alpha1.ExecutorSpec options into
+// convertOptions converts the provided configv2beta1.ExecutorSpec options into
 // a ScopedOptions.
-func convertOptions(opts *configv2alpha1.ExecutorSpec) (e.ScopedOptions, error) {
+func convertOptions(opts *configv2beta1.ExecutorSpec) (e.ScopedOptions, error) {
 	scopedOpts := e.ScopedOptions{
 		Scopes: opts.Scopes,
 	}
@@ -173,7 +173,7 @@ func convertOptions(opts *configv2alpha1.ExecutorSpec) (e.ScopedOptions, error) 
 	return scopedOpts, nil
 }
 
-func convertVerifierOptions(verifiers []*configv2alpha1.VerifierOptions) ([]verifier.NewOptions, error) {
+func convertVerifierOptions(verifiers []*configv2beta1.VerifierOptions) ([]verifier.NewOptions, error) {
 	if verifiers == nil {
 		return nil, fmt.Errorf("verifiers cannot be nil")
 	}
@@ -189,7 +189,7 @@ func convertVerifierOptions(verifiers []*configv2alpha1.VerifierOptions) ([]veri
 	return verifierOpts, nil
 }
 
-func convertStoreOptions(stores []*configv2alpha1.StoreOptions) ([]store.NewOptions, error) {
+func convertStoreOptions(stores []*configv2beta1.StoreOptions) ([]store.NewOptions, error) {
 	if stores == nil {
 		return nil, fmt.Errorf("stores cannot be nil")
 	}
@@ -205,7 +205,7 @@ func convertStoreOptions(stores []*configv2alpha1.StoreOptions) ([]store.NewOpti
 	return storeOpts, nil
 }
 
-func convertPolicyOptions(policy *configv2alpha1.PolicyEnforcerOptions) *policyenforcer.NewOptions {
+func convertPolicyOptions(policy *configv2beta1.PolicyEnforcerOptions) *policyenforcer.NewOptions {
 	if policy == nil {
 		return nil
 	}

@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
+	configv2beta1 "github.com/notaryproject/ratify/v2/api/v2beta1"
 )
 
 // NamespacedExecutorReconciler reconciles a NamespacedExecutor object. Each
@@ -45,7 +45,7 @@ type NamespacedExecutorReconciler struct {
 func (r *NamespacedExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
-	var executor configv2alpha1.NamespacedExecutor
+	var executor configv2beta1.NamespacedExecutor
 	log.Info("Reconciling NamespacedExecutor", "namespace", req.Namespace, "executor", req.Name)
 
 	if err := r.Get(ctx, req.NamespacedName, &executor); err != nil {
@@ -72,11 +72,11 @@ func (r *NamespacedExecutorReconciler) Reconcile(ctx context.Context, req ctrl.R
 // SetupWithManager sets up the controller with the Manager.
 func (r *NamespacedExecutorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&configv2alpha1.NamespacedExecutor{}).
+		For(&configv2beta1.NamespacedExecutor{}).
 		Complete(r)
 }
 
-func (r *NamespacedExecutorReconciler) updateStatus(ctx context.Context, executor *configv2alpha1.NamespacedExecutor, err error) {
+func (r *NamespacedExecutorReconciler) updateStatus(ctx context.Context, executor *configv2beta1.NamespacedExecutor, err error) {
 	if err != nil {
 		executor.Status.Succeeded = false
 		executor.Status.Error = err.Error()
