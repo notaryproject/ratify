@@ -16,8 +16,26 @@ resources:
   domain: ratify.sh
   group: config
   kind: Executor
+  path: github.com/notaryproject/ratify/v2/api/v2alpha1
+  version: v2alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ratify.sh
+  group: config
+  kind: Executor
   path: github.com/notaryproject/ratify/v2/api/v2beta1
   version: v2beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ratify.sh
+  group: config
+  kind: NamespacedExecutor
+  path: github.com/notaryproject/ratify/v2/api/v2alpha1
+  version: v2alpha1
 - api:
     crdVersion: v1
     namespaced: true
