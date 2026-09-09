@@ -448,8 +448,7 @@ func TestVerifyHandler_LogsFailure(t *testing.T) {
 	entry := findEntry(hook, logrus.ErrorLevel, "failed to handle the verification request")
 	if entry == nil {
 		t.Fatal("expected the verify handler to log the error it previously discarded")
-	}
-	if entry.Data["trace-id"] == nil {
+	} else if entry.Data["trace-id"] == nil {
 		t.Error("expected the logged entry to carry a trace ID")
 	}
 }
@@ -478,8 +477,7 @@ func TestMutateHandler_LogsFailure(t *testing.T) {
 	entry := findEntry(hook, logrus.ErrorLevel, "failed to handle the mutation request")
 	if entry == nil {
 		t.Fatal("expected the mutate handler to log the error it previously discarded")
-	}
-	if entry.Data["trace-id"] == nil {
+	} else if entry.Data["trace-id"] == nil {
 		t.Error("expected the logged entry to carry a trace ID")
 	}
 }
@@ -576,8 +574,7 @@ func TestVerify_LogsOutcomeOnCacheHit(t *testing.T) {
 	entry := findEntry(hook, logrus.InfoLevel, artifact)
 	if entry == nil {
 		t.Fatal("expected a cached verification result to still be logged at info level")
-	}
-	if !strings.Contains(entry.Message, "succeeded=false") {
+	} else if !strings.Contains(entry.Message, "succeeded=false") {
 		t.Errorf("expected the violation to be greppable, got: %s", entry.Message)
 	}
 }
