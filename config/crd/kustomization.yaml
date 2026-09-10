@@ -4,6 +4,7 @@
 resources:
 - bases/config.ratify.sh_executors.yaml
 - bases/config.ratify.sh_namespacedexecutors.yaml
+- bases/config.ratify.sh_executorpodstatuses.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

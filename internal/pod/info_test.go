@@ -52,6 +52,34 @@ func TestNamespace(t *testing.T) {
 	})
 }
 
+func TestName(t *testing.T) {
+	// Test case 1: Environment variable "POD_NAME" is not set
+	t.Run("Environment variable not set", func(t *testing.T) {
+		if err := os.Unsetenv("POD_NAME"); err != nil {
+			t.Fatal("Failed to unset environment variable")
+		}
+		if actual := Name(); actual != "" {
+			t.Errorf("Expected empty pod name, but got %q", actual)
+		}
+	})
+
+	// Test case 2: Environment variable "POD_NAME" is set
+	t.Run("Environment variable set", func(t *testing.T) {
+		if err := os.Setenv("POD_NAME", "ratify-7"); err != nil {
+			t.Fatal("Failed to set environment variable")
+		}
+
+		expected := "ratify-7"
+		if actual := Name(); actual != expected {
+			t.Errorf("Expected pod name to be %q, but got %q", expected, actual)
+		}
+
+		if err := os.Unsetenv("POD_NAME"); err != nil {
+			t.Fatal("Failed to unset environment variable")
+		}
+	})
+}
+
 func TestServiceName(t *testing.T) {
 	// Test case 1: Environment variable "RATIFY_NAME" is not set
 	t.Run("Environment variable not set", func(t *testing.T) {

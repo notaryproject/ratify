@@ -26,6 +26,13 @@ func Namespace() string {
 	return ns
 }
 
+// Name returns the name of the pod the process is running in. It is read from
+// the POD_NAME environment variable, which is expected to be injected via the
+// Kubernetes downward API. It returns an empty string when not set.
+func Name() string {
+	return os.Getenv("POD_NAME")
+}
+
 // ServiceName returns the service name.
 func ServiceName() string {
 	name, found := os.LookupEnv("RATIFY_NAME")

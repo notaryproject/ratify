@@ -30,6 +30,11 @@ spec:
           configuration. A NamespacedExecutor only applies to validation requests for
           workloads deployed in the same namespace. When no NamespacedExecutor matches
           a request's namespace, Ratify falls back to the cluster-scoped Executor.
+
+          Security note: because a NamespacedExecutor overrides the cluster-scoped
+          Executor for its namespace, it can weaken image verification there. Write
+          access to NamespacedExecutor resources should be tightly restricted to
+          trusted namespace admins.
         properties:
           apiVersion:
             description: |-
@@ -144,6 +149,56 @@ spec:
               briefError:
                 description: Truncated error message if the message is too long.
                 type: string
+              byPod:
+                description: |-
+                  ByPod reports the status observed by each individual Ratify pod (replica).
+                  It is aggregated from the per-pod ExecutorPodStatus objects and lets an
+                  operator tell, for example, that "2 of 5 replicas are unhealthy" instead
+                  of the top-level fields flapping under last-writer-wins.
+                items:
+                  description: |-
+                    PodStatusEntry captures the health a single Ratify pod (replica) reports for
+                    an Executor resource. It is the unit that is written by each pod into its own
+                    ExecutorPodStatus object and later aggregated into Executor.status.byPod.
+                  properties:
+                    briefError:
+                      description: |-
+                        BriefError is a truncated error message when Error is too long to be
+                        displayed conveniently.
+                      type: string
+                    error:
+                      description: |-
+                        Error is the error message if the reporting pod failed to build the
+                        executor.
+                      type: string
+                    id:
+                      description: ID is the name of the pod that produced this status
+                        entry. Required.
+                      type: string
+                    lastTransitionTime:
+                      description: LastTransitionTime is the time the reporting pod
+                        last updated this entry.
+                      format: date-time
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        ObservedGeneration is the metadata.generation of the Executor that this
+                        entry was produced for.
+                      format: int64
+                      type: integer
+                    succeeded:
+                      description: |-
+                        Succeeded indicates whether the reporting pod successfully built the
+                        executor from the Executor spec. Required.
+                      type: boolean
+                  required:
+                  - id
+                  - succeeded
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
               error:
                 description: Error is the error message if the executor failed to
                   start.

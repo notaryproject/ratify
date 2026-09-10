@@ -24,6 +24,35 @@ rules:
   - get
   - list
   - watch
+# Pods access is used to resolve the reporting pod for per-pod Executor status.
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.ratify.sh
+  resources:
+  - executorpodstatuses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - config.ratify.sh
+  resources:
+  - executorpodstatuses/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - config.ratify.sh
   resources:
