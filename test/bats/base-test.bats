@@ -134,19 +134,19 @@ EOF
 }
 
 @test "crd version test" {
-    skip "v2 executor CRD has only one version (v2beta1), no version conversion to test"
-    run kubectl delete verifiers.config.ratify.deislabs.io/verifier-notation
+    skip "requires the Executor CRD installed in the test cluster; enable once base-test provisions the v2 config CRDs"
+    # The Executor CRD serves two identical-schema versions (v2alpha1, deprecated
+    # and v2beta1, storage) with conversion strategy None, so the API server can
+    # return the same object under either served version. Applying the object as
+    # v2beta1 and reading it back as v2alpha1 (and vice versa) validates that both
+    # versions stay served.
+    run kubectl delete executors.config.ratify.sh/executor-sample --ignore-not-found=true
     assert_success
-    run kubectl apply -f ./config/samples/clustered/verifier/config_v1alpha1_verifier_notation.yaml
+    run kubectl apply -f ./config/samples/config_v2beta1_executor.yaml
     assert_success
-    run bash -c "kubectl get verifiers.config.ratify.deislabs.io/verifier-notation -o yaml | grep 'apiVersion: config.ratify.deislabs.io/v1beta1'"
+    run bash -c "kubectl get executors.config.ratify.sh/executor-sample -o yaml | grep 'apiVersion: config.ratify.sh/v2beta1'"
     assert_success
-
-    run kubectl delete stores.config.ratify.deislabs.io/store-oras
-    assert_success
-    run kubectl apply -f ./config/samples/clustered/verifier/config_v1alpha1_store_oras_http.yaml
-    assert_success
-    run bash -c "kubectl get stores.config.ratify.deislabs.io/store-oras -o yaml | grep 'apiVersion: config.ratify.deislabs.io/v1beta1'"
+    run bash -c "kubectl get executors.v2alpha1.config.ratify.sh/executor-sample -o yaml | grep 'apiVersion: config.ratify.sh/v2alpha1'"
     assert_success
 }
 
