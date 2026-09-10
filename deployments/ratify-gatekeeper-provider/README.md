@@ -29,6 +29,50 @@ _See [helm install](https://helm.sh/docs/helm/helm_install/) for command documen
 $ helm upgrade -n gatekeeper-system [RELEASE_NAME] ratify/ratify-gatekeeper-provider --set image.tag=<RELEASE_TAG>
 ```
 
+### Upgrading CRDs
+
+> [!IMPORTANT]
+> Helm intentionally does **not** update CRDs that ship in a chart's `crds/`
+> directory during `helm upgrade` — it only installs them on the first
+> `helm install`. See
+> [Helm's CRD limitations](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/#some-caveats-and-explanations).
+
+When a release of this chart changes the `config.ratify.sh` CRDs (for example
+adding the `v2beta1` version of `Executor` / `NamespacedExecutor`), a plain
+`helm upgrade` will keep the **old** CRDs. Because the Ratify controllers watch
+the new storage version and the bundled `Executor` hook object uses it, running
+against stale CRDs can cause the controller to fail to start or the pre-upgrade
+hook to be rejected by the API server.
+
+While Ratify v2 is in the `beta` phase, CRD changes are delivered by
+**reinstalling** the chart rather than through an automated in-place upgrade:
+
+```console
+# 1. Uninstall the existing release (custom resources you created are preserved;
+#    only the release's templated objects are removed).
+$ helm uninstall -n gatekeeper-system [RELEASE_NAME]
+
+# 2. Apply the updated CRDs shipped with the new chart version.
+$ helm pull ratify/ratify-gatekeeper-provider --version <NEW_CHART_VERSION> --untar
+$ kubectl apply -f ratify-gatekeeper-provider/crds/
+
+# 3. Reinstall the chart at the new version.
+$ helm install [RELEASE_NAME] ratify/ratify-gatekeeper-provider \
+    --atomic --namespace gatekeeper-system --set image.tag=<RELEASE_TAG>
+```
+
+Alternatively, apply the CRDs directly from the tag before upgrading:
+
+```console
+$ kubectl apply -f https://raw.githubusercontent.com/notaryproject/ratify/<RELEASE_TAG>/deployments/ratify-gatekeeper-provider/crds/executors.config.ratify.sh.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/notaryproject/ratify/<RELEASE_TAG>/deployments/ratify-gatekeeper-provider/crds/namespacedexecutors.config.ratify.sh.yaml
+```
+
+The `v2alpha1` version is retained as a served, deprecated version alongside the
+new `v2beta1` storage version, and both share an identical schema (conversion
+strategy `None`), so existing `v2alpha1` objects continue to be readable once the
+updated CRDs are applied.
+
 ## Deprecation Policy
 
 Values marked `# DEPRECATED` in the `values.yaml` as well as **DEPRECATED** in the below parameters will NOT be supported in the next major version release. Existing functionality will remain backwards compatible until the next major version release.
