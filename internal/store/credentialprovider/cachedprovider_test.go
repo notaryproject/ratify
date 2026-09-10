@@ -85,14 +85,14 @@ func TestNewCachedProvider(t *testing.T) {
 
 	if provider == nil {
 		t.Fatal("Expected non-nil provider")
-	}
+	} else {
+		if provider.source != mockSource {
+			t.Error("Expected source to be set correctly")
+		}
 
-	if provider.source != mockSource {
-		t.Error("Expected source to be set correctly")
-	}
-
-	if provider.cache == nil {
-		t.Error("Expected cache to be initialized")
+		if provider.cache == nil {
+			t.Error("Expected cache to be initialized")
+		}
 	}
 }
 
