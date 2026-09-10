@@ -1016,8 +1016,7 @@ func TestResolveTokenTTL(t *testing.T) {
 			entry := hook.LastEntry()
 			if entry == nil {
 				t.Fatalf("resolveTokenTTL() logged nothing, want a message containing %q", tt.wantLog)
-			}
-			if !contains(entry.Message, tt.wantLog) {
+			} else if !contains(entry.Message, tt.wantLog) {
 				t.Errorf("resolveTokenTTL() logged %q, want it to contain %q", entry.Message, tt.wantLog)
 			}
 		})

@@ -543,10 +543,11 @@ func TestLogVerificationResult(t *testing.T) {
 	entry := findEntry(hook, logrus.InfoLevel, "registry.example/app:v1")
 	if entry == nil {
 		t.Fatal("expected the verification result to be logged at info level")
-	}
-	for _, want := range []string{"notation-1", "signature is not produced by a trusted signer", `"succeeded":false`} {
-		if !strings.Contains(entry.Message, want) {
-			t.Errorf("expected the logged result to contain %q, got: %s", want, entry.Message)
+	} else {
+		for _, want := range []string{"notation-1", "signature is not produced by a trusted signer", `"succeeded":false`} {
+			if !strings.Contains(entry.Message, want) {
+				t.Errorf("expected the logged result to contain %q, got: %s", want, entry.Message)
+			}
 		}
 	}
 }
@@ -588,8 +589,7 @@ func TestLogVerificationResult_Violation(t *testing.T) {
 	entry := findEntry(hook, logrus.InfoLevel, "registry.example/app:v1")
 	if entry == nil {
 		t.Fatal("expected a violation to be logged at info level")
-	}
-	if !strings.Contains(entry.Message, "succeeded=false") {
+	} else if !strings.Contains(entry.Message, "succeeded=false") {
 		t.Errorf("expected succeeded=false in the message, got: %s", entry.Message)
 	}
 }
@@ -609,8 +609,7 @@ func TestLogVerificationResult_UnmarshalableReport(t *testing.T) {
 	entry := findEntry(hook, logrus.InfoLevel, "registry.example/app:v1")
 	if entry == nil {
 		t.Fatal("expected the outcome to be logged even when the report cannot be marshalled")
-	}
-	if strings.Contains(entry.Message, "report=") {
+	} else if strings.Contains(entry.Message, "report=") {
 		t.Errorf("expected the fallback message without a report, got: %s", entry.Message)
 	}
 }
