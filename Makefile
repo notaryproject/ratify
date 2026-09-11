@@ -56,6 +56,12 @@ TRIVY_VERSION ?= 0.71.1
 GATEKEEPER_NAMESPACE = gatekeeper-system
 RATIFY_NAME = ratify
 
+# Image the e2e Helm deployment uses. Defaults to the locally built image
+# (localbuild:test) so existing local/e2e flows keep working, but can be
+# overridden (e.g. from the publish workflow) to validate a published image.
+E2E_RATIFY_IMAGE_REPOSITORY ?= localbuild
+E2E_RATIFY_IMAGE_TAG ?= test
+
 TIMESTAMP_URL = http://timestamp.digicert.com
 
 # Local Registry Setup
@@ -584,7 +590,14 @@ e2e-deploy-base-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosi
 
 	rm mount_config.json
 
-e2e-deploy-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup e2e-inlinecert-setup e2e-build-crd-image load-build-crd-image e2e-build-local-ratify-image load-local-ratify-image e2e-helm-deploy-ratify
+e2e-deploy-ratify: e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup e2e-inlinecert-setup e2e-build-crd-image load-build-crd-image
+	# Only build and load the local image when using the default localbuild
+	# repository. When a published image is requested, deploy that instead so
+	# the e2e run validates the real published artifact.
+	@if [ "${E2E_RATIFY_IMAGE_REPOSITORY}" = "localbuild" ]; then \
+		$(MAKE) e2e-build-local-ratify-image load-local-ratify-image; \
+	fi
+	$(MAKE) e2e-helm-deploy-ratify
 
 e2e-build-local-ratify-base-image:
 	docker build --progress=plain --no-cache \
@@ -613,9 +626,9 @@ e2e-helm-deploy-ratify:
 
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
     ./charts/ratify --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
-	--set image.repository=localbuild \
+	--set image.repository=${E2E_RATIFY_IMAGE_REPOSITORY} \
 	--set image.crdRepository=localbuildcrd \
-	--set image.tag=test \
+	--set image.tag=${E2E_RATIFY_IMAGE_TAG} \
 	--set gatekeeper.version=${GATEKEEPER_VERSION} \
 	--set featureFlags.RATIFY_CERT_ROTATION=${CERT_ROTATION_ENABLED} \
 	--set-file provider.tls.crt=${CERT_DIR}/server.crt \

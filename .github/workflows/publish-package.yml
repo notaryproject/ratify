@@ -172,10 +172,6 @@ jobs:
     name: Publish Helm charts
     needs: e2e
     runs-on: ubuntu-latest
-    outputs:
-      image_ref: ${{ steps.prepare.outputs.ref }}
-      image_repository: ${{ steps.prepare.outputs.repository }}
-      image_tag: ${{ steps.prepare.outputs.version }}
     permissions:
       contents: write
     steps:
