@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2alpha1
+package v2beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +23,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Namespaced"
-// +kubebuilder:deprecatedversion:warning="config.ratify.sh/v2alpha1 NamespacedExecutor is deprecated; use config.ratify.sh/v2beta1 instead"
+// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Succeeded",type=boolean,JSONPath=`.status.succeeded`
 // +kubebuilder:printcolumn:name="Error",type=string,JSONPath=`.status.briefError`
 

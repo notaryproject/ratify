@@ -28,7 +28,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
+	configv2beta1 "github.com/notaryproject/ratify/v2/api/v2beta1"
 	e "github.com/notaryproject/ratify/v2/internal/executor"
 )
 
@@ -42,26 +42,26 @@ var _ = Describe("Executor Controller", func() {
 			Name:      resourceName,
 			Namespace: "",
 		}
-		executor := &configv2alpha1.Executor{}
+		executor := &configv2beta1.Executor{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind Executor")
 			err := k8sClient.Get(ctx, typeNamespacedName, executor)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &configv2alpha1.Executor{
+				resource := &configv2beta1.Executor{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "",
 					},
-					Spec: configv2alpha1.ExecutorSpec{
+					Spec: configv2beta1.ExecutorSpec{
 						Scopes: []string{"example.com"},
-						Verifiers: []*configv2alpha1.VerifierOptions{
+						Verifiers: []*configv2beta1.VerifierOptions{
 							{
 								Name: mockVerifierName,
 								Type: mockVerifierType,
 							},
 						},
-						Stores: []*configv2alpha1.StoreOptions{
+						Stores: []*configv2beta1.StoreOptions{
 							{
 								Type: mockStoreType,
 							},
@@ -74,7 +74,7 @@ var _ = Describe("Executor Controller", func() {
 
 		AfterEach(func() {
 			// // TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &configv2alpha1.Executor{}
+			resource := &configv2beta1.Executor{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
@@ -93,13 +93,13 @@ var _ = Describe("Executor Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			updatedExecutor := &configv2alpha1.Executor{}
+			updatedExecutor := &configv2beta1.Executor{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, updatedExecutor)).To(Succeed())
 			Expect(updatedExecutor.Status.Succeeded).To(BeTrue())
 		})
 		It("should handle the case when the resource has been deleted and is not found", func() {
 			By("Deleting the existing resource")
-			resource := &configv2alpha1.Executor{}
+			resource := &configv2beta1.Executor{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 
@@ -114,23 +114,23 @@ var _ = Describe("Executor Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Verifying the resource no longer exists")
-			err = k8sClient.Get(ctx, typeNamespacedName, &configv2alpha1.Executor{})
+			err = k8sClient.Get(ctx, typeNamespacedName, &configv2beta1.Executor{})
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 
-			resource = &configv2alpha1.Executor{
+			resource = &configv2beta1.Executor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      resourceName,
 					Namespace: "",
 				},
-				Spec: configv2alpha1.ExecutorSpec{
+				Spec: configv2beta1.ExecutorSpec{
 					Scopes: []string{"example.com"},
-					Verifiers: []*configv2alpha1.VerifierOptions{
+					Verifiers: []*configv2beta1.VerifierOptions{
 						{
 							Name: mockVerifierName,
 							Type: mockVerifierType,
 						},
 					},
-					Stores: []*configv2alpha1.StoreOptions{
+					Stores: []*configv2beta1.StoreOptions{
 						{
 							Type: mockStoreType,
 						},
@@ -159,25 +159,25 @@ var _ = Describe("Executor Controller", func() {
 		It("should set Status.Succeeded to false when GlobalExecutorManager.UpsertExecutor fails", func() {
 			By("reconciling an invalid resource that fails to upsert")
 
-			resource := &configv2alpha1.Executor{}
+			resource := &configv2beta1.Executor{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 
-			resource = &configv2alpha1.Executor{
+			resource = &configv2beta1.Executor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      resourceName,
 					Namespace: "",
 				},
-				Spec: configv2alpha1.ExecutorSpec{
+				Spec: configv2beta1.ExecutorSpec{
 					Scopes: []string{"example.com"},
-					Verifiers: []*configv2alpha1.VerifierOptions{
+					Verifiers: []*configv2beta1.VerifierOptions{
 						{
 							Name: mockVerifierName,
 							Type: "unsupported-verifier-type", // Intentionally unsupported type to trigger an error
 						},
 					},
-					Stores: []*configv2alpha1.StoreOptions{
+					Stores: []*configv2beta1.StoreOptions{
 						{
 							Type: mockStoreType,
 						},
@@ -197,7 +197,7 @@ var _ = Describe("Executor Controller", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 
-			updatedExecutor := &configv2alpha1.Executor{}
+			updatedExecutor := &configv2beta1.Executor{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, updatedExecutor)).To(Succeed())
 			// the reconcile should have marked the execution as failed
 			Expect(updatedExecutor.Status.Succeeded).To(BeFalse())

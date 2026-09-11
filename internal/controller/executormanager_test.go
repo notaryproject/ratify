@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
-	configv2alpha1 "github.com/notaryproject/ratify/v2/api/v2alpha1"
+	configv2beta1 "github.com/notaryproject/ratify/v2/api/v2beta1"
 	e "github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
@@ -90,16 +90,16 @@ func newTestManager() executorManager {
 
 // newValidExecutor returns a minimal, but valid, ExecutorSpec that satisfies
 // convertOptions’ validation rules (verifiers and stores must be non-nil).
-func newValidExecutor() *configv2alpha1.ExecutorSpec {
-	return &configv2alpha1.ExecutorSpec{
+func newValidExecutor() *configv2beta1.ExecutorSpec {
+	return &configv2beta1.ExecutorSpec{
 		Scopes: []string{"example.com"},
-		Verifiers: []*configv2alpha1.VerifierOptions{
+		Verifiers: []*configv2beta1.VerifierOptions{
 			{
 				Name: mockVerifierName,
 				Type: mockVerifierType,
 			},
 		},
-		Stores: []*configv2alpha1.StoreOptions{
+		Stores: []*configv2beta1.StoreOptions{
 			{
 				Type: mockStoreType,
 			},

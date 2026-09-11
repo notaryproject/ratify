@@ -23,6 +23,7 @@ import (
 
 	"github.com/bombsimon/logrusr/v4"
 	"github.com/notaryproject/ratify/v2/api/v2alpha1"
+	"github.com/notaryproject/ratify/v2/api/v2beta1"
 	"github.com/notaryproject/ratify/v2/internal/controller"
 	"github.com/notaryproject/ratify/v2/internal/pod"
 	"github.com/open-policy-agent/cert-controller/pkg/rotator"
@@ -48,6 +49,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v2alpha1.AddToScheme(scheme))
+	utilruntime.Must(v2beta1.AddToScheme(scheme))
 }
 
 // StartManager creates a new Manager which is responsible for creating
