@@ -206,16 +206,21 @@ test-e2e: generate-rotation-certs
 
 .PHONY: test-e2e-cli
 # The v2 `ratify` CLI only supports the notation and cosign verifiers that ship
-# in the v2 module, so this target only provisions the notation fixtures.
-test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup
+# in the v2 module, so this target only provisions the notation and cosign
+# fixtures (not the plugin verifiers used by the v1 CLI tests).
+test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosign-setup
 	rm ${GOCOVERDIR} -rf
 	mkdir ${GOCOVERDIR} -p
 	TEST_REGISTRY=${TEST_REGISTRY} \
 		TEST_REGISTRY_USERNAME=${TEST_REGISTRY_USERNAME} \
 		TEST_REGISTRY_PASSWORD=${TEST_REGISTRY_PASSWORD} \
 		NOTATION_CA_CERT=$${HOME}/.config/notation/localkeys/ratify-bats-test.crt \
+		NOTATION_TSA_ROOT_CERT=${GITHUB_WORKSPACE}/test/bats/tests/certificates/tsarootca.cer \
+		NOTATION_LEAF_CA_CERT=${GITHUB_WORKSPACE}/.staging/notation/leaf-test/ca.crt \
+		COSIGN_PUB_KEY=${GITHUB_WORKSPACE}/.staging/cosign/cosign.pub \
 		${GITHUB_WORKSPACE}/bin/bats -t ${BATS_CLI_TESTS_FILE}
 	go tool covdata textfmt -i=${GOCOVERDIR} -o test/e2e/coverage.txt
+
 
 
 
