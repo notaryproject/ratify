@@ -61,7 +61,7 @@ RATIFY_NAMESPACE=gatekeeper-system
     uninstall_ratify_release "${HELM}"
     make e2e-helm-deploy-ratify CERT_DIR=${EXPIRING_CERT_DIR} DISABLE_CERT_ROTATION=false GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
     sleep 10
-    run [ "$(kubectl get secret ratify-gatekeeper-provider-tls -n gatekeeper-system -o json | jq '.data."ca.crt"')" != "$(cat ${EXPIRING_CERT_DIR}/ca.crt | base64 | tr -d '\n')" ]
+    run [ "$(kubectl get secret ratify-gatekeeper-provider-tls -n gatekeeper-system -o json | jq -r '.data."ca.crt"')" != "$(cat ${EXPIRING_CERT_DIR}/ca.crt | base64 | tr -d '\n')" ]
     assert_success
 }
 
