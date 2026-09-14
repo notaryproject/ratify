@@ -156,3 +156,11 @@ restore_executor() {
   cat "$file" | sed '/^\s*resourceVersion:/d; /^\s*uid:/d; /^\s*creationTimestamp:/d; /^\s*generation:/d' | \
     kubectl apply --server-side --force-conflicts -f -
 }
+
+uninstall_ratify_release() {
+  local helm="$1"
+  "$helm" uninstall ratify-gatekeeper-provider --namespace gatekeeper-system 2>/dev/null || true
+  kubectl delete executors.config.ratify.sh/ratify-gatekeeper-provider-executor-1 --ignore-not-found=true 2>/dev/null || true
+  kubectl delete providers.externaldata.gatekeeper.sh ratify-gatekeeper-provider ratify-gatekeeper-mutation-provider --ignore-not-found=true 2>/dev/null || true
+  kubectl delete secret ratify-gatekeeper-provider-tls -n gatekeeper-system --ignore-not-found=true 2>/dev/null || true
+}
