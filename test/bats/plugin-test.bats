@@ -50,6 +50,22 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_success
 }
 
+@test "helm genCert test - existing secret persists when cert rotation disabled" {
+    skip "requires a make target that deploys without TLS certs AND with cert rotation disabled while reusing an existing ratify-gatekeeper-provider-tls secret; the current e2e-helm-deploy-ratify-without-tls-certs target always enables rotation"
+    # tls certs not provided, ratify-gatekeeper-provider-tls Secret exists and
+    # cert-rotation disabled: the previously provided cert must be preserved.
+    HELM=${GITHUB_WORKSPACE}/.staging/helm/linux-amd64/helm
+    providedCert=$(cat ${CERT_DIR}/server.crt | base64 | tr -d '\n')
+
+    "${HELM}" uninstall ratify-gatekeeper-provider --namespace gatekeeper-system
+    make e2e-helm-deploy-ratify-without-tls-certs DISABLE_CERT_ROTATION=true GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
+    sleep 5
+
+    generatedCert=$(kubectl -n gatekeeper-system get Secret ratify-gatekeeper-provider-tls -o jsonpath="{.data.tls\\.crt}")
+    run [ "$generatedCert" == "$providedCert" ]
+    assert_success
+}
+
 @test "cert rotator test" {
     HELM=${GITHUB_WORKSPACE}/.staging/helm/linux-amd64/helm
     teardown() {
