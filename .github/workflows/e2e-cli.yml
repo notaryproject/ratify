@@ -47,7 +47,7 @@ jobs:
       - name: Run tidy
         run: go mod tidy
       - name: Build CLI
-        run: make
+        run: make build-cli
       - name: Check build
         run: bin/ratify version
       - name: Upload coverage to codecov.io
