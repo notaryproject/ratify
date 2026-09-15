@@ -44,7 +44,7 @@ var (
 )
 
 const (
-	scope = "github.com/ratify-project/ratify"
+	scope = "github.com/notaryproject/ratify/v2"
 
 	// metric names
 	metricNameVerificationDuration = "ratify_verification_request"
