@@ -142,12 +142,14 @@ threshold_policy() {
     local pub
     pub="$(cat "${COSIGN_PUB_KEY}")"
     # The cosign fixture is signed with a local key pair and no transparency log
-    # entry (--tlog-upload=false), so verification must ignore the tlog. The
+    # entry (cosign sign --tlog-upload=false). Verifying such a fully offline,
+    # key-signed image requires both ignoreTLog (no log entry to look up) and
+    # ignoreObserverTimestamps (no RFC3161 / SignedEntryTimestamp to check). The
     # inline key provider is used because the "files" provider expects x509
     # certificates rather than a bare cosign public key. jq safely embeds the
     # multi-line PEM into the JSON configuration.
     verifiers="$(bin/jq -nc --arg reg "${TEST_REGISTRY}" --arg key "${pub}" \
-        '[{name:"cosign-1",type:"cosign",parameters:{trustPolicies:[{scopes:[$reg],ignoreTLog:true,keys:{inline:{keys:$key}}}]}}]')"
+        '[{name:"cosign-1",type:"cosign",parameters:{trustPolicies:[{scopes:[$reg],ignoreTLog:true,ignoreObserverTimestamps:true,keys:{inline:{keys:$key}}}]}}]')"
     policy="$(threshold_policy '[{"verifierName":"cosign-1"}]' 1)"
     render_config "${RATIFY_CONFIG_DIR}/cosign.json" "${verifiers}" "${policy}"
 
