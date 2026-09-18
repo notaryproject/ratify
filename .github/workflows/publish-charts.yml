@@ -1,15 +1,11 @@
 name: publishChart
 on:
-  workflow_run:
-    workflows: ["publish-ghcr"]
-    types: [completed]
   workflow_dispatch:
 
 permissions: read-all
 
 jobs:
   release:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
