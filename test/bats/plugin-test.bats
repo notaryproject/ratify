@@ -21,44 +21,63 @@ SLEEP_TIME=1
 RATIFY_NAMESPACE=gatekeeper-system
 
 @test "helm genCert test" {
-    skip "TODO: migrate to v2 executor CRD"
-    # tls cert provided
-    helm uninstall ratify --namespace gatekeeper-system
-    make e2e-helm-deploy-ratify CERT_DIR=${CERT_DIR} CERT_ROTATION_ENABLED=true GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
+    HELM=${GITHUB_WORKSPACE}/.staging/helm/linux-amd64/helm
+    teardown() {
+        echo "cleaning up"
+        uninstall_ratify_release "${HELM}"
+        make e2e-helm-deploy-ratify CERT_DIR=${CERT_DIR} GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
+    }
+
+    uninstall_ratify_release "${HELM}"
+    make e2e-helm-deploy-ratify CERT_DIR=${CERT_DIR} GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
     sleep 5
 
     providedCert=$(cat ${CERT_DIR}/server.crt | base64 | tr -d '\n')
-    generatedCert=$(kubectl -n gatekeeper-system get Secret ratify-tls -o jsonpath="{.data.tls\\.crt}")
+    generatedCert=$(kubectl -n gatekeeper-system get Secret ratify-gatekeeper-provider-tls -o jsonpath="{.data.tls\\.crt}")
     run [ "$generatedCert" == "$providedCert" ]
     assert_success
 
-    # tls certs not provided, ratify-tls Secret exists and cert-rotation disabled
-    helm uninstall ratify --namespace gatekeeper-system
-    make e2e-helm-deploy-ratify-without-tls-certs CERT_ROTATION_ENABLED=false GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
+    uninstall_ratify_release "${HELM}"
+    make e2e-helm-deploy-ratify-without-tls-certs GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
     sleep 5
 
-    generatedCert=$(kubectl -n gatekeeper-system get Secret ratify-tls -o jsonpath="{.data.tls\\.crt}")
+    generatedCert=$(kubectl -n gatekeeper-system get Secret ratify-gatekeeper-provider-tls -o jsonpath="{.data.tls\\.crt}")
+    run [ "$generatedCert" != "$providedCert" ]
+    assert_success
+
+    ratifyPod=$(kubectl -n gatekeeper-system get pod -l=app.kubernetes.io/name=ratify-gatekeeper-provider --sort-by=.metadata.creationTimestamp -o=name | tail -n 1)
+    run bash -c "kubectl -n gatekeeper-system logs $ratifyPod | grep 'setting up cert rotation'"
+    assert_success
+}
+
+@test "helm genCert test - existing secret persists when cert rotation disabled" {
+    skip "requires a make target that deploys without TLS certs AND with cert rotation disabled while reusing an existing ratify-gatekeeper-provider-tls secret; the current e2e-helm-deploy-ratify-without-tls-certs target always enables rotation"
+    # tls certs not provided, ratify-gatekeeper-provider-tls Secret exists and
+    # cert-rotation disabled: the previously provided cert must be preserved.
+    HELM=${GITHUB_WORKSPACE}/.staging/helm/linux-amd64/helm
+    providedCert=$(cat ${CERT_DIR}/server.crt | base64 | tr -d '\n')
+
+    "${HELM}" uninstall ratify-gatekeeper-provider --namespace gatekeeper-system
+    make e2e-helm-deploy-ratify-without-tls-certs DISABLE_CERT_ROTATION=true GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
+    sleep 5
+
+    generatedCert=$(kubectl -n gatekeeper-system get Secret ratify-gatekeeper-provider-tls -o jsonpath="{.data.tls\\.crt}")
     run [ "$generatedCert" == "$providedCert" ]
-    assert_success
-
-    # tls certs not provided, ratify-tls Secret deleted and cert-rotation enabled
-    helm uninstall ratify --namespace gatekeeper-system
-    run kubectl delete --namespace gatekeeper-system secret ratify-tls
-    assert_success
-    make e2e-helm-deploy-ratify-without-tls-certs CERT_ROTATION_ENABLED=true GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
-    sleep 5
-
-    ratifyPod=$(kubectl -n gatekeeper-system get pod -l=app.kubernetes.io/name=ratify --sort-by=.metadata.creationTimestamp -o=name | tail -n 1)
-    run bash -c "kubectl -n gatekeeper-system logs $ratifyPod | grep 'refreshing CA and server certs'"
     assert_success
 }
 
 @test "cert rotator test" {
-    skip "TODO: migrate to v2 executor CRD"
-    helm uninstall ratify --namespace gatekeeper-system
-    make e2e-helm-deploy-ratify CERT_DIR=${EXPIRING_CERT_DIR} CERT_ROTATION_ENABLED=true GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
+    HELM=${GITHUB_WORKSPACE}/.staging/helm/linux-amd64/helm
+    teardown() {
+        echo "cleaning up"
+        uninstall_ratify_release "${HELM}"
+        make e2e-helm-deploy-ratify CERT_DIR=${CERT_DIR} GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
+    }
+
+    uninstall_ratify_release "${HELM}"
+    make e2e-helm-deploy-ratify CERT_DIR=${EXPIRING_CERT_DIR} DISABLE_CERT_ROTATION=false GATEKEEPER_VERSION=${GATEKEEPER_VERSION}
     sleep 10
-    run [ "$(kubectl get secret ratify-tls -n gatekeeper-system -o json | jq '.data."ca.crt"')" != "$(cat ${EXPIRING_CERT_DIR}/ca.crt | base64 | tr -d '\n')" ]
+    run [ "$(kubectl get secret ratify-gatekeeper-provider-tls -n gatekeeper-system -o json | jq -r '.data."ca.crt"')" != "$(cat ${EXPIRING_CERT_DIR}/ca.crt | base64 | tr -d '\n')" ]
     assert_success
 }
 

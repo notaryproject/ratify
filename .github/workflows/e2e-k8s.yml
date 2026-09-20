@@ -83,7 +83,10 @@ jobs:
             GATEKEEPER_VERSION="${{ inputs.gatekeeper_version }}" \
             E2E_RATIFY_IMAGE_REPOSITORY="${{ inputs.ratify_image_repository }}" \
             E2E_RATIFY_IMAGE_TAG="${{ inputs.ratify_image_tag }}"
-          make test-e2e GATEKEEPER_VERSION=${{ inputs.gatekeeper_version }}
+          make test-e2e \
+            GATEKEEPER_VERSION="${{ inputs.gatekeeper_version }}" \
+            E2E_RATIFY_IMAGE_REPOSITORY="${{ inputs.ratify_image_repository }}" \
+            E2E_RATIFY_IMAGE_TAG="${{ inputs.ratify_image_tag }}"
       - name: Save logs
         if: ${{ always() }}
         run: |
@@ -91,7 +94,10 @@ jobs:
           kubectl get executors.config.ratify.sh -A -o yaml > logs-executor-${{ inputs.k8s_version }}-${{ inputs.gatekeeper_version }}.yaml 2>&1 || true
       - name: Run e2e with Rego policy
         run: |
-          make test-e2e
+          make test-e2e \
+            GATEKEEPER_VERSION="${{ inputs.gatekeeper_version }}" \
+            E2E_RATIFY_IMAGE_REPOSITORY="${{ inputs.ratify_image_repository }}" \
+            E2E_RATIFY_IMAGE_TAG="${{ inputs.ratify_image_tag }}"
       - name: Save logs
         if: ${{ always() }}
         run: |

@@ -14,6 +14,7 @@
 BINARY_NAME		= ratify
 INSTALL_DIR		= ~/.ratify
 CERT_DIR        = ${GITHUB_WORKSPACE}/tls/certs
+DISABLE_CERT_ROTATION ?= true
 
 GO_PKG			= github.com/notaryproject/ratify
 GIT_COMMIT_HASH = $(shell git rev-parse HEAD)
@@ -678,7 +679,7 @@ e2e-helm-deploy-ratify:
 	--set-file provider.tls.crt=${CERT_DIR}/server.crt \
 	--set-file provider.tls.key=${CERT_DIR}/server.key \
 	--set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
-	--set provider.tls.disableCertRotation=true \
+	--set provider.tls.disableCertRotation=${DISABLE_CERT_ROTATION} \
 	--set notation.certs[0].provider=inline \
 	--set notation.certs[0].cert="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
 	--set cosign.keys.provider=inline \

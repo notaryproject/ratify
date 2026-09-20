@@ -134,7 +134,10 @@ EOF
 }
 
 @test "crd version test" {
-    skip "requires the Executor CRD installed in the test cluster; enable once base-test provisions the v2 config CRDs"
+    teardown() {
+        echo "cleaning up"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete executors.config.ratify.sh/executor-sample --ignore-not-found=true'
+    }
     # The Executor CRD serves two identical-schema versions (v2alpha1, deprecated
     # and v2beta1, storage) with conversion strategy None, so the API server can
     # return the same object under either served version. Applying the object as
@@ -302,16 +305,17 @@ EOF
 }
 
 @test "cosign legacy keyed test" {
-    skip "v2 cosign verifier does not support the v1beta1 legacy verifier config format"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-unsigned --namespace default --force --ignore-not-found=true'
+
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-cosign-keyed.yaml'
+        rm -f original-executor-cosign-keyed.yaml
     }
 
-    # use imperative command to guarantee verifier config is updated
-    run kubectl replace -f ./config/samples/clustered/verifier/config_v1beta1_verifier_cosign_legacy.yaml
-    sleep 5
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-cosign-keyed.yaml"
+    assert_success
 
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
     assert_success
@@ -319,6 +323,15 @@ EOF
     run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
     assert_success
     sleep 5
+
+    run bash -c 'COSIGN_KEY=$(cat .staging/cosign/cosign.pub) && \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg cosign_key "$COSIGN_KEY" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status)
+            | .spec.verifiers = [{"name": "cosign", "type": "cosign", "parameters": {"trustPolicies": [{"scopes": ["registry:5000"], "keys": {"inline": {"keys": $cosign_key}}, "ignoreTLog": true, "ignoreObserverTimestamps": true}]}}]
+            | .spec.policyEnforcer.parameters.policy.rules = [{"verifierName": "cosign"}]'"'"' | kubectl apply --server-side --force-conflicts -f -'
+    assert_success
+
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     run kubectl run cosign-demo-key --namespace default --image=registry:5000/cosign:signed-key
     assert_success
@@ -352,20 +365,21 @@ EOF
 }
 
 @test "cosign legacy keyless test" {
-    skip "v2 cosign verifier does not support legacy format"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-keyless --namespace default --force --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/verifier/config_v1beta1_verifier_cosign.yaml'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/store/config_v1beta1_store_oras_http.yaml'
+
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-cosign-legacy-keyless.yaml'
+        rm -f original-executor-cosign-legacy-keyless.yaml
     }
 
-    # use imperative command to guarantee useHttp is updated
-    run kubectl replace -f ./config/samples/clustered/verifier/config_v1beta1_verifier_cosign_keyless_legacy.yaml
-    sleep 5
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-cosign-legacy-keyless.yaml"
+    assert_success
 
-    run kubectl replace -f ./config/samples/clustered/store/config_v1beta1_store_oras.yaml
-    sleep 5
+    run kubectl apply --server-side --force-conflicts -f ${BATS_TESTS_DIR}/config/executor_cosign_legacy_keyless.yaml
+    assert_success
+
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     wait_for_process 20 10 'kubectl run cosign-demo-keyless --namespace default --image=wabbitnetworks.azurecr.io/test/cosign-image:signed-keyless'
 }
@@ -711,72 +725,63 @@ EOF
 }
 
 @test "namespaced notation/cosign verifiers test" {
-    skip "v2 executor CRD is cluster-scoped only, namespace-scoped executor not yet supported (see #2672)"
+    NS=namespaced-verifiers-ns
     teardown() {
         echo "cleaning up"
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete namespacedverifiers.config.ratify.deislabs.io/verifier-cosign --namespace default --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete namespacedverifiers.config.ratify.deislabs.io/verifier-notation --namespace default --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_notation.yaml'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_cosign.yaml'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete namespacedkeymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0 -n default --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f clusternotationkmprovider.yaml'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete namespacedkeymanagementproviders.config.ratify.deislabs.io/ratify-cosign-inline-key-0 -n default --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f clustercosignkmprovider.yaml'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete namespacedpolicies.config.ratify.deislabs.io/ratify-policy --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f clusterpolicy.yaml'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod notation-demo --namespace default --force --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod notation-demo1 --namespace default --force --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-unsigned --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete namespacedexecutors.config.ratify.sh/executor-notation-cosign -n ${NS} --ignore-not-found=true"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete pod notation-demo --namespace ${NS} --force --ignore-not-found=true"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete pod notation-demo1 --namespace ${NS} --force --ignore-not-found=true"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete pod cosign-demo-key --namespace ${NS} --force --ignore-not-found=true"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete pod cosign-demo-unsigned --namespace ${NS} --force --ignore-not-found=true"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete namespace ${NS} --ignore-not-found=true"
     }
 
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    assert_success
+    sleep 5
     run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    assert_success
+    sleep 5
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
+
+    run kubectl create namespace ${NS}
+    assert_success
+    sleep 3
+    run kubectl patch ratifyverification ratify-constraint --type=json -p="[{\"op\":\"add\",\"path\":\"/spec/match/namespaces/-\",\"value\":\"${NS}\"}]"
+    assert_success
     sleep 3
 
-    # apply namespaced policy and delete cluster-wide policy.
-    run bash -c "kubectl get policies.config.ratify.deislabs.io/ratify-policy -o yaml > clusterpolicy.yaml"
+    run bash -c 'NOTATION_CERT=$(cat ~/.config/notation/localkeys/ratify-bats-test.crt) && \
+        COSIGN_KEY=$(cat .staging/cosign/cosign.pub) && \
+        jq -n --arg notation_cert "$NOTATION_CERT" --arg cosign_key "$COSIGN_KEY" --arg ns "'"${NS}"'" '"'"'{
+            apiVersion: "config.ratify.sh/v2beta1",
+            kind: "NamespacedExecutor",
+            metadata: {name: "executor-notation-cosign", namespace: $ns},
+            spec: {
+                scopes: ["registry:5000"],
+                concurrency: 3,
+                stores: [{type: "registry-store", parameters: {plainHttp: true, allowCosignTag: true, credential: {provider: "static", username: "test_user", password: "test_pw"}}}],
+                verifiers: [
+                    {name: "notation", type: "notation", parameters: {certificates: [{type: "ca", inline: {certs: $notation_cert}}]}},
+                    {name: "cosign", type: "cosign", parameters: {trustPolicies: [{scopes: ["registry:5000"], keys: {inline: {keys: $cosign_key}}, ignoreTLog: true, ignoreObserverTimestamps: true}]}}
+                ],
+                policyEnforcer: {type: "threshold-policy", parameters: {policy: {threshold: 1, rules: [{verifierName: "notation"}, {verifierName: "cosign"}]}}}
+            }
+        }'"'"' | kubectl apply -f -'
     assert_success
-    sed 's/kind: Policy/kind: NamespacedPolicy/;/^\s*resourceVersion:/d' clusterpolicy.yaml >namespacedpolicy.yaml
-    run kubectl apply -f namespacedpolicy.yaml
-    assert_success
-
-    # apply namespaced kmp and delete cluster-wide kmp.
-    run bash -c "kubectl get keymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0 -o yaml > clusternotationkmprovider.yaml"
-    assert_success
-    sed 's/KeyManagementProvider/NamespacedKeyManagementProvider/' clusternotationkmprovider.yaml >namespacednotationkmprovider.yaml
-    run kubectl apply -f namespacednotationkmprovider.yaml
-    assert_success
-
-    run bash -c "kubectl get keymanagementproviders.config.ratify.deislabs.io/ratify-cosign-inline-key-0 -o yaml > clustercosignkmprovider.yaml"
-    assert_success
-    sed 's/KeyManagementProvider/NamespacedKeyManagementProvider/;/^\s*resourceVersion:/d' clustercosignkmprovider.yaml >namespacedcosignkmprovider.yaml
-    run kubectl delete namespacedkeymanagementproviders.config.ratify.deislabs.io/ratify-cosign-inline-key-0 -n default --ignore-not-found=true
-    sleep 5
-    run kubectl apply -f namespacedcosignkmprovider.yaml
-    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get namespacedexecutors.config.ratify.sh/executor-notation-cosign -n ${NS} -o jsonpath='{.status.succeeded}' | grep true"
     sleep 5
 
-    # apply namespaced notation verifiers and delete cluster-wide notation verifiers.
-    run kubectl apply -f ./config/samples/namespaced/verifier/config_v1beta1_verifier_notation.yaml
-    run kubectl delete verifiers.config.ratify.deislabs.io/verifier-notation --ignore-not-found=true
-
-    # validate notation images.
-    run kubectl run notation-demo --namespace default --image=registry:5000/notation:signed
+    run kubectl run notation-demo --namespace ${NS} --image=registry:5000/notation:signed
     assert_success
 
-    run kubectl run notation-demo1 --namespace default --image=registry:5000/notation:unsigned
+    run kubectl run notation-demo1 --namespace ${NS} --image=registry:5000/notation:unsigned
     assert_failure
 
-    # apply namespaced cosign verifiers and delete cluster-wide cosign verifiers.
-    run kubectl apply -f ./config/samples/namespaced/verifier/config_v1beta1_verifier_cosign.yaml
-    run kubectl delete verifiers.config.ratify.deislabs.io/verifier-cosign --ignore-not-found=true
-
-    # validate cosign images.
-    run kubectl run cosign-demo-key --namespace default --image=registry:5000/cosign:signed-key
+    run kubectl run cosign-demo-key --namespace ${NS} --image=registry:5000/cosign:signed-key
     assert_success
 
-    run kubectl run cosign-demo-unsigned --namespace default --image=registry:5000/cosign:unsigned
+    run kubectl run cosign-demo-unsigned --namespace ${NS} --image=registry:5000/cosign:unsigned
     assert_failure
 }
 
