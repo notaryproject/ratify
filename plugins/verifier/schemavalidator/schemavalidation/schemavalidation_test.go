@@ -16,11 +16,17 @@ limitations under the License.
 package schemavalidation
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 )
 
-var schemaURL = "https://json.schemastore.org/sarif-2.1.0-rtm.5.json"
+// schemaURL is populated by TestMain with the address of a local test server
+// that serves the vendored SARIF schema. The tests deliberately do not point at
+// a live schema host: doing so makes the unit tests depend on the network and on
+// a third party's ability to publish a breaking change at any moment.
+var schemaURL string
 var schemaFileBytes []byte
 var schemaFileMismatchBytes []byte
 var schemaFileBadBytes []byte
@@ -31,6 +37,21 @@ func init() {
 	schemaFileBytes, _ = os.ReadFile("./schemas/sarif-2.1.0-rtm.5.json")
 	schemaFileMismatchBytes, _ = os.ReadFile("./testdata/mismatch_schema.json")
 	schemaFileBadBytes, _ = os.ReadFile("./testdata/bad_schema.json")
+}
+
+// TestMain serves the vendored schema over a local HTTP server so that the
+// "online" code path is still exercised end to end, but hermetically.
+func TestMain(m *testing.M) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(schemaFileBytes)
+	}))
+	schemaURL = server.URL + "/sarif-2.1.0-rtm.5.json"
+
+	code := m.Run()
+
+	server.Close()
+	os.Exit(code)
 }
 
 func TestProperSchemaValidates(t *testing.T) {
