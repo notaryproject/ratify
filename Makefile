@@ -654,9 +654,10 @@ e2e-helm-deploy-ratify-without-tls-certs:
 
 	./.staging/helm/linux-amd64/helm install ${RATIFY_NAME} \
     ./charts/ratify --atomic --namespace ${GATEKEEPER_NAMESPACE} --create-namespace \
-	--set image.repository=localbuild \
+	--set image.repository=${E2E_RATIFY_IMAGE_REPOSITORY} \
 	--set image.crdRepository=localbuildcrd \
-	--set image.tag=test \
+	--set image.tag=${E2E_RATIFY_IMAGE_TAG} \
+	--set image.pullPolicy=${E2E_RATIFY_IMAGE_PULL_POLICY} \
 	--set gatekeeper.version=${GATEKEEPER_VERSION} \
 	--set featureFlags.RATIFY_CERT_ROTATION=${CERT_ROTATION_ENABLED} \
 	--set notationCerts[0]="$$(cat ~/.config/notation/localkeys/ratify-bats-test.crt)" \
