@@ -180,7 +180,6 @@ func (s *server) registerHandlers() error {
 	return nil
 }
 
-// TODO: implement mutate handler.
 func (s *server) registerMutateHandler() error {
 	mutateURL, err := url.JoinPath(serverRootURL, mutatePath)
 	if err != nil {
