@@ -28,7 +28,6 @@ import (
 	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
 	"github.com/ratify-project/ratify/errors"
 	vu "github.com/ratify-project/ratify/pkg/verifier/utils"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
 // This is a map of properties for fetched certificates/keys
@@ -120,11 +119,29 @@ func DecodeCertificates(value []byte) ([]*x509.Certificate, error) {
 // PEM encoded byte array is expected to be a single public key. If multiple
 // are provided, the first one is returned
 func DecodeKey(value []byte) (crypto.PublicKey, error) {
-	pk, err := cryptoutils.UnmarshalPEMToPublicKey(value)
+	pk, err := unmarshalPEMToPublicKey(value)
 	if err != nil {
 		return nil, errors.ErrorCodeKeyInvalid.WithComponentType(errors.KeyManagementProvider).WithDetail("error parsing public key").WithError(err)
 	}
 	return pk, nil
+}
+
+// unmarshalPEMToPublicKey decodes the first PEM block of value into a
+// crypto.PublicKey using only the standard library. It supports PKIX
+// ("PUBLIC KEY") and PKCS#1 ("RSA PUBLIC KEY") encodings.
+func unmarshalPEMToPublicKey(value []byte) (crypto.PublicKey, error) {
+	block, _ := pem.Decode(value)
+	if block == nil {
+		return nil, fmt.Errorf("PEM decoding failed")
+	}
+	switch block.Type {
+	case "PUBLIC KEY":
+		return x509.ParsePKIXPublicKey(block.Bytes)
+	case "RSA PUBLIC KEY":
+		return x509.ParsePKCS1PublicKey(block.Bytes)
+	default:
+		return nil, fmt.Errorf("unknown public key PEM type: %v. Are you passing the correct public key?", block.Type)
+	}
 }
 
 // setCertificatesInMap sets the certificates in the map
