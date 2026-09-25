@@ -131,6 +131,6 @@ func init() {
 			CredentialProvider: credProvider,
 		}
 
-		return ratify.NewRegistryStore(registryStoreOpts), nil
+		return &loggingStore{inner: ratify.NewRegistryStore(registryStoreOpts)}, nil
 	})
 }
