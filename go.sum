@@ -173,8 +173,8 @@ github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3d
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/aws/aws-sdk-go-v2 v1.44.0 h1:4IbaHhtzy+4h37z4JQyO9a2QsiCml3CNYHtq5hIHigo=
 github.com/aws/aws-sdk-go-v2 v1.44.0/go.mod h1:bttEH6JqnUL8LepvDVfdrds/fZ5bCIxzpe3abyUrhDU=
-github.com/aws/aws-sdk-go-v2/config v1.32.38 h1:n4yPHBjtQ3BrIIUyk0/LAqf/BL2iv0Tw6XZcMRzM0ps=
-github.com/aws/aws-sdk-go-v2/config v1.32.38/go.mod h1:dencYsOS1R7rBy8zehCvwBYzdxxL4Q/nRK7In03wjN8=
+github.com/aws/aws-sdk-go-v2/config v1.32.40 h1:lAVC9gMmKusmqDRe32dPtgKl/BWvJmMJoWELKHCAObw=
+github.com/aws/aws-sdk-go-v2/config v1.32.40/go.mod h1:8xOJLbe/hOj1g4PVsfJYV7O2byq+UGET1onDdUgbwqc=
 github.com/aws/aws-sdk-go-v2/credentials v1.19.39 h1:XOg8LC3Kgnsa3WiPQjc7Bi8k5IBN92cPYfIV9XMFss0=
 github.com/aws/aws-sdk-go-v2/credentials v1.19.39/go.mod h1:GonTDBQ+mTpCVNwaHjj0PagspfrYYMEqOx7FehoEP/I=
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.40 h1:r5aGipEVgI9aT/tAGjdrPbDQvIAKdTrS3rUPQtG4Rmo=
