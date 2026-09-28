@@ -4,24 +4,28 @@ metadata:
   name: ratify-gatekeeper-provider-executor-1
 spec:
   scopes:
-    - "registry:5000"
+    - "__TEST_REGISTRY__/cosign"
   stores:
     - type: registry-store
       parameters:
-        plainHttp: true
+        # cosign signatures are pushed as a `sha256-<digest>.sig` tag
         allowCosignTag: true
         credential:
-          provider: "static"
-          username: "test_user"
-          password: "test_pw"
+          # the provider pulls from ACR with its workload identity, matching the
+          # store credential the helm chart deploys for the AKS e2e
+          provider: "azure"
   verifiers:
-    - name: cosign
+    - name: cosign-1
       type: cosign
       parameters:
+        # the test images are signed offline (`cosign sign --tlog-upload=false`)
+        # against an AKV key, so there is no transparency log entry and no
+        # observer timestamp to check
         ignoreTLog: true
+        ignoreObserverTimestamps: true
         trustPolicies:
           - scopes:
-              - "registry:5000"
+              - "__TEST_REGISTRY__/cosign"
             keys:
               azurekeyvault:
                 vaultURL: "__VAULT_URI__"
@@ -35,4 +39,4 @@ spec:
       policy:
         threshold: 1
         rules:
-          - verifierName: "cosign"
+          - verifierName: "cosign-1"
