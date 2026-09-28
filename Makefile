@@ -40,6 +40,7 @@ HELMFILE_VERSION ?= 0.169.2
 BATS_BASE_TESTS_FILE ?= test/bats/base-test.bats
 BATS_PLUGIN_TESTS_FILE ?= test/bats/plugin-test.bats
 BATS_CLI_TESTS_FILE ?= test/bats/cli-test.bats
+BATS_CLI_V2_TESTS_FILE ?= test/bats/cli-v2-test.bats
 BATS_QUICKSTART_TESTS_FILE ?= test/bats/quickstart-test.bats
 BATS_HA_TESTS_FILE ?= test/bats/high-availability.bats
 BATS_VERSION ?= 1.11.1
@@ -222,7 +223,7 @@ test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-
 		NOTATION_TSA_ROOT_CERT=${GITHUB_WORKSPACE}/test/bats/tests/certificates/tsarootca.cer \
 		NOTATION_LEAF_CA_CERT=${GITHUB_WORKSPACE}/.staging/notation/leaf-test/ca.crt \
 		COSIGN_PUB_KEY=${GITHUB_WORKSPACE}/.staging/cosign/cosign.pub \
-		${GITHUB_WORKSPACE}/bin/bats -t ${BATS_CLI_TESTS_FILE}
+		${GITHUB_WORKSPACE}/bin/bats -t ${BATS_CLI_TESTS_FILE} ${BATS_CLI_V2_TESTS_FILE}
 	go tool covdata textfmt -i=${GOCOVERDIR} -o test/e2e/coverage.txt
 
 .PHONY: test-quick-start
