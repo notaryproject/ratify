@@ -229,23 +229,30 @@ EOF
     assert_success
 }
 
+# v2 replacement for the v1 "certs across namespace" case. In v1 the notation
+# verifier referenced a (Namespaced)KeyManagementProvider living in another
+# namespace. v2 has no cross-namespace cert reference: trust material is carried
+# by the executor itself, and a NamespacedExecutor scopes it to one namespace.
+#
+# This case proves per-namespace cert isolation by giving two tenant namespaces
+# different trust anchors and asserting each only admits what its own executor
+# trusts. The final assertion is the attribution anchor: the cluster-scoped
+# executor trusts ratify-bats-test and would admit notation:signed, so a
+# rejection inside the leaf-test namespace can only come from that namespace's
+# own NamespacedExecutor.
 @test "notation test with certs across namespace" {
-    skip "v2 executor CRD is cluster-scoped only, namespace-scoped executor not yet supported (see #2672)"
+    NS_BATS=certs-ns-bats
+    NS_LEAF=certs-ns-leaf
+    BATS_CA="${HOME}/.config/notation/localkeys/ratify-bats-test.crt"
+    LEAF_CA="${HOME}/.config/notation/truststore/x509/ca/leaf-test/root.crt"
+
     teardown() {
         echo "cleaning up"
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo1 --namespace default --force --ignore-not-found=true'
-
-        # restore cert store in ratify namespace
-        run kubectl apply -f clusterkmprovider.yaml
-        assert_success
-
-        # restore the original notation verifier for other tests
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_notation.yaml'
-
-        # delete new namespace
-        run kubectl delete namespace new-namespace
-        assert_success
+        # deleting the namespaces removes the pods and the NamespacedExecutors
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete namespace ${NS_BATS} --ignore-not-found=true"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl delete namespace ${NS_LEAF} --ignore-not-found=true"
+        # restore the shared constraint for the following tests
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml'
     }
 
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
@@ -254,33 +261,42 @@ EOF
     run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
     assert_success
     sleep 5
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -n ${RATIFY_NAMESPACE} -o jsonpath='{.status.succeeded}' | grep true"
 
-    # create a new namespace.
-    run kubectl create namespace new-namespace
+    # create the two tenant namespaces
+    run kubectl create namespace ${NS_BATS}
+    assert_success
+    run kubectl create namespace ${NS_LEAF}
     assert_success
     sleep 3
 
-    # apply the key management provider to new namespace
-    run bash -c "kubectl get keymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0 -o yaml > clusterkmprovider.yaml"
-    assert_success
-    sed 's/KeyManagementProvider/NamespacedKeyManagementProvider/' clusterkmprovider.yaml >namespacedkmprovider.yaml
-    run kubectl apply -f namespacedkmprovider.yaml -n new-namespace
-    assert_success
-
-    # delete the cluster-wide key management provider
-    run kubectl delete keymanagementproviders.config.ratify.deislabs.io/ratify-notation-inline-cert-0
-    assert_success
-
-    # configure the notation verifier to use inline certificate store in new namespace.
-    sed 's/default\//new-namespace\//' ./config/samples/clustered/verifier/config_v1beta1_verifier_notation_specificnskmprovider.yaml >verifier-new-namespace.yaml
-    run kubectl apply -f verifier-new-namespace.yaml
+    # extend the shared constraint so Gatekeeper also intercepts both tenants
+    run kubectl patch ratifyverification ratify-constraint --type=json -p="[{\"op\":\"add\",\"path\":\"/spec/match/namespaces/-\",\"value\":\"${NS_BATS}\"},{\"op\":\"add\",\"path\":\"/spec/match/namespaces/-\",\"value\":\"${NS_LEAF}\"}]"
     assert_success
     sleep 3
 
-    run kubectl run demo --namespace new-namespace --image=registry:5000/notation:signed
+    # each tenant gets its own trust anchor
+    run apply_namespaced_notation_executor ${NS_BATS} executor-certs-bats "${BATS_CA}"
+    assert_success
+    run apply_namespaced_notation_executor ${NS_LEAF} executor-certs-leaf "${LEAF_CA}"
+    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get namespacedexecutors.config.ratify.sh/executor-certs-bats -n ${NS_BATS} -o jsonpath='{.status.succeeded}' | grep true"
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get namespacedexecutors.config.ratify.sh/executor-certs-leaf -n ${NS_LEAF} -o jsonpath='{.status.succeeded}' | grep true"
+    sleep 5
+
+    # the ratify-bats-test tenant admits only what that CA signed
+    run kubectl run bats-signed --namespace ${NS_BATS} --image=registry:5000/notation:signed
+    assert_success
+    run kubectl run bats-leaf-signed --namespace ${NS_BATS} --image=registry:5000/notation:leafSigned
+    assert_failure
+
+    # the leaf-test tenant admits only what the leaf-test chain signed
+    run kubectl run leaf-leaf-signed --namespace ${NS_LEAF} --image=registry:5000/notation:leafSigned
     assert_success
 
-    run kubectl run demo1 --namespace new-namespace --image=registry:5000/notation:unsigned
+    # attribution: the cluster-scoped executor trusts ratify-bats-test and would
+    # admit this image, so the rejection is uniquely due to the tenant's own certs
+    run kubectl run leaf-signed --namespace ${NS_LEAF} --image=registry:5000/notation:signed
     assert_failure
 }
 
