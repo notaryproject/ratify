@@ -157,6 +157,34 @@ restore_executor() {
     kubectl apply --server-side --force-conflicts -f -
 }
 
+# trigger_executor_reconcile forces the controller to re-reconcile a
+# cluster-scoped Executor -- and therefore to rebuild its plugins and re-fetch
+# any externally sourced trust material -- by stamping a unique annotation on it.
+# usage: trigger_executor_reconcile <executor-name>
+trigger_executor_reconcile() {
+  local executor="$1"
+  kubectl annotate executors.config.ratify.sh/"$executor" \
+    ratify.sh/e2e-reconcile-token="$(date +%s%N)" --overwrite
+}
+
+# set_executor_akv_certificate points the notation-1 verifier of a cluster-scoped
+# Executor at a specific Azure Key Vault certificate, optionally pinning a
+# version, and applies the result. An empty version means "latest".
+# usage: set_executor_akv_certificate <executor-name> <cert-name> [cert-version]
+set_executor_akv_certificate() {
+  local executor="$1"
+  local cert_name="$2"
+  local cert_version="${3:-}"
+  kubectl get executors.config.ratify.sh/"$executor" -o json |
+    jq --arg name "$cert_name" --arg version "$cert_version" '
+      del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status)
+      | .spec.verifiers |= map(
+          if .name == "notation-1"
+          then .parameters.certificates[0].azurekeyvault.certificates = [{name: $name, version: $version}]
+          else . end)' |
+    kubectl apply --server-side --force-conflicts -f -
+}
+
 uninstall_ratify_release() {
   local helm="$1"
   "$helm" uninstall ratify-gatekeeper-provider --namespace gatekeeper-system 2>/dev/null || true
