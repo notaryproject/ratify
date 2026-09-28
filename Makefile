@@ -205,10 +205,13 @@ test-e2e: generate-rotation-certs
 	timeout 20m bats -t ${BATS_BASE_TESTS_FILE}
 	EXPIRING_CERT_DIR=.staging/rotation/expiring-certs CERT_DIR=.staging/rotation GATEKEEPER_VERSION=${GATEKEEPER_VERSION} bats -t ${BATS_PLUGIN_TESTS_FILE}
 
+# TODO: the v2 `ratify` CLI only ships the notation and cosign verifiers, so this
+# target currently provisions only the notation and cosign fixtures. Restore the
+# CRL setup (e2e-notation-crl-setup) and the plugin verifier fixtures
+# (licensechecker/sbom/trivy/schemavalidator/vulnerabilityreport) once the v2 CLI
+# supports those scenarios, and un-skip the matching tests in
+# ${BATS_CLI_TESTS_FILE}.
 .PHONY: test-e2e-cli
-# The v2 `ratify` CLI only supports the notation and cosign verifiers that ship
-# in the v2 module, so this target only provisions the notation and cosign
-# fixtures (not the plugin verifiers used by the v1 CLI tests).
 test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosign-setup
 	rm ${GOCOVERDIR} -rf
 	mkdir ${GOCOVERDIR} -p
@@ -221,9 +224,6 @@ test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-
 		COSIGN_PUB_KEY=${GITHUB_WORKSPACE}/.staging/cosign/cosign.pub \
 		${GITHUB_WORKSPACE}/bin/bats -t ${BATS_CLI_TESTS_FILE}
 	go tool covdata textfmt -i=${GOCOVERDIR} -o test/e2e/coverage.txt
-
-
-
 
 .PHONY: test-quick-start
 test-quick-start:

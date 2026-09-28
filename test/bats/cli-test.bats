@@ -114,6 +114,10 @@ threshold_policy() {
     echo "$output"
     [ "$status" -eq 0 ]
     [[ "$output" == *"SUCCEEDED"* ]]
+
+    # TODO: the v1 suite additionally shifted the system clock forward 2 days to
+    # prove that verification fails without the TSA root cert and succeeds with
+    # it. Re-add that expired-cert variant once it can run without `sudo date`.
 }
 
 @test "notation verifier leaf cert test" {
@@ -125,6 +129,11 @@ threshold_policy() {
     echo "$output"
     [ "$status" -eq 0 ]
     [[ "$output" == *"SUCCEEDED"* ]]
+
+    # TODO: the v1 test also asserted that trusting only the leaf certificate
+    # fails. The v2 notation verifier has no equivalent of the v1
+    # `config_notation_leaf_cert.json` trust-store layout yet, so the negative
+    # case is not covered here.
 }
 
 @test "multiple notation verifiers test" {
@@ -157,4 +166,65 @@ threshold_policy() {
     echo "$output"
     [ "$status" -eq 0 ]
     [[ "$output" == *"SUCCEEDED"* ]]
+
+    run bin/ratify verify -c "${RATIFY_CONFIG_DIR}/cosign.json" -s ${TEST_REGISTRY}/cosign:unsigned
+    echo "$output"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"FAILED"* ]]
+}
+
+# ---------------------------------------------------------------------------
+# Scenarios covered by the v1 CLI tests that the v2 CLI does not support yet.
+#
+# These are intentionally kept (and skipped) rather than deleted so the missing
+# coverage stays visible. Each one should be re-enabled as the corresponding v2
+# capability lands.
+# ---------------------------------------------------------------------------
+
+@test "cosign keyless verifier test" {
+    skip "TODO: keyless verification (Fulcio/Rekor) against wabbitnetworks.azurecr.io is not wired up for the v2 CLI e2e yet."
+}
+
+@test "notation verifier crl test" {
+    skip "TODO: the v2 notation verifier does not expose CRL revocation/cache configuration (config_notation_crl*.json in v1) yet."
+}
+
+@test "notation verifier with type test" {
+    skip "TODO: the v2 verifier configuration has no equivalent of the v1 artifact 'type' field."
+}
+
+@test "notation verifier leaf cert with rego policy" {
+    skip "TODO: the v2 CLI only ships the threshold-policy enforcer; the rego policy provider is not available yet."
+}
+
+@test "licensechecker verifier test" {
+    skip "TODO: plugin verifiers are being migrated to github.com/notaryproject/ratify-verifier-go and are not shipped by the v2 CLI."
+}
+
+@test "licensechecker verifier with type test" {
+    skip "TODO: plugin verifiers are being migrated to github.com/notaryproject/ratify-verifier-go and are not shipped by the v2 CLI."
+}
+
+@test "sbom verifier test" {
+    skip "TODO: plugin verifiers are being migrated to github.com/notaryproject/ratify-verifier-go and are not shipped by the v2 CLI."
+}
+
+@test "schemavalidator verifier test" {
+    skip "TODO: plugin verifiers are being migrated to github.com/notaryproject/ratify-verifier-go and are not shipped by the v2 CLI."
+}
+
+@test "vulnerabilityreport verifier test" {
+    skip "TODO: plugin verifiers are being migrated to github.com/notaryproject/ratify-verifier-go and are not shipped by the v2 CLI."
+}
+
+@test "sbom/notary/cosign/licensechecker verifiers test" {
+    skip "TODO: depends on the plugin verifiers above; re-enable once they are available to the v2 CLI."
+}
+
+@test "dynamic plugin verifier test" {
+    skip "TODO: the v2 CLI does not support dynamic plugin download (RATIFY_EXPERIMENTAL_DYNAMIC_PLUGINS)."
+}
+
+@test "dynamic plugin store test" {
+    skip "TODO: the v2 CLI does not support dynamic plugin download (RATIFY_EXPERIMENTAL_DYNAMIC_PLUGINS)."
 }
