@@ -184,8 +184,6 @@ main() {
   deploy_gatekeeper
   deploy_ratify
 
-  # Consumed by test cases that reconfigure the executor's AKV-backed notation
-  # verifier through the bats env.
   local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
   local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
   TEST_REGISTRY=$REGISTRY \

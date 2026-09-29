@@ -399,10 +399,6 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_failure
 }
 
-# v2 replacement for the v1 KeyManagementProvider refresher case. v2 has no KMP
-# and no background refresher: trust material is fetched when the Executor is
-# reconciled, so re-reconciling the Executor is the v2 refresh mechanism. This
-# case proves the controller actually reconciles on every spec change.
 @test "validate executor reconcile count" {
     teardown() {
         echo "cleaning up"
@@ -423,13 +419,6 @@ RATIFY_NAMESPACE=gatekeeper-system
     [ $((after - before)) -ge 4 ]
 }
 
-# The executor reads the Azure Key Vault certificate when it is reconciled. With
-# no version pinned it must resolve the latest version, so rotating the
-# certificate and re-reconciling has to change the trust anchor in use.
-#
-# A disposable copy of the signing certificate is imported for this case so the
-# shared "notation" certificate that the helm-deployed executor depends on is
-# never rotated out from under the other tests.
 @test "validate executor refresh picks up latest certificate version" {
     CERT_NAME="notation-refresh-latest"
     teardown() {
@@ -448,46 +437,35 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_success
     sleep 5
 
-    # save original executor state
     run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-refresh-latest.yaml"
     assert_success
 
-    # disposable copy of the signing certificate
     run az keyvault certificate import --vault-name ${KEYVAULT_NAME} -n ${CERT_NAME} -f ${NOTATION_PEM_PATH}
     assert_success
 
-    # point the executor at the disposable certificate without pinning a version
     baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run set_executor_akv_certificate ${EXECUTOR_NAME} ${CERT_NAME}
     assert_success
     run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
     assert_success
-    # the disposable certificate is a copy of the signing certificate, so the
-    # baseline admission below cannot by itself prove the new AKV name was
-    # loaded; assert the reconciled spec actually points at it
     run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.spec.verifiers[?(@.name==\"notation-1\")].parameters.certificates[0].azurekeyvault.certificates[0].name}' | grep -x '${CERT_NAME}'"
     assert_success
     sleep 10
 
-    # baseline: the signed image verifies against the first version
     run wait_for_process 20 10 'kubectl run refresh-latest-before --namespace default --image=${TEST_REGISTRY}/notation:signed'
     assert_success
 
-    # rotate: the new latest version is an unrelated self-signed certificate
     az keyvault certificate get-default-policy -o json >refresh-latest-policy.json
     run wait_for_process 20 10 "az keyvault certificate create --vault-name ${KEYVAULT_NAME} --name ${CERT_NAME} --policy @refresh-latest-policy.json"
     assert_success
 
-    # refresh the executor so it re-reads the certificate from Azure Key Vault
     baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run trigger_executor_reconcile ${EXECUTOR_NAME}
     assert_success
     run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
     assert_success
-    # wait past the provider verify cache TTL so the baseline pass is not reused
     sleep 10
 
-    # the refreshed trust anchor no longer matches the signature
     run kubectl run refresh-latest-after --namespace default --image=${TEST_REGISTRY}/notation:signed
     assert_failure
 }
@@ -510,37 +488,30 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_success
     sleep 5
 
-    # save original executor state
     run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-refresh-pinned.yaml"
     assert_success
 
-    # disposable copy of the signing certificate
     run az keyvault certificate import --vault-name ${KEYVAULT_NAME} -n ${CERT_NAME} -f ${NOTATION_PEM_PATH}
     assert_success
     version=$(az keyvault certificate show --vault-name ${KEYVAULT_NAME} --name ${CERT_NAME} --query 'sid' -o tsv | rev | cut -d'/' -f1 | rev)
     [ -n "$version" ]
 
-    # pin the executor to that exact version
     baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run set_executor_akv_certificate ${EXECUTOR_NAME} ${CERT_NAME} ${version}
     assert_success
     run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
     assert_success
-    # assert the reconciled spec really carries the pinned name and version
     run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.spec.verifiers[?(@.name==\"notation-1\")].parameters.certificates[0].azurekeyvault.certificates[0].version}' | grep -x '${version}'"
     assert_success
     sleep 10
 
-    # baseline: the signed image verifies against the pinned version
     run wait_for_process 20 10 'kubectl run refresh-pinned-before --namespace default --image=${TEST_REGISTRY}/notation:signed'
     assert_success
 
-    # rotate: a newer, unrelated version becomes the latest
     az keyvault certificate get-default-policy -o json >refresh-pinned-policy.json
     run wait_for_process 20 10 "az keyvault certificate create --vault-name ${KEYVAULT_NAME} --name ${CERT_NAME} --policy @refresh-pinned-policy.json"
     assert_success
 
-    # refresh the executor; the pin must survive the refresh
     baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run trigger_executor_reconcile ${EXECUTOR_NAME}
     assert_success
@@ -548,7 +519,6 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_success
     sleep 10
 
-    # still the pinned version, so the signature still verifies
     run kubectl run refresh-pinned-after --namespace default --image=${TEST_REGISTRY}/notation:signed
     assert_success
 }

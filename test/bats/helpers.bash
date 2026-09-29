@@ -157,12 +157,9 @@ restore_executor() {
     kubectl apply --server-side --force-conflicts -f -
 }
 
-# executor_reconcile_count echoes how many times the controller has logged a
-# reconcile of the cluster-scoped Executor. Tests need this because
-# status.succeeded stays true from the previous reconciliation and is not reset
-# when a new spec is applied, so it cannot be used on its own to tell that the
-# newly applied spec has been processed.
-# usage: executor_reconcile_count [namespace]
+# executor_reconcile_count echoes how many reconciles the controller has logged
+# for the cluster-scoped Executor. status.succeeded is not reset when a new spec
+# is applied, so it cannot be used on its own to detect a completed reconcile.
 executor_reconcile_count() {
   local ns="${1:-gatekeeper-system}"
   local deploy
@@ -174,10 +171,8 @@ executor_reconcile_count() {
   kubectl logs "deployment/${deploy}" -n "$ns" --tail=-1 2>/dev/null | grep "Reconciling Executor" | wc -l
 }
 
-# wait_for_executor_reconcile blocks until the controller has logged at least one
-# reconcile beyond <baseline> and the Executor reports success. Capture
-# <baseline> with executor_reconcile_count before applying the new spec.
-# usage: wait_for_executor_reconcile <executor-name> <baseline> [namespace] [timeout-seconds]
+# wait_for_executor_reconcile blocks until the controller has logged a reconcile
+# beyond <baseline> and the Executor reports success.
 wait_for_executor_reconcile() {
   local executor="$1"
   local baseline="$2"
@@ -200,9 +195,7 @@ wait_for_executor_reconcile() {
 }
 
 # trigger_executor_reconcile forces the controller to re-reconcile a
-# cluster-scoped Executor -- and therefore to rebuild its plugins and re-fetch
-# any externally sourced trust material -- by stamping a unique annotation on it.
-# usage: trigger_executor_reconcile <executor-name>
+# cluster-scoped Executor by stamping a unique annotation on it.
 trigger_executor_reconcile() {
   local executor="$1"
   kubectl annotate executors.config.ratify.sh/"$executor" \
@@ -210,9 +203,7 @@ trigger_executor_reconcile() {
 }
 
 # set_executor_akv_certificate points the notation-1 verifier of a cluster-scoped
-# Executor at a specific Azure Key Vault certificate, optionally pinning a
-# version, and applies the result. An empty version means "latest".
-# usage: set_executor_akv_certificate <executor-name> <cert-name> [cert-version]
+# Executor at an Azure Key Vault certificate. An empty version means "latest".
 set_executor_akv_certificate() {
   local executor="$1"
   local cert_name="$2"
