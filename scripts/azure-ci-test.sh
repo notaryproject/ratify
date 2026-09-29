@@ -92,12 +92,14 @@ upload_cert_to_akv() {
 
 # create_key_akv creates the AKV signing key that cosign uses to sign the test
 # images. The executor's azurekeyvault key provider reads back its public half.
+# EC P-256 matches the key type cosign itself provisions for azurekms:// keys,
+# so signing uses ES256 and the provider verifies with ECDSA/SHA-256.
 create_key_akv() {
   az keyvault key create \
     --vault-name ${KEYVAULT_NAME} \
     -n ${KEYVAULT_KEY_NAME} \
-    --kty RSA \
-    --size 2048
+    --kty EC \
+    --curve P-256
 }
 
 deploy_gatekeeper() {
