@@ -409,15 +409,7 @@ RATIFY_NAMESPACE=gatekeeper-system
         kubectl annotate executors.config.ratify.sh/${EXECUTOR_NAME} ratify.sh/e2e-reconcile-token- || true
     }
 
-    run kubectl get deploy --namespace ${RATIFY_NAMESPACE} -l app.kubernetes.io/name=ratify-gatekeeper-provider -o jsonpath='{.items[0].metadata.name}'
-    assert_success
-    ratify_deploy="$output"
-    if [ -z "$ratify_deploy" ]; then
-        echo "no ratify-gatekeeper-provider deployment found in namespace ${RATIFY_NAMESPACE}" >&2
-        return 1
-    fi
-
-    before=$(kubectl logs deployment/${ratify_deploy} -n ${RATIFY_NAMESPACE} | grep "Reconciling Executor" | wc -l)
+    before=$(executor_reconcile_count ${RATIFY_NAMESPACE})
 
     for _ in 1 2 3 4; do
         run trigger_executor_reconcile ${EXECUTOR_NAME}
@@ -426,7 +418,7 @@ RATIFY_NAMESPACE=gatekeeper-system
     done
     sleep 5
 
-    after=$(kubectl logs deployment/${ratify_deploy} -n ${RATIFY_NAMESPACE} | grep "Reconciling Executor" | wc -l)
+    after=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     echo "Reconciling Executor log lines: before=${before} after=${after}"
     [ $((after - before)) -ge 4 ]
 }
@@ -465,9 +457,16 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_success
 
     # point the executor at the disposable certificate without pinning a version
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run set_executor_akv_certificate ${EXECUTOR_NAME} ${CERT_NAME}
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    # the disposable certificate is a copy of the signing certificate, so the
+    # baseline admission below cannot by itself prove the new AKV name was
+    # loaded; assert the reconciled spec actually points at it
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.spec.verifiers[?(@.name==\"notation-1\")].parameters.certificates[0].azurekeyvault.certificates[0].name}' | grep -x '${CERT_NAME}'"
+    assert_success
     sleep 10
 
     # baseline: the signed image verifies against the first version
@@ -480,9 +479,11 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_success
 
     # refresh the executor so it re-reads the certificate from Azure Key Vault
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run trigger_executor_reconcile ${EXECUTOR_NAME}
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
     # wait past the provider verify cache TTL so the baseline pass is not reused
     sleep 10
 
@@ -522,9 +523,14 @@ RATIFY_NAMESPACE=gatekeeper-system
     [ -n "$version" ]
 
     # pin the executor to that exact version
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run set_executor_akv_certificate ${EXECUTOR_NAME} ${CERT_NAME} ${version}
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    # assert the reconciled spec really carries the pinned name and version
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.spec.verifiers[?(@.name==\"notation-1\")].parameters.certificates[0].azurekeyvault.certificates[0].version}' | grep -x '${version}'"
+    assert_success
     sleep 10
 
     # baseline: the signed image verifies against the pinned version
@@ -537,9 +543,11 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_success
 
     # refresh the executor; the pin must survive the refresh
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run trigger_executor_reconcile ${EXECUTOR_NAME}
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
     sleep 10
 
     # still the pinned version, so the signature still verifies
