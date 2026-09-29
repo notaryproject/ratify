@@ -40,7 +40,6 @@ HELMFILE_VERSION ?= 0.169.2
 BATS_BASE_TESTS_FILE ?= test/bats/base-test.bats
 BATS_PLUGIN_TESTS_FILE ?= test/bats/plugin-test.bats
 BATS_CLI_TESTS_FILE ?= test/bats/cli-test.bats
-BATS_CLI_V2_TESTS_FILE ?= test/bats/cli-v2-test.bats
 BATS_QUICKSTART_TESTS_FILE ?= test/bats/quickstart-test.bats
 BATS_HA_TESTS_FILE ?= test/bats/high-availability.bats
 BATS_VERSION ?= 1.11.1
@@ -206,24 +205,11 @@ test-e2e: generate-rotation-certs
 	timeout 20m bats -t ${BATS_BASE_TESTS_FILE}
 	EXPIRING_CERT_DIR=.staging/rotation/expiring-certs CERT_DIR=.staging/rotation GATEKEEPER_VERSION=${GATEKEEPER_VERSION} bats -t ${BATS_PLUGIN_TESTS_FILE}
 
-# TODO: the v2 `ratify` CLI only ships the notation and cosign verifiers, so this
-# target currently provisions only the notation and cosign fixtures. Restore the
-# CRL setup (e2e-notation-crl-setup) and the plugin verifier fixtures
-# (licensechecker/sbom/trivy/schemavalidator/vulnerabilityreport) once the v2 CLI
-# supports those scenarios, and un-skip the matching tests in
-# ${BATS_CLI_TESTS_FILE}.
 .PHONY: test-e2e-cli
-test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosign-setup
+test-e2e-cli: e2e-dependencies e2e-create-local-registry e2e-notation-setup e2e-notation-leaf-cert-setup e2e-notation-crl-setup e2e-cosign-setup e2e-licensechecker-setup e2e-sbom-setup e2e-trivy-setup e2e-schemavalidator-setup e2e-vulnerabilityreport-setup
 	rm ${GOCOVERDIR} -rf
 	mkdir ${GOCOVERDIR} -p
-	TEST_REGISTRY=${TEST_REGISTRY} \
-		TEST_REGISTRY_USERNAME=${TEST_REGISTRY_USERNAME} \
-		TEST_REGISTRY_PASSWORD=${TEST_REGISTRY_PASSWORD} \
-		NOTATION_CA_CERT=$${HOME}/.config/notation/localkeys/ratify-bats-test.crt \
-		NOTATION_TSA_ROOT_CERT=${GITHUB_WORKSPACE}/test/bats/tests/certificates/tsarootca.cer \
-		NOTATION_LEAF_CA_CERT=${GITHUB_WORKSPACE}/.staging/notation/leaf-test/ca.crt \
-		COSIGN_PUB_KEY=${GITHUB_WORKSPACE}/.staging/cosign/cosign.pub \
-		${GITHUB_WORKSPACE}/bin/bats -t ${BATS_CLI_TESTS_FILE} ${BATS_CLI_V2_TESTS_FILE}
+	RATIFY_DIR=${INSTALL_DIR} TEST_REGISTRY=${TEST_REGISTRY} ${GITHUB_WORKSPACE}/bin/bats -t ${BATS_CLI_TESTS_FILE}
 	go tool covdata textfmt -i=${GOCOVERDIR} -o test/e2e/coverage.txt
 
 .PHONY: test-quick-start

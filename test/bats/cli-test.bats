@@ -16,7 +16,7 @@
 load helpers
 
 @test "notation verifier test" {
-    skip "TODO: ported to cli-v2-test.bats for the v2 CLI."
+    skip "TODO: re-enable once the notation scenarios are ported to the v2 CLI config schema."
     run bin/ratify verify -c $RATIFY_DIR/config.json -s $TEST_REGISTRY/notation:signed
     assert_cmd_verify_success
 
@@ -28,7 +28,7 @@ load helpers
 }
 
 @test "notation verifier leaf cert test" {
-    skip "TODO: positive case ported to cli-v2-test.bats; the v2 notation verifier has no equivalent of config_notation_leaf_cert.json for the negative case."
+    skip "TODO: re-enable once the leaf-cert scenarios are ported; the v2 notation verifier also has no equivalent of config_notation_leaf_cert.json for the negative case."
     run bin/ratify verify -c $RATIFY_DIR/config_notation_root_cert.json -s $TEST_REGISTRY/notation:leafSigned
     assert_cmd_verify_success
 
@@ -63,7 +63,7 @@ load helpers
 }
 
 @test "multiple notation verifiers test" {
-    skip "TODO: ported to cli-v2-test.bats for the v2 CLI."
+    skip "TODO: re-enable once the notation scenarios are ported to the v2 CLI config schema."
     run bin/ratify verify -c $RATIFY_DIR/config_multiple_notation_verifiers.json -s $TEST_REGISTRY/notation:leafSigned
     assert_cmd_multi_verifier_success
 }
@@ -78,7 +78,7 @@ load helpers
 }
 
 @test "cosign verifier test" {
-    skip "TODO: key-based cases ported to cli-v2-test.bats; keyless (Fulcio/Rekor) verification is not wired up for the v2 CLI e2e yet."
+    skip "TODO: re-enable once the cosign scenarios are ported; keyless (Fulcio/Rekor) verification is also not wired up for the v2 CLI e2e yet."
     run bin/ratify verify -c $RATIFY_DIR/config.json -s $TEST_REGISTRY/cosign:signed-key
     assert_cmd_verify_success
 
@@ -181,7 +181,7 @@ load helpers
 }
 
 @test "notation verifier tsa test" {
-    skip "TODO: the TSA happy path is ported to cli-v2-test.bats; this expired-cert variant needs 'sudo date' and has not been ported."
+    skip "TODO: re-enable once the TSA scenario is ported; this expired-cert variant also needs 'sudo date'."
     teardown() {
         # reset current_time
         run sudo date -s "-2 days"
