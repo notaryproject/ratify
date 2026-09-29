@@ -178,9 +178,11 @@ RATIFY_NAMESPACE=gatekeeper-system
         -e "s|__TENANT_ID__|${TENANT_ID}|g" \
         -e "s|__COSIGN_KEY_NAME__|${KEYVAULT_KEY_NAME}|g" \
         ${BATS_TESTS_DIR}/config/executor_cosign_akv.yaml >cosign-akv-executor.yaml
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run kubectl apply --server-side --force-conflicts -f cosign-akv-executor.yaml
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
     sleep 10
 
     # signed with the AKV key, validated against its public half, should pass

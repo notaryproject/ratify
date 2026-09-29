@@ -90,9 +90,8 @@ upload_cert_to_akv() {
   #   -p @./test/bats/tests/config/akvpolicy.json
 }
 
-# create_key_akv creates the AKV signing key used by the cosign verifier. The
-# key is signed with by cosign through the azurekms:// provider and its public
-# half is read back by the executor's azurekeyvault key provider.
+# create_key_akv creates the AKV signing key that cosign uses to sign the test
+# images. The executor's azurekeyvault key provider reads back its public half.
 create_key_akv() {
   az keyvault key create \
     --vault-name ${KEYVAULT_NAME} \

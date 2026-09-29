@@ -18,14 +18,14 @@ spec:
     - name: cosign-1
       type: cosign
       parameters:
-        # the test images are signed offline (`cosign sign --tlog-upload=false`)
-        # against an AKV key, so there is no transparency log entry and no
-        # observer timestamp to check
-        ignoreTLog: true
-        ignoreObserverTimestamps: true
         trustPolicies:
           - scopes:
               - "__TEST_REGISTRY__/cosign"
+            # the test images are signed offline
+            # (`cosign sign --tlog-upload=false`), so there is no transparency
+            # log entry and no observer timestamp to check
+            ignoreTLog: true
+            ignoreObserverTimestamps: true
             keys:
               azurekeyvault:
                 vaultURL: "__VAULT_URI__"
