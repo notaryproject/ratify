@@ -409,10 +409,11 @@ EOF
     assert_success
     wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
-    echo "Replace: keep only the notation verifier but re-scope it away from registry:5000"
+    echo "Replace: keep only the notation verifier but swap its trust anchor for an unrelated CA"
     baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
-    run bash -c 'kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
-        jq '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [.spec.verifiers[] | select(.name == "notation-1") | .parameters.scopes = ["does-not-match.example.com"]] | .spec.policyEnforcer.parameters.policy.rules = [{verifierName: "notation-1"}]'"'"' | kubectl apply --server-side --force-conflicts -f -'
+    run bash -c 'UNRELATED_CA=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg ca "$UNRELATED_CA" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [.spec.verifiers[] | select(.name == "notation-1") | .parameters.certificates = [{type: "ca", inline: {certs: $ca}}]] | .spec.policyEnforcer.parameters.policy.rules = [{verifierName: "notation-1"}]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
     run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
     assert_success
@@ -421,7 +422,7 @@ EOF
     run kubectl run crdtest-replace --namespace default --image=registry:5000/notation:signed
     assert_failure
 
-    echo "Restore original executor with the in-scope notation verifier and validate deployment succeeds"
+    echo "Restore original executor with the original trust anchor and validate deployment succeeds"
     baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run restore_executor original-executor-crd.yaml
     assert_success
