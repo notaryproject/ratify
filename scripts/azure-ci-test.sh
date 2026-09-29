@@ -38,9 +38,6 @@ export RATIFY_NAMESPACE=${4:-gatekeeper-system}
 CERT_DIR=${5:-"${HOME}/ratify/certs"}
 export AZURE_SP_OBJECT_ID=$6
 export NOTATION_PEM_NAME="notation"
-# Absolute path to the PEM (key + cert) that was imported into AKV. The executor
-# refresh tests re-import it under disposable certificate names so they can
-# rotate a certificate without disturbing the shared one.
 export NOTATION_PEM_PATH="$(pwd)/notation.pem"
 # The variables below are only needed by capabilities that are not yet
 # wired into the v2 AKS e2e. They are kept commented (rather than deleted)
