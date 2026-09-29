@@ -229,17 +229,6 @@ EOF
     assert_success
 }
 
-# v2 replacement for the v1 "certs across namespace" case. In v1 the notation
-# verifier referenced a (Namespaced)KeyManagementProvider living in another
-# namespace. v2 has no cross-namespace cert reference: trust material is carried
-# by the executor itself, and a NamespacedExecutor scopes it to one namespace.
-#
-# This case proves per-namespace cert isolation by giving two tenant namespaces
-# different trust anchors and asserting each only admits what its own executor
-# trusts. The final assertion is the attribution anchor: the cluster-scoped
-# executor trusts ratify-bats-test and would admit notation:signed, so a
-# rejection inside the leaf-test namespace can only come from that namespace's
-# own NamespacedExecutor.
 @test "notation test with certs across namespace" {
     NS_BATS=certs-ns-bats
     NS_LEAF=certs-ns-leaf
