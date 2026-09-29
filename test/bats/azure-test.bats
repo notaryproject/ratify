@@ -146,19 +146,11 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_failure
 }
 
-# cosign key-based verification against an Azure Key Vault key. The images are
-# signed offline (`cosign sign --tlog-upload=false`), so the verifier must run
-# with ignoreTLog/ignoreObserverTimestamps -- the combination that was missing
-# when this case was first skipped under notaryproject/ratify#2712.
 @test "cosign test" {
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo2 --namespace default --force --ignore-not-found=true'
-
-        # restore the original executor for other tests
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-cosign.yaml'
-        rm -f original-executor-cosign.yaml cosign-akv-executor.yaml
     }
 
     run kubectl apply -f ./library/default/template.yaml
@@ -167,23 +159,7 @@ RATIFY_NAMESPACE=gatekeeper-system
     run kubectl apply -f ./library/default/samples/constraint.yaml
     assert_success
     sleep 5
-
-    # save original executor state
-    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-cosign.yaml"
-    assert_success
-
-    sed -e "s|__TEST_REGISTRY__|${TEST_REGISTRY}|g" \
-        -e "s|__VAULT_URI__|${VAULT_URI}|g" \
-        -e "s|__CLIENT_ID__|${IDENTITY_CLIENT_ID}|g" \
-        -e "s|__TENANT_ID__|${TENANT_ID}|g" \
-        -e "s|__COSIGN_KEY_NAME__|${KEYVAULT_KEY_NAME}|g" \
-        ${BATS_TESTS_DIR}/config/executor_cosign_akv.yaml >cosign-akv-executor.yaml
-    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
-    run kubectl apply --server-side --force-conflicts -f cosign-akv-executor.yaml
-    assert_success
-    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
-    assert_success
-    sleep 10
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     # signed with the AKV key, validated against its public half, should pass
     run wait_for_process 20 10 'kubectl run cosign-demo --namespace default --image=${TEST_REGISTRY}/cosign:signed-key'

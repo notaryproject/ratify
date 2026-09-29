@@ -124,6 +124,7 @@ deploy_ratify() {
     --set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
     --set provider.tls.disableCertRotation=true \
     --set executor.scopes[0]=${REGISTRY}/notation \
+    --set executor.scopes[1]=${REGISTRY}/cosign \
     --set stores[0].credential.provider=azure \
     --set notation.scopes[0]=${REGISTRY}/notation \
     --set notation.certs[0].provider=azurekeyvault \
@@ -131,6 +132,14 @@ deploy_ratify() {
     --set notation.certs[0].clientID=${IDENTITY_CLIENT_ID} \
     --set notation.certs[0].tenantID=${TENANT_ID} \
     --set notation.certs[0].certificates[0].name=${NOTATION_PEM_NAME} \
+    --set cosign.scopes[0]=${REGISTRY}/cosign \
+    --set cosign.keys.provider=azurekeyvault \
+    --set cosign.keys.vaultURL=${VAULT_URI} \
+    --set cosign.keys.clientID=${IDENTITY_CLIENT_ID} \
+    --set cosign.keys.tenantID=${TENANT_ID} \
+    --set cosign.keys.keys[0].name=${KEYVAULT_KEY_NAME} \
+    --set cosign.ignoreTLog=true \
+    --set cosign.ignoreObserverTimestamps=true \
     --set serviceAccount.name=${SERVICE_ACCOUNT_NAME} \
     --set-string serviceAccount.annotations."azure\.workload\.identity/client-id"=${IDENTITY_CLIENT_ID}
 }
@@ -184,15 +193,10 @@ main() {
   deploy_ratify
 
   # Consumed by test cases that configure AKV-backed verifiers through the
-  # bats env.
-  local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
-  local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
-  TEST_REGISTRY=$REGISTRY \
-    VAULT_URI=${VAULT_URI} \
-    IDENTITY_CLIENT_ID=${IDENTITY_CLIENT_ID} \
-    TENANT_ID=${TENANT_ID} \
-    KEYVAULT_KEY_NAME=${KEYVAULT_KEY_NAME} \
-    bats -t ./test/bats/azure-test.bats
+  # bats env; re-enable together with those cases in the follow-up PRs.
+  # local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
+  # local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
+  TEST_REGISTRY=$REGISTRY bats -t ./test/bats/azure-test.bats
 }
 
 main
