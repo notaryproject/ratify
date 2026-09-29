@@ -23,6 +23,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	notationx509 "github.com/notaryproject/notation-core-go/x509"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
@@ -30,6 +31,9 @@ import (
 )
 
 const fileSystemProviderName = "files"
+
+// homeShortcut is the prefix that expands to the current user's home directory.
+const homeShortcut = "~"
 
 // FileSystemProvider is a key provider that loads certificates from the file
 // system.
@@ -83,11 +87,16 @@ func (f *FileSystemProvider) GetKeys(_ context.Context) ([]*keyprovider.PublicKe
 }
 
 func loadCertificatesFromPath(path string) ([]*x509.Certificate, error) {
+	path, err := expandHomeShortcut(path)
+	if err != nil {
+		return nil, err
+	}
+
 	logrus.Infof("Loading certificates from path: %s", path)
 	var certificates []*x509.Certificate
 	fileMap := map[string]struct{}{} //a map to track path of physical files
 
-	err := filepath.Walk(path, func(file string, info os.FileInfo, err error) error {
+	err = filepath.Walk(path, func(file string, info os.FileInfo, err error) error {
 		targetFileInfo := info
 		targetFilePath := file
 
@@ -138,4 +147,21 @@ func loadCertificatesFromPath(path string) ([]*x509.Certificate, error) {
 
 func isSymbolicLink(info fs.FileInfo) bool {
 	return info.Mode()&os.ModeSymlink != 0
+}
+
+func expandHomeShortcut(path string) (string, error) {
+	if path != homeShortcut &&
+		!strings.HasPrefix(path, homeShortcut+"/") &&
+		!strings.HasPrefix(path, homeShortcut+string(os.PathSeparator)) {
+		return path, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve home directory for path %s: %w", path, err)
+	}
+	if path == homeShortcut {
+		return home, nil
+	}
+	return filepath.Join(home, path[len(homeShortcut)+1:]), nil
 }

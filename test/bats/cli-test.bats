@@ -16,7 +16,6 @@
 load helpers
 
 @test "notation verifier test" {
-    skip "TODO: re-enable once the notation scenarios are ported to the v2 CLI config schema."
     run bin/ratify verify -c $RATIFY_DIR/config.json -s $TEST_REGISTRY/notation:signed
     assert_cmd_verify_success
 

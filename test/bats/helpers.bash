@@ -35,7 +35,7 @@ assert_cmd_verify_success() {
   if [[ "$status" != 0 ]]; then
     return 1
   fi
-  if [[ "$output" == *'"isSuccess": false,'* ]]; then
+  if [[ "$output" == *'"succeeded": false'* ]]; then
     echo $output
     return 1
   fi
@@ -79,7 +79,7 @@ assert_cmd_verify_failure() {
   if [[ "$status" != 0 ]]; then
     return 1
   fi
-  if [[ "$output" == *'"isSuccess": true,'* ]]; then
+  if [[ "$output" == *'"succeeded": true'* ]]; then
     echo $output
     return 1
   fi
