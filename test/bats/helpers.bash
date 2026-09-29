@@ -185,6 +185,43 @@ apply_namespaced_notation_executor() {
   }' | kubectl apply -f -
 }
 
+# executor_reconcile_count echoes how many reconciles the controller has logged
+# for the cluster-scoped Executor. status.succeeded is not reset when a new spec
+# is applied, so it cannot be used on its own to detect a completed reconcile.
+executor_reconcile_count() {
+  local ns="${1:-gatekeeper-system}"
+  local deploy
+  deploy="$(kubectl get deploy -n "$ns" -l app.kubernetes.io/name=ratify-gatekeeper-provider -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+  if [[ -z "$deploy" ]]; then
+    echo 0
+    return 0
+  fi
+  kubectl logs "deployment/${deploy}" -n "$ns" --tail=-1 2>/dev/null | grep "Reconciling Executor" | wc -l
+}
+
+# wait_for_executor_reconcile blocks until the controller has logged a reconcile
+# beyond <baseline> and the Executor reports success.
+wait_for_executor_reconcile() {
+  local executor="$1"
+  local baseline="$2"
+  local ns="${3:-gatekeeper-system}"
+  local timeout="${4:-120}"
+  local waited=0
+  local count
+  while [[ "$waited" -lt "$timeout" ]]; do
+    count="$(executor_reconcile_count "$ns")"
+    if [[ "$count" -gt "$baseline" ]] &&
+      [[ "$(kubectl get executors.config.ratify.sh/"$executor" -o jsonpath='{.status.succeeded}')" == "true" ]]; then
+      return 0
+    fi
+    sleep 2
+    waited=$((waited + 2))
+  done
+  echo "timed out waiting for executor ${executor} to reconcile: baseline=${baseline} current=$(executor_reconcile_count "$ns")"
+  kubectl get executors.config.ratify.sh/"$executor" -o jsonpath='{.status}'
+  return 1
+}
+
 uninstall_ratify_release() {
   local helm="$1"
   "$helm" uninstall ratify-gatekeeper-provider --namespace gatekeeper-system 2>/dev/null || true
