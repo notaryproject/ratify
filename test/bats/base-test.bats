@@ -384,17 +384,6 @@ EOF
     wait_for_process 20 10 'kubectl run cosign-demo-keyless --namespace default --image=wabbitnetworks.azurecr.io/test/cosign-image:signed-keyless'
 }
 
-# Exercises the full Executor CRD lifecycle: replace (narrow the trust policy so
-# the signed image no longer verifies), add back (restore), delete (no executor
-# serves the scope at all) and add again.
-#
-# The replace step keeps exactly one verifier -- the helm-deployed notation
-# verifier -- but re-scopes its trust policy to a registry that does not match
-# the test image. Dropping the notation verifier outright (the original v1
-# approach) would leave the cosign verifier as the only rule; that verifier is
-# deployed with IgnoreTLog=false in some configurations, which makes the whole
-# executor error out instead of producing a clean verification failure, so the
-# admission outcome would no longer be attributable to the CRD change.
 @test "validate crd add, replace and delete" {
     teardown() {
         echo "cleaning up"
@@ -421,21 +410,23 @@ EOF
     wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
     echo "Replace: keep only the notation verifier but re-scope it away from registry:5000"
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run bash -c 'kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
         jq '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [.spec.verifiers[] | select(.name == "notation-1") | .parameters.scopes = ["does-not-match.example.com"]] | .spec.policyEnforcer.parameters.policy.rules = [{verifierName: "notation-1"}]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    # wait for executor to be reconciled; the spec is still valid, only the trust
-    # policy scope changed, so the executor must reconcile successfully
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
     # wait past the provider verify cache TTL (5s) so an earlier pass is not reused
     sleep 10
     run kubectl run crdtest-replace --namespace default --image=registry:5000/notation:signed
     assert_failure
 
     echo "Restore original executor with the in-scope notation verifier and validate deployment succeeds"
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run restore_executor original-executor-crd.yaml
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
     sleep 10
     run kubectl run crdtest-restore --namespace default --image=registry:5000/notation:signed
     assert_success
@@ -443,14 +434,17 @@ EOF
     echo "Delete the executor and validate no executor serves the scope"
     run kubectl delete executors.config.ratify.sh/${EXECUTOR_NAME}
     assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} 2>&1 | grep -q 'NotFound\|not found'"
     sleep 10
     run kubectl run crdtest-deleted --namespace default --image=registry:5000/notation:signed
     assert_failure
 
     echo "Add the executor back and validate deployment succeeds again"
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
     run restore_executor original-executor-crd.yaml
     assert_success
-    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
     sleep 10
     run kubectl run crdtest-readded --namespace default --image=registry:5000/notation:signed
     assert_success
