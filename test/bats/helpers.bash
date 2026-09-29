@@ -157,12 +157,37 @@ restore_executor() {
     kubectl apply --server-side --force-conflicts -f -
 }
 
-# executor_reconcile_count echoes how many times the controller has logged a
-# reconcile of the cluster-scoped Executor. Tests need this because
-# status.succeeded stays true from the previous reconciliation and is not reset
-# when a new spec is applied, so it cannot be used on its own to tell that the
-# newly applied spec has been processed.
-# usage: executor_reconcile_count [namespace]
+# apply_namespaced_notation_executor renders and applies a NamespacedExecutor
+# whose notation verifier trusts a single inline CA certificate. It lets a test
+# give each tenant namespace its own trust material.
+# usage: apply_namespaced_notation_executor <namespace> <name> <ca-cert-path>
+apply_namespaced_notation_executor() {
+  local ns="$1"
+  local name="$2"
+  local cert_path="$3"
+  local cert
+  if [[ ! -f "$cert_path" ]]; then
+    echo "apply_namespaced_notation_executor: certificate $cert_path not found"
+    return 1
+  fi
+  cert="$(cat "$cert_path")"
+  jq -n --arg ns "$ns" --arg name "$name" --arg cert "$cert" '{
+    apiVersion: "config.ratify.sh/v2beta1",
+    kind: "NamespacedExecutor",
+    metadata: {name: $name, namespace: $ns},
+    spec: {
+      scopes: ["registry:5000"],
+      concurrency: 3,
+      stores: [{type: "registry-store", parameters: {plainHttp: true, credential: {provider: "static", username: "test_user", password: "test_pw"}}}],
+      verifiers: [{name: "notation", type: "notation", parameters: {certificates: [{type: "ca", inline: {certs: $cert}}]}}],
+      policyEnforcer: {type: "threshold-policy", parameters: {policy: {threshold: 1, rules: [{verifierName: "notation"}]}}}
+    }
+  }' | kubectl apply -f -
+}
+
+# executor_reconcile_count echoes how many reconciles the controller has logged
+# for the cluster-scoped Executor. status.succeeded is not reset when a new spec
+# is applied, so it cannot be used on its own to detect a completed reconcile.
 executor_reconcile_count() {
   local ns="${1:-gatekeeper-system}"
   local deploy
@@ -174,10 +199,8 @@ executor_reconcile_count() {
   kubectl logs "deployment/${deploy}" -n "$ns" --tail=-1 2>/dev/null | grep "Reconciling Executor" | wc -l
 }
 
-# wait_for_executor_reconcile blocks until the controller has logged at least one
-# reconcile beyond <baseline> and the Executor reports success. Capture
-# <baseline> with executor_reconcile_count before applying the new spec.
-# usage: wait_for_executor_reconcile <executor-name> <baseline> [namespace] [timeout-seconds]
+# wait_for_executor_reconcile blocks until the controller has logged a reconcile
+# beyond <baseline> and the Executor reports success.
 wait_for_executor_reconcile() {
   local executor="$1"
   local baseline="$2"
