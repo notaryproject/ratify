@@ -227,6 +227,34 @@ set_executor_akv_certificate() {
     kubectl apply --server-side --force-conflicts -f -
 }
 
+# apply_namespaced_notation_executor renders and applies a NamespacedExecutor
+# whose notation verifier trusts a single inline CA certificate. It lets a test
+# give each tenant namespace its own trust material.
+# usage: apply_namespaced_notation_executor <namespace> <name> <ca-cert-path>
+apply_namespaced_notation_executor() {
+  local ns="$1"
+  local name="$2"
+  local cert_path="$3"
+  local cert
+  if [[ ! -f "$cert_path" ]]; then
+    echo "apply_namespaced_notation_executor: certificate $cert_path not found"
+    return 1
+  fi
+  cert="$(cat "$cert_path")"
+  jq -n --arg ns "$ns" --arg name "$name" --arg cert "$cert" '{
+    apiVersion: "config.ratify.sh/v2beta1",
+    kind: "NamespacedExecutor",
+    metadata: {name: $name, namespace: $ns},
+    spec: {
+      scopes: ["registry:5000"],
+      concurrency: 3,
+      stores: [{type: "registry-store", parameters: {plainHttp: true, credential: {provider: "static", username: "test_user", password: "test_pw"}}}],
+      verifiers: [{name: "notation", type: "notation", parameters: {certificates: [{type: "ca", inline: {certs: $cert}}]}}],
+      policyEnforcer: {type: "threshold-policy", parameters: {policy: {threshold: 1, rules: [{verifierName: "notation"}]}}}
+    }
+  }' | kubectl apply -f -
+}
+
 uninstall_ratify_release() {
   local helm="$1"
   "$helm" uninstall ratify-gatekeeper-provider --namespace gatekeeper-system 2>/dev/null || true
