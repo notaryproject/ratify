@@ -492,8 +492,6 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_failure
 }
 
-# The mirror of the case above: when a version is pinned, refreshing the executor
-# must keep resolving that version, so rotating the certificate has no effect.
 @test "validate certificate specified version" {
     CERT_NAME="notation-refresh-pinned"
     teardown() {
