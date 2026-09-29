@@ -15,14 +15,6 @@
 
 load helpers
 
-# These are the v1 CLI scenarios. They are kept here (rather than deleted) so the
-# scenario list stays visible, but every test is skipped because the v2 `ratify`
-# CLI does not accept the v1 $RATIFY_DIR config layout.
-#
-# Scenarios marked "ported" have a v2 equivalent in test/bats/cli-v2-test.bats.
-# The rest depend on capabilities the v2 CLI does not ship yet and should be
-# re-enabled as those land.
-
 @test "notation verifier test" {
     skip "TODO: ported to cli-v2-test.bats for the v2 CLI."
     run bin/ratify verify -c $RATIFY_DIR/config.json -s $TEST_REGISTRY/notation:signed
