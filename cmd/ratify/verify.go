@@ -48,15 +48,12 @@ func newVerifyCmd() *cobra.Command {
 		Short: "Verify an artifact against the configured verifiers and policy",
 		Long: `Verify resolves the given subject artifact, verifies all associated
 artifacts (such as signatures and attestations) using the configured verifiers,
-and evaluates the results against the configured policy.
-
-The command exits with a non-zero status code if the artifact does not satisfy
-the policy or if an error occurs during verification.`,
+and evaluates the results against the configured policy.`,
 		Example: `  # Verify an artifact using the default configuration file
   ratify verify --subject myregistry.io/repo@sha256:abc123
 
-  # Verify an artifact using a custom configuration file and JSON output
-  ratify verify --subject myregistry.io/repo:v1 --config ./config.json --output json`,
+  # Verify an artifact using a custom configuration file and text output
+  ratify verify --subject myregistry.io/repo:v1 --config ./config.json --output text`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVerify(cmd, opts)
@@ -66,7 +63,7 @@ the policy or if an error occurs during verification.`,
 	flags := cmd.Flags()
 	flags.StringVarP(&opts.subject, "subject", "s", "", "subject artifact reference to verify (required)")
 	flags.StringVarP(&opts.configPath, "config", "c", "", "path to the ratify configuration file (default \"$HOME/.ratify/config.json\")")
-	flags.StringVarP(&opts.output, "output", "o", outputText, "output format, one of: text, json")
+	flags.StringVarP(&opts.output, "output", "o", outputJSON, "output format, one of: text, json")
 	if err := cmd.MarkFlagRequired("subject"); err != nil {
 		panic(fmt.Sprintf("failed to mark %q flag as required: %v", "subject", err))
 	}
@@ -89,14 +86,10 @@ func runVerify(cmd *cobra.Command, opts *verifyOptions) error {
 		return fmt.Errorf("failed to verify artifact %q: %w", opts.subject, err)
 	}
 
-	if err := printResult(cmd.OutOrStdout(), opts.subject, opts.output, result); err != nil {
-		return err
-	}
-
-	if !result.Succeeded {
-		return fmt.Errorf("artifact %q failed verification", opts.subject)
-	}
-	return nil
+	// A failed verification is a reportable outcome rather than a command
+	// error: the result is printed and the command exits 0. Non-zero exit codes
+	// are reserved for errors that prevented verification from completing.
+	return printResult(cmd.OutOrStdout(), opts.subject, opts.output, result)
 }
 
 // loadExecutor reads the configuration file and builds a scoped executor.

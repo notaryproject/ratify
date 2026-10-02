@@ -170,6 +170,29 @@ func TestRunVerify_RendersResult(t *testing.T) {
 	}
 }
 
+// TestRunVerify_FailedVerificationExitsZero pins the CLI contract that a
+// reported verification failure is not a command error. Only errors that
+// prevent verification from completing may produce a non-zero exit code.
+func TestRunVerify_FailedVerificationExitsZero(t *testing.T) {
+	cmd := newVerifyCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetContext(context.Background())
+	opts := &verifyOptions{
+		subject:    testSubjectArtifactRef,
+		output:     outputText,
+		configPath: writeExecutorConfig(t, testStoreType),
+	}
+
+	err := runVerify(cmd, opts)
+	if err != nil {
+		t.Fatalf("expected no error for a reported verification outcome, got: %v", err)
+	}
+	if !strings.Contains(buf.String(), "FAILED") {
+		t.Fatalf("expected the report to record a failed verification; got:\n%s", buf.String())
+	}
+}
+
 func TestNewRenderedReports_SkipsNilEntries(t *testing.T) {
 	reports := []*ratify.ValidationReport{
 		nil,

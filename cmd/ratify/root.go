@@ -30,7 +30,8 @@ attestations) against a configurable set of verifiers, stores, and policies.
 The CLI is built on top of the ratify-go library and shares the same
 configuration format as the Ratify Gatekeeper provider.`,
 		// Usage is only helpful for flag/argument errors; keep runtime errors
-		// (e.g. a failed verification) from printing the full usage text.
+		// (e.g. an unreadable configuration file) from printing the full usage
+		// text.
 		SilenceUsage: true,
 	}
 

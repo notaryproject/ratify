@@ -67,7 +67,7 @@ spec:
         trustPolicies:
           - {{- if .Values.cosign.scopes }}
             scopes:
-              {{- toYaml .Values.cosign.scopes | nindent 10 }}
+              {{- toYaml .Values.cosign.scopes | nindent 14 }}
             {{- end }}
             certificateIdentity: "{{ .Values.cosign.certificateIdentity }}"
             certificateIdentityRegex: "{{ .Values.cosign.certificateIdentityRegex }}"
