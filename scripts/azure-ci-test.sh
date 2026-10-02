@@ -38,6 +38,7 @@ export RATIFY_NAMESPACE=${4:-gatekeeper-system}
 CERT_DIR=${5:-"${HOME}/ratify/certs"}
 export AZURE_SP_OBJECT_ID=$6
 export NOTATION_PEM_NAME="notation"
+export NOTATION_PEM_PATH="$(pwd)/notation.pem"
 # The variables below are only needed by capabilities that are not yet
 # wired into the v2 AKS e2e. They are kept commented (rather than deleted)
 # so the pieces are easy to re-enable in the follow-up PRs that add them and
@@ -67,15 +68,15 @@ build_push_to_acr() {
 }
 
 upload_cert_to_akv() {
-  rm -f notation.pem
-  cat ~/.config/notation/localkeys/ratify-bats-test.key >>notation.pem
-  cat ~/.config/notation/localkeys/ratify-bats-test.crt >>notation.pem
+  rm -f "${NOTATION_PEM_PATH}"
+  cat ~/.config/notation/localkeys/ratify-bats-test.key >>"${NOTATION_PEM_PATH}"
+  cat ~/.config/notation/localkeys/ratify-bats-test.crt >>"${NOTATION_PEM_PATH}"
 
   echo "uploading notation.pem"
   az keyvault certificate import \
     --vault-name ${KEYVAULT_NAME} \
     -n ${NOTATION_PEM_NAME} \
-    -f notation.pem
+    -f "${NOTATION_PEM_PATH}"
 
   # The leaf-cert test configures the generated certs as inline trust stores,
   # so the leaf signing chain does not need to be uploaded to AKV.
@@ -194,11 +195,15 @@ main() {
   deploy_gatekeeper
   deploy_ratify
 
-  # Consumed by test cases that configure AKV-backed verifiers through the
-  # bats env; re-enable together with those cases in the follow-up PRs.
-  # local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
-  # local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
-  TEST_REGISTRY=$REGISTRY bats -t ./test/bats/azure-test.bats
+  local IDENTITY_CLIENT_ID=$(az identity show --name ${USER_ASSIGNED_IDENTITY_NAME} --resource-group ${GROUP_NAME} --query 'clientId' -o tsv)
+  local VAULT_URI=$(az keyvault show --name ${KEYVAULT_NAME} --resource-group ${GROUP_NAME} --query "properties.vaultUri" -otsv)
+  TEST_REGISTRY=$REGISTRY \
+    KEYVAULT_NAME=${KEYVAULT_NAME} \
+    VAULT_URI=${VAULT_URI} \
+    IDENTITY_CLIENT_ID=${IDENTITY_CLIENT_ID} \
+    TENANT_ID=${TENANT_ID} \
+    NOTATION_PEM_PATH=${NOTATION_PEM_PATH} \
+    bats -t ./test/bats/azure-test.bats
 }
 
 main

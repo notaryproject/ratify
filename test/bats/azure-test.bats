@@ -399,82 +399,126 @@ RATIFY_NAMESPACE=gatekeeper-system
     assert_failure
 }
 
-@test "validate refresher reconcile count" {
-    skip "no KeyManagementProvider/refresher in the v2 gatekeeper provider"
+@test "validate executor reconcile count" {
     teardown() {
         echo "cleaning up"
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementprovider kmp-akv-refresh --ignore-not-found=true'
-        rm test.yaml
+        kubectl annotate executors.config.ratify.sh/${EXECUTOR_NAME} ratify.sh/e2e-reconcile-token- || true
     }
-    sed -e "s/keymanagementprovider-akv/kmp-akv-refresh/" \
-        -e "s/1m/1s/" \
-        -e "s/yourCertName/${NOTATION_PEM_NAME}/" \
-        -e '/version: yourCertVersion/d' \
-        -e "s|https://yourkeyvault.vault.azure.net/|${VAULT_URI}|" \
-        -e "s/tenantID:/tenantID: ${TENANT_ID}/" \
-        -e "s/clientID:/clientID: ${IDENTITY_CLIENT_ID}/" \
-        ./config/samples/clustered/kmp/config_v1beta1_keymanagementprovider_akv_refresh_enabled.yaml >test.yaml
-    run kubectl apply -f test.yaml
-    assert_success
-    sleep 10
-    count=$(kubectl logs deployment/ratify -n gatekeeper-system | grep "Reconciled KeyManagementProvider" | wc -l)
-    [ $count -ge 4 ]
+
+    before=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+
+    for _ in 1 2 3 4; do
+        run trigger_executor_reconcile ${EXECUTOR_NAME}
+        assert_success
+        sleep 2
+    done
+    sleep 5
+
+    after=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    echo "Reconciling Executor log lines: before=${before} after=${after}"
+    [ $((after - before)) -ge 4 ]
 }
 
-@test "validate refresher updates kmp with latest certificate version" {
-    skip "no KeyManagementProvider/refresher in the v2 gatekeeper provider"
+@test "validate executor refresh picks up latest certificate version" {
+    CERT_NAME="notation-refresh-latest"
     teardown() {
         echo "cleaning up"
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementprovider kmp-akv-refresh --ignore-not-found=true'
-        rm test.yaml
-        rm policy.json
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod refresh-latest-before --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod refresh-latest-after --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-refresh-latest.yaml'
+        rm -f original-executor-refresh-latest.yaml refresh-latest-policy.json
+        az keyvault certificate delete --vault-name ${KEYVAULT_NAME} --name ${CERT_NAME} || true
     }
-    sed -e "s/keymanagementprovider-akv/kmp-akv-refresh/" \
-        -e "s/1m/5s/" \
-        -e "s/yourCertName/${NOTATION_PEM_NAME}/" \
-        -e '/version: yourCertVersion/d' \
-        -e "s|https://yourkeyvault.vault.azure.net/|${VAULT_URI}|" \
-        -e "s/tenantID:/tenantID: ${TENANT_ID}/" \
-        -e "s/clientID:/clientID: ${IDENTITY_CLIENT_ID}/" \
-        ./config/samples/clustered/kmp/config_v1beta1_keymanagementprovider_akv_refresh_enabled.yaml >test.yaml
-    run kubectl apply -f test.yaml
+
+    run kubectl apply -f ./library/default/template.yaml
     assert_success
     sleep 5
-    result=$(kubectl get keymanagementprovider kmp-akv-refresh -o jsonpath='{.status.properties.Certificates[0].Version}')
-    az keyvault certificate get-default-policy -o json >>policy.json
-    wait_for_process 20 10 "az keyvault certificate create --vault-name $KEYVAULT_NAME --name $NOTATION_PEM_NAME --policy @policy.json"
-    sleep 30
-    refreshResult=$(kubectl get keymanagementprovider kmp-akv-refresh -o jsonpath='{.status.properties.Certificates[0].Version}')
-    [ "$result" != "$refreshResult" ]
+    run kubectl apply -f ./library/default/samples/constraint.yaml
+    assert_success
+    sleep 5
+
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-refresh-latest.yaml"
+    assert_success
+
+    run az keyvault certificate import --vault-name ${KEYVAULT_NAME} -n ${CERT_NAME} -f ${NOTATION_PEM_PATH}
+    assert_success
+
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run set_executor_akv_certificate ${EXECUTOR_NAME} ${CERT_NAME}
+    assert_success
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.spec.verifiers[?(@.name==\"notation-1\")].parameters.certificates[0].azurekeyvault.certificates[0].name}' | grep -x '${CERT_NAME}'"
+    assert_success
+    sleep 10
+
+    run wait_for_process 20 10 'kubectl run refresh-latest-before --namespace default --image=${TEST_REGISTRY}/notation:signed'
+    assert_success
+
+    az keyvault certificate get-default-policy -o json >refresh-latest-policy.json
+    run wait_for_process 20 10 "az keyvault certificate create --vault-name ${KEYVAULT_NAME} --name ${CERT_NAME} --policy @refresh-latest-policy.json"
+    assert_success
+
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run trigger_executor_reconcile ${EXECUTOR_NAME}
+    assert_success
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    sleep 10
+
+    run kubectl run refresh-latest-after --namespace default --image=${TEST_REGISTRY}/notation:signed
+    assert_failure
 }
 
 @test "validate certificate specified version" {
-    skip "no KeyManagementProvider/refresher in the v2 gatekeeper provider"
+    CERT_NAME="notation-refresh-pinned"
     teardown() {
         echo "cleaning up"
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete keymanagementprovider kmp-akv-refresh --ignore-not-found=true'
-        rm policy.json
-        rm test.yaml
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod refresh-pinned-before --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod refresh-pinned-after --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-refresh-pinned.yaml'
+        rm -f original-executor-refresh-pinned.yaml refresh-pinned-policy.json
+        az keyvault certificate delete --vault-name ${KEYVAULT_NAME} --name ${CERT_NAME} || true
     }
-    sed -e "s/keymanagementprovider-akv/kmp-akv-refresh/" \
-        -e "s/1m/1s/" \
-        -e "s/yourCertName/${NOTATION_PEM_NAME}/" \
-        -e '/version: yourCertVersion/d' \
-        -e "s|https://yourkeyvault.vault.azure.net/|${VAULT_URI}|" \
-        -e "s/tenantID:/tenantID: ${TENANT_ID}/" \
-        -e "s/clientID:/clientID: ${IDENTITY_CLIENT_ID}/" \
-        ./config/samples/clustered/kmp/config_v1beta1_keymanagementprovider_akv_refresh_enabled.yaml >test.yaml
-    version=$(az keyvault certificate show --vault-name $KEYVAULT_NAME --name $NOTATION_PEM_NAME --query 'sid' -o tsv | rev | cut -d'/' -f1 | rev)
-    sed -i \
-        -e "/name: ${NOTATION_PEM_NAME}/a \ \ \ \ \ \ \ \ version: ${version}" \
-        test.yaml
-    run kubectl apply -f test.yaml
+
+    run kubectl apply -f ./library/default/template.yaml
+    assert_success
+    sleep 5
+    run kubectl apply -f ./library/default/samples/constraint.yaml
+    assert_success
+    sleep 5
+
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-refresh-pinned.yaml"
+    assert_success
+
+    run az keyvault certificate import --vault-name ${KEYVAULT_NAME} -n ${CERT_NAME} -f ${NOTATION_PEM_PATH}
+    assert_success
+    version=$(az keyvault certificate show --vault-name ${KEYVAULT_NAME} --name ${CERT_NAME} --query 'sid' -o tsv | rev | cut -d'/' -f1 | rev)
+    [ -n "$version" ]
+
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run set_executor_akv_certificate ${EXECUTOR_NAME} ${CERT_NAME} ${version}
+    assert_success
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.spec.verifiers[?(@.name==\"notation-1\")].parameters.certificates[0].azurekeyvault.certificates[0].version}' | grep -x '${version}'"
     assert_success
     sleep 10
-    result=$(kubectl get keymanagementprovider kmp-akv-refresh -o jsonpath='{.status.properties.Certificates[0].Version}')
-    az keyvault certificate get-default-policy -o json >>policy.json
-    wait_for_process 20 10 "az keyvault certificate create --vault-name $KEYVAULT_NAME --name $NOTATION_PEM_NAME --policy @policy.json"
-    sleep 30
-    refreshResult=$(kubectl get keymanagementprovider kmp-akv-refresh -o jsonpath='{.status.properties.Certificates[0].Version}')
-    [ "$result" = "$refreshResult" ]
+
+    run wait_for_process 20 10 'kubectl run refresh-pinned-before --namespace default --image=${TEST_REGISTRY}/notation:signed'
+    assert_success
+
+    az keyvault certificate get-default-policy -o json >refresh-pinned-policy.json
+    run wait_for_process 20 10 "az keyvault certificate create --vault-name ${KEYVAULT_NAME} --name ${CERT_NAME} --policy @refresh-pinned-policy.json"
+    assert_success
+
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run trigger_executor_reconcile ${EXECUTOR_NAME}
+    assert_success
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    sleep 10
+
+    run kubectl run refresh-pinned-after --namespace default --image=${TEST_REGISTRY}/notation:signed
+    assert_success
 }
