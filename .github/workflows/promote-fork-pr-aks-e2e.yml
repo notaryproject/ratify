@@ -1,0 +1,114 @@
+name: promote-fork-pr-aks-e2e
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  contents: write
+  pull-requests: read
+  issues: write
+  actions: write
+
+concurrency:
+  group: promote-fork-pr-aks-e2e-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote fork PR and run AKS e2e
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/run-aks-e2e') }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.issue.number }}
+      COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+    steps:
+      - name: Validate commenter permission
+        run: |
+          set -euo pipefail
+
+          permission="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${COMMENT_AUTHOR}/permission" --jq '.permission')"
+          case "${permission}" in
+            admin|maintain|write)
+              echo "Commenter ${COMMENT_AUTHOR} has ${permission} permission."
+              ;;
+            *)
+              gh pr comment "${PR_NUMBER}" --body "AKS e2e was not started. @${COMMENT_AUTHOR} does not have write, maintain, or admin permission on this repository."
+              exit 1
+              ;;
+          esac
+
+      - name: Promote PR head to trusted branch
+        id: promote
+        run: |
+          set -euo pipefail
+
+          pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          head_sha="$(jq -r '.head.sha' <<<"${pr_json}")"
+          head_repo="$(jq -r '.head.repo.full_name' <<<"${pr_json}")"
+          base_ref="$(jq -r '.base.ref' <<<"${pr_json}")"
+          temp_branch="trusted-pr-${PR_NUMBER}-${head_sha:0:12}"
+
+          echo "head_sha=${head_sha}" >> "${GITHUB_OUTPUT}"
+          echo "head_repo=${head_repo}" >> "${GITHUB_OUTPUT}"
+          echo "base_ref=${base_ref}" >> "${GITHUB_OUTPUT}"
+          echo "temp_branch=${temp_branch}" >> "${GITHUB_OUTPUT}"
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          workdir="$(mktemp -d)"
+          cd "${workdir}"
+          git init
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "${base_ref}:refs/remotes/origin/${base_ref}"
+          if ! git fetch --no-tags --depth=1 origin "pull/${PR_NUMBER}/merge:refs/remotes/origin/pr-${PR_NUMBER}-merge"; then
+            gh pr comment "${PR_NUMBER}" --body "AKS e2e was not started because GitHub could not create a merge ref for this PR against \`${base_ref}\`."
+            exit 1
+          fi
+
+          git checkout -B "${temp_branch}" "origin/pr-${PR_NUMBER}-merge"
+          git checkout "origin/${base_ref}" -- .github/workflows .github/actions
+          if ! git diff --quiet; then
+            git add .github/workflows .github/actions
+            git commit -m "Restore trusted GitHub workflows and actions"
+          fi
+
+          git push --force-with-lease origin "HEAD:refs/heads/${temp_branch}"
+
+      - name: Dispatch AKS e2e workflow
+        id: dispatch
+        run: |
+          set -euo pipefail
+
+          gh workflow run e2e-aks.yml \
+            --ref "${{ steps.promote.outputs.temp_branch }}" \
+            -f k8s_version=1.35.5 \
+            -f gatekeeper_version=3.22.2
+
+          sleep 10
+          run_url="$(gh run list \
+            --workflow e2e-aks.yml \
+            --branch "${{ steps.promote.outputs.temp_branch }}" \
+            --limit 1 \
+            --json url \
+            --jq '.[0].url // ""')"
+          echo "run_url=${run_url}" >> "${GITHUB_OUTPUT}"
+
+      - name: Comment with run details
+        run: |
+          set -euo pipefail
+
+          cat > /tmp/aks-e2e-comment.md <<'EOF'
+          Queued AKS e2e for this PR on trusted temporary branch `${{ steps.promote.outputs.temp_branch }}`.
+
+          - PR head: `${{ steps.promote.outputs.head_repo }}@${{ steps.promote.outputs.head_sha }}`
+          - Base branch: `${{ steps.promote.outputs.base_ref }}`
+          - Workflow run: ${{ steps.dispatch.outputs.run_url }}
+
+          The temporary branch keeps trusted workflow files from the base branch while applying the PR changes.
+          EOF
+
+          gh pr comment "${PR_NUMBER}" --body-file /tmp/aks-e2e-comment.md
