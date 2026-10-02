@@ -147,25 +147,25 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "cosign test" {
-    skip "blocked by notaryproject/ratify#2712: v2 cosign key-based verification requires a tlog/timestamp, so an offline AKV-key-signed image is rejected"
     teardown() {
         echo "cleaning up"
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo2 --namespace default --force --ignore-not-found=true'
     }
 
-    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    run kubectl apply -f ./library/default/template.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    run kubectl apply -f ./library/default/samples/constraint.yaml
     assert_success
     sleep 5
-    run kubectl apply -f ./test/bats/tests/config/config_v1beta1_verifier_cosign_akv.yaml
-    assert_success
-    sleep 5
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
 
-    wait_for_process 20 10 'kubectl run cosign-demo --namespace default --image=${TEST_REGISTRY}/cosign:signed-key'
+    # signed with the AKV key, validated against its public half, should pass
+    run wait_for_process 20 10 'kubectl run cosign-demo --namespace default --image=${TEST_REGISTRY}/cosign:signed-key'
     assert_success
+
+    # unsigned image should be rejected
     run kubectl run cosign-demo2 --namespace default --image=${TEST_REGISTRY}/cosign:unsigned
     assert_failure
 }

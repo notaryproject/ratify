@@ -44,8 +44,7 @@ export NOTATION_PEM_NAME="notation"
 # so the diff against the v1 script stays traceable.
 # TODO(follow-up: notation leaf-cert chain):
 # export NOTATION_CHAIN_PEM_NAME="notationchain"
-# TODO(follow-up: cosign on AKV):
-# export KEYVAULT_KEY_NAME="test-key"
+export KEYVAULT_KEY_NAME="test-key"
 
 TAG="test${SUFFIX}"
 REGISTRY="${ACR_NAME}.azurecr.io"
@@ -91,17 +90,17 @@ upload_cert_to_akv() {
   #   -p @./test/bats/tests/config/akvpolicy.json
 }
 
-# TODO(follow-up: cosign on AKV): create the AKV signing key used by the
-# cosign verifier. cosign-on-AKV is not yet wired into the v2 AKS e2e;
-# re-enable this together with the "cosign test" bats case and the
-# create_key_akv call in main().
-# create_key_akv() {
-#   az keyvault key create \
-#     --vault-name ${KEYVAULT_NAME} \
-#     -n ${KEYVAULT_KEY_NAME} \
-#     --kty RSA \
-#     --size 2048
-# }
+# create_key_akv creates the AKV signing key that cosign uses to sign the test
+# images. The executor's azurekeyvault key provider reads back its public half.
+# EC P-256 matches the key type cosign itself provisions for azurekms:// keys,
+# so signing uses ES256 and the provider verifies with ECDSA/SHA-256.
+create_key_akv() {
+  az keyvault key create \
+    --vault-name ${KEYVAULT_NAME} \
+    -n ${KEYVAULT_KEY_NAME} \
+    --kty EC \
+    --curve P-256
+}
 
 deploy_gatekeeper() {
   echo "deploying gatekeeper"
@@ -127,6 +126,7 @@ deploy_ratify() {
     --set-file provider.tls.caCert=${CERT_DIR}/ca.crt \
     --set provider.tls.disableCertRotation=true \
     --set executor.scopes[0]=${REGISTRY}/notation \
+    --set executor.scopes[1]=${REGISTRY}/cosign \
     --set stores[0].credential.provider=azure \
     --set notation.scopes[0]=${REGISTRY}/notation \
     --set notation.certs[0].provider=azurekeyvault \
@@ -134,6 +134,14 @@ deploy_ratify() {
     --set notation.certs[0].clientID=${IDENTITY_CLIENT_ID} \
     --set notation.certs[0].tenantID=${TENANT_ID} \
     --set notation.certs[0].certificates[0].name=${NOTATION_PEM_NAME} \
+    --set cosign.scopes[0]=${REGISTRY}/cosign \
+    --set cosign.keys.provider=azurekeyvault \
+    --set cosign.keys.vaultURL=${VAULT_URI} \
+    --set cosign.keys.clientID=${IDENTITY_CLIENT_ID} \
+    --set cosign.keys.tenantID=${TENANT_ID} \
+    --set cosign.keys.keys[0].name=${KEYVAULT_KEY_NAME} \
+    --set cosign.ignoreTLog=true \
+    --set cosign.ignoreObserverTimestamps=true \
     --set serviceAccount.name=${SERVICE_ACCOUNT_NAME} \
     --set-string serviceAccount.annotations."azure\.workload\.identity/client-id"=${IDENTITY_CLIENT_ID}
 }
@@ -165,18 +173,21 @@ trap cleanup EXIT
 
 main() {
   ./scripts/create-azure-resources.sh
-  # TODO(follow-up: cosign on AKV): create the AKV signing key for cosign.
-  # create_key_akv
+  create_key_akv
 
   local ACR_USER_NAME="00000000-0000-0000-0000-000000000000"
   local ACR_PASSWORD=$(az acr login --name ${ACR_NAME} --expose-token --output tsv --query accessToken)
 
   # Build and push the notation signed/unsigned test images to ACR and sign
-  # the signed image with the ratify-bats-test certificate.
-  make e2e-create-all-image e2e-notation-setup e2e-notation-leaf-cert-setup \
+  # the signed image with the ratify-bats-test certificate. e2e-cosign-akv-setup
+  # additionally pushes the cosign signed/unsigned images and signs them with the
+  # AKV key created above.
+  make e2e-create-all-image e2e-notation-setup e2e-notation-leaf-cert-setup e2e-cosign-akv-setup \
     TEST_REGISTRY=$REGISTRY \
     TEST_REGISTRY_USERNAME=${ACR_USER_NAME} \
-    TEST_REGISTRY_PASSWORD=${ACR_PASSWORD}
+    TEST_REGISTRY_PASSWORD=${ACR_PASSWORD} \
+    KEYVAULT_NAME=${KEYVAULT_NAME} \
+    KEYVAULT_KEY_NAME=${KEYVAULT_KEY_NAME}
 
   build_push_to_acr
   upload_cert_to_akv
