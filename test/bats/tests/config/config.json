@@ -1,98 +1,51 @@
 {
-    "store": {
-        "version": "1.0.0",
-        "plugins": [
-            {
-                "name": "oras",
-                "cosignEnabled": true,
-                "useHttp": true
-            }
-        ]
-    },
-    "policy": {
-        "version": "1.0.0",
-        "plugin": {
-            "name": "configPolicy"
-        }
-    },
-    "verifier": {
-        "version": "1.0.0",
-        "plugins": [
-            {
-                "name": "schemavalidator",
-                "artifactTypes": "application/vnd.aquasecurity.trivy.report.sarif.v1",
-                "schemas": {
-                    "application/sarif+json": "file:///home/runner/.ratify/schemas/sarif-2.1.0-rtm.5.json"
-                }
-            },
-            {
-                "name": "sbom",
-                "artifactTypes": "application/spdx+json",
-                "nestedReferences": "application/vnd.cncf.notary.signature",
-                "disallowedLicenses":["AGPL"],
-                "disallowedPackages":[{"name":"log4j-core","versionInfo":"2.13.0"}]
-            
-            },
-            {
-                "name": "cosign",
-                "artifactTypes": "application/vnd.dev.cosign.artifact.sig.v1+json",
-                "key": ".staging/cosign/cosign.pub"
-            },
-            {
-                "name": "notation",
-                "artifactTypes": "application/vnd.cncf.notary.signature",
-                "verificationCerts": [
-                    "~/.config/notation/localkeys/ratify-bats-test.crt"
-                ],
-                "trustPolicyDoc": {
-                    "version": "1.0",
-                    "trustPolicies": [
-                        {
-                            "name": "default",
-                            "registryScopes": [
-                                "*"
-                            ],
-                            "signatureVerification": {
-                                "level": "strict"
-                            },
-                            "trustStores": [
-                                "ca:certs"
-                            ],
-                            "trustedIdentities": [
-                                "*"
-                            ]
+    "executors": [
+        {
+            "scopes": [
+                "localhost:5000"
+            ],
+            "stores": [
+                {
+                    "type": "registry-store",
+                    "parameters": {
+                        "plainHttp": true,
+                        "credential": {
+                            "provider": "static",
+                            "username": "test_user",
+                            "password": "test_pw"
                         }
-                    ]
+                    }
                 }
-            },
-            {
-                "name": "schemavalidator",
-                "artifactTypes": "application/vnd.aquasecurity.trivy.report.sarif.v1",
-                "schemas": {
-                    "application/sarif+json": "https://json.schemastore.org/sarif-2.1.0-rtm.5.json"
+            ],
+            "verifiers": [
+                {
+                    "name": "notation-1",
+                    "type": "notation",
+                    "parameters": {
+                        "certificates": [
+                            {
+                                "type": "ca",
+                                "files": [
+                                    "~/.config/notation/localkeys/ratify-bats-test.crt"
+                                ]
+                            }
+                        ]
+                    }
                 }
-            },
-            {
-                "name": "licensechecker",
-                "artifactTypes": "application/vnd.ratify.spdx.v0",
-                "allowedLicenses": [
-                    "GPL-2.0-only",
-                    "MIT",
-                    "OpenSSL",
-                    "BSD-2-Clause AND BSD-3-Clause",
-                    "Zlib",
-                    "MPL-2.0 AND MIT",
-                    "ISC",
-                    "Apache-2.0",
-                    "MIT AND BSD-2-Clause AND GPL-2.0-or-later",
-                    "MIT AND LicenseRef-AND AND BSD-2-Clause AND LicenseRef-AND AND GPL-2.0-or-later",
-                    "MPL-2.0 AND LicenseRef-AND AND MIT",
-                    "BSD-2-Clause AND LicenseRef-AND AND BSD-3-Clause",
-                    "NONE",
-                    "NOASSERTION",
-                    ""
-                ]
+            ],
+            "policyEnforcer": {
+                "type": "threshold-policy",
+                "parameters": {
+                    "policy": {
+                        "rules": [
+                            {
+                                "verifierName": "notation-1"
+                            }
+                        ],
+                        "threshold": 1
+                    }
+                }
             }
-        ]
-    }
+        }
+    ]
 }

@@ -145,3 +145,92 @@ func TestPrintResult_TextNoReports(t *testing.T) {
 		t.Errorf("expected no-reports notice; got:\n%s", out)
 	}
 }
+
+// failingWriter fails after allowing n successful writes, so the error paths in
+// the text renderer can be exercised.
+type failingWriter struct {
+	remaining int
+}
+
+func (f *failingWriter) Write(p []byte) (int, error) {
+	if f.remaining <= 0 {
+		return 0, errors.New("write failed")
+	}
+	f.remaining--
+	return len(p), nil
+}
+
+func TestPrintResultText_WriteErrors(t *testing.T) {
+	rendered := &renderedResult{
+		Subject:   "registry.example/repo:v1",
+		Succeeded: false,
+	}
+
+	// The header write fails.
+	if err := printResultText(&failingWriter{}, rendered); err == nil {
+		t.Fatal("expected an error when the header cannot be written")
+	}
+
+	// The header succeeds, the "no reports" line fails.
+	if err := printResultText(&failingWriter{remaining: 1}, rendered); err == nil {
+		t.Fatal("expected an error when the trailer cannot be written")
+	}
+}
+
+func TestPrintReportsText_WriteErrors(t *testing.T) {
+	reports := []*renderedReport{
+		{
+			Subject:  "registry.example/repo:v1",
+			Artifact: "sha256:abc",
+			Results: []*renderedVerification{
+				{Verifier: "stub", Description: "ok", Error: "boom"},
+			},
+			ArtifactReports: []*renderedReport{
+				{Subject: "nested", Artifact: "sha256:def"},
+			},
+		},
+	}
+
+	// The artifact line fails.
+	if err := printReportsText(&failingWriter{}, reports, 1); err == nil {
+		t.Fatal("expected an error when the artifact line cannot be written")
+	}
+
+	// The artifact line succeeds, the verifier result line fails.
+	if err := printReportsText(&failingWriter{remaining: 1}, reports, 1); err == nil {
+		t.Fatal("expected an error when the result line cannot be written")
+	}
+
+	// Both succeed, the nested report fails.
+	if err := printReportsText(&failingWriter{remaining: 2}, reports, 1); err == nil {
+		t.Fatal("expected an error when a nested report cannot be written")
+	}
+}
+
+func TestPrintResult_JSONIsTheDefaultFormat(t *testing.T) {
+	cmd := newVerifyCmd()
+	flag := cmd.Flags().Lookup("output")
+	if flag == nil {
+		t.Fatal("expected an --output flag")
+	}
+	if flag.DefValue != outputJSON {
+		t.Errorf("expected the default output format to be %q, got %q", outputJSON, flag.DefValue)
+	}
+}
+
+// TestPrintResult_JSONFailureShape pins the exact shape the bats helpers match
+// on: a failed verification with no reports renders "succeeded": false as the
+// final field, so a trailing comma must not be assumed.
+func TestPrintResult_JSONFailureShape(t *testing.T) {
+	var buf bytes.Buffer
+	result := &ratify.ValidationResult{Succeeded: false}
+	if err := printResult(&buf, "registry.example/repo:v1", outputJSON, result); err != nil {
+		t.Fatalf("printResult returned error: %v", err)
+	}
+	if !strings.Contains(buf.String(), `"succeeded": false`) {
+		t.Errorf("expected the report to contain a succeeded field; got:\n%s", buf.String())
+	}
+	if strings.Contains(buf.String(), `"succeeded": false,`) {
+		t.Errorf("expected no trailing comma after the final field; got:\n%s", buf.String())
+	}
+}

@@ -333,6 +333,125 @@ func TestGetKeysWithContext(t *testing.T) {
 	}
 }
 
+func TestExpandHomeShortcut(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("home directory is not resolvable: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{
+			name: "expands the bare shortcut",
+			path: "~",
+			want: home,
+		},
+		{
+			name: "expands a shortcut prefixed path",
+			path: "~/certs/cert.crt",
+			want: filepath.Join(home, "certs", "cert.crt"),
+		},
+		{
+			name: "leaves absolute paths untouched",
+			path: filepath.Join(home, "certs", "cert.crt"),
+			want: filepath.Join(home, "certs", "cert.crt"),
+		},
+		{
+			name: "leaves relative paths untouched",
+			path: filepath.Join("certs", "cert.crt"),
+			want: filepath.Join("certs", "cert.crt"),
+		},
+		{
+			name: "does not expand a shortcut in the middle of a path",
+			path: filepath.Join("certs", "~", "cert.crt"),
+			want: filepath.Join("certs", "~", "cert.crt"),
+		},
+		{
+			name: "does not expand a user-qualified shortcut",
+			path: "~otheruser/certs",
+			want: "~otheruser/certs",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := expandHomeShortcut(tt.path)
+			if err != nil {
+				t.Fatalf("expandHomeShortcut(%q) returned error: %v", tt.path, err)
+			}
+			if got != tt.want {
+				t.Errorf("expandHomeShortcut(%q) = %q, want %q", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadCertificatesFromPathWithHomeShortcut(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	resolvedHome, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("home directory is not resolvable: %v", err)
+	}
+
+	certPEM, err := createCert()
+	if err != nil {
+		t.Fatalf("failed to generate certificate: %v", err)
+	}
+	certPath := filepath.Join(resolvedHome, "cert.crt")
+	if err := os.WriteFile(certPath, certPEM, 0600); err != nil {
+		t.Fatalf("failed to write certificate: %v", err)
+	}
+
+	certs, err := loadCertificatesFromPath("~/cert.crt")
+	if err != nil {
+		t.Fatalf("loadCertificatesFromPath returned error: %v", err)
+	}
+	if len(certs) != 1 {
+		t.Fatalf("expected 1 certificate from the expanded path, got %d", len(certs))
+	}
+}
+
+func TestExpandHomeShortcutUnresolvableHome(t *testing.T) {
+	// os.UserHomeDir reads $HOME on unix and %USERPROFILE% on Windows, and
+	// fails when the relevant variable is empty.
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+	if _, err := os.UserHomeDir(); err == nil {
+		t.Skip("home directory is still resolvable without the environment variables")
+	}
+
+	if _, err := expandHomeShortcut("~/cert.crt"); err == nil {
+		t.Fatal("expected an error when the home directory cannot be resolved")
+	}
+
+	// A path without the shortcut must not consult the home directory at all.
+	got, err := expandHomeShortcut("certs/cert.crt")
+	if err != nil {
+		t.Fatalf("unexpected error for a path without the shortcut: %v", err)
+	}
+	if got != "certs/cert.crt" {
+		t.Errorf("expandHomeShortcut(%q) = %q, want it unchanged", "certs/cert.crt", got)
+	}
+}
+
+func TestLoadCertificatesFromPathUnresolvableHome(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+	if _, err := os.UserHomeDir(); err == nil {
+		t.Skip("home directory is still resolvable without the environment variables")
+	}
+
+	if _, err := loadCertificatesFromPath("~/cert.crt"); err == nil {
+		t.Fatal("expected an error when the home directory cannot be resolved")
+	}
+}
+
 func createCert() ([]byte, error) {
 	// Generate a private key first (needed for signing)
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
