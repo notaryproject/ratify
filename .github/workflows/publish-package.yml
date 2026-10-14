@@ -1,4 +1,4 @@
-name: publish-ghcr
+name: publish-ghcr-and-chart
 
 on:
   push:
@@ -11,6 +11,10 @@ permissions: read-all
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      image_ref: ${{ steps.prepare.outputs.ref }}
+      image_repository: ${{ steps.prepare.outputs.repository }}
+      image_tag: ${{ steps.prepare.outputs.version }}
     permissions:
       packages: write
       contents: read
@@ -18,7 +22,7 @@ jobs:
     environment: azure-publish
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
       - name: Checkout
@@ -28,7 +32,7 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Az CLI login
-        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -53,10 +57,11 @@ jobs:
           if [[ "${VERSION}" == "${BRANCH_NAME}" ]]; then
             VERSION=$(git rev-parse --short HEAD)
           fi
-          echo ::set-output name=version::${VERSION}
-          echo ::set-output name=ref::${REPOSITORY}:${VERSION}
-          echo ::set-output name=baseref::${REPOSITORYBASE}:${VERSION}
-          echo ::set-output name=crdref::${REPOSITORYCRD}:${VERSION}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "repository=${REPOSITORY}" >> $GITHUB_OUTPUT
+          echo "ref=${REPOSITORY}:${VERSION}" >> $GITHUB_OUTPUT
+          echo "baseref=${REPOSITORYBASE}:${VERSION}" >> $GITHUB_OUTPUT
+          echo "crdref=${REPOSITORYCRD}:${VERSION}" >> $GITHUB_OUTPUT
       - name: Get tag
         run: |
           echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
@@ -152,3 +157,33 @@ jobs:
         if: always()
         run: |
           rm -f ${HOME}/.docker/config.json
+
+  e2e:
+    name: Run e2e with published image and current chart
+    needs: build
+    uses: ./.github/workflows/e2e-k8s.yml
+    with:
+      k8s_version: "1.31.2"
+      gatekeeper_version: "3.18.0"
+      ratify_image_repository: ${{ needs.build.outputs.image_repository }}
+      ratify_image_tag: ${{ needs.build.outputs.image_tag }}
+
+  publish-chart:
+    name: Publish Helm charts
+    needs: e2e
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Publish Helm charts
+        uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 # v1.7.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

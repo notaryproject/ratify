@@ -10,7 +10,7 @@ Schemas can be configured in Ratify config.json or via CRD.
         "name": "schemavalidator",
         "artifactTypes": "application/vnd.aquasecurity.trivy.report.sarif.v1",
         "schemas": {
-            "application/sarif+json": "https://json.schemastore.org/sarif-2.1.0-rtm.5.json"
+            "application/sarif+json": "https://raw.githubusercontent.com/SchemaStore/schemastore/734c0e50105228741c0b76853efdd81b5f93487c/src/schemas/json/sarif-2.1.0-rtm.5.json"
           }
       }
  ]
@@ -26,5 +26,5 @@ spec:
   artifactTypes: application/vnd.aquasecurity.trivy.report.sarif.v1
   parameters:
     schemas:
-      application/sarif+json: https://json.schemastore.org/sarif-2.1.0-rtm.5.json
+      application/sarif+json: https://raw.githubusercontent.com/SchemaStore/schemastore/734c0e50105228741c0b76853efdd81b5f93487c/src/schemas/json/sarif-2.1.0-rtm.5.json
 ```
