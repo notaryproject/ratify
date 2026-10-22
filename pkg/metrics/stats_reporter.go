@@ -28,14 +28,28 @@ import (
 
 const attrKeyWorkloadNamespace = "workload_namespace"
 
+// Values of the "result" attribute of ratify_verification_result_count. The set
+// is closed so the metric's label cardinality stays bounded.
+const (
+	// VerificationResultSucceeded means the artifact passed the verification policy.
+	VerificationResultSucceeded = "succeeded"
+	// VerificationResultFailed means verification completed and the artifact
+	// did not satisfy the policy, e.g. an unsigned or untrusted image.
+	VerificationResultFailed = "failed"
+	// VerificationResultError means no verdict could be reached, e.g. no
+	// executor was configured or a registry call failed.
+	VerificationResultError = "error"
+)
+
 var (
 	// defines the metrics that are collected
-	verificationDuration instrument.Int64Histogram
-	mutationDuration     instrument.Int64Histogram
-	verifierDuration     instrument.Int64Histogram
-	systemErrorCount     instrument.Int64Counter
-	registryRequestCount instrument.Int64Counter
-	cacheBlobCount       instrument.Int64Counter
+	verificationDuration    instrument.Int64Histogram
+	mutationDuration        instrument.Int64Histogram
+	verifierDuration        instrument.Int64Histogram
+	systemErrorCount        instrument.Int64Counter
+	registryRequestCount    instrument.Int64Counter
+	cacheBlobCount          instrument.Int64Counter
+	verificationResultCount instrument.Int64Counter
 
 	// Azure Metrics
 	aadExchangeDuration    instrument.Int64Histogram
@@ -53,6 +67,8 @@ const (
 	metricNameSystemErrorCount     = "ratify_system_error_count"
 	metricNameRegistryRequestCount = "ratify_registry_request_count"
 	metricNameBlobCacheCount       = "ratify_blob_cache_count"
+
+	metricNameVerificationResultCount = "ratify_verification_result_count"
 
 	// Azure Metrics
 	metricNameAADExchangeDuration    = "ratify_aad_exchange_duration"
@@ -181,6 +197,11 @@ func initStatsReporter() error {
 		logrus.Error(err)
 		return err
 	}
+	verificationResultCount, err = meter.Int64Counter(metricNameVerificationResultCount, instrument.WithDescription("per-artifact verification result count"))
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
 	return nil
 }
 
@@ -302,6 +323,20 @@ func ReportBlobCacheCount(ctx context.Context, hit bool) {
 	if cacheBlobCount != nil {
 		cacheBlobCount.Add(ctx, 1, instrument.WithAttributes(
 			attribute.KeyValue{Key: "hit", Value: attribute.BoolValue(hit)},
+			attribute.KeyValue{Key: attrKeyWorkloadNamespace, Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
+	}
+}
+
+// ReportVerificationResult reports the outcome of verifying a single artifact
+// Attributes:
+// result: one of VerificationResultSucceeded, VerificationResultFailed or VerificationResultError
+// cache_hit: whether the outcome was served from the verification cache
+// workload_namespace: the namespace where workload is deployed
+func ReportVerificationResult(ctx context.Context, result string, cacheHit bool) {
+	if verificationResultCount != nil {
+		verificationResultCount.Add(ctx, 1, instrument.WithAttributes(
+			attribute.KeyValue{Key: "result", Value: attribute.StringValue(result)},
+			attribute.KeyValue{Key: "cache_hit", Value: attribute.BoolValue(cacheHit)},
 			attribute.KeyValue{Key: attrKeyWorkloadNamespace, Value: attribute.StringValue(ctxUtils.GetNamespace(ctx))}))
 	}
 }

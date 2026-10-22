@@ -26,7 +26,9 @@ import (
 	"testing"
 	"time"
 
+	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
 	"github.com/notaryproject/ratify/v2/internal/executor"
+	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -611,5 +613,97 @@ func TestLogVerificationResult_UnmarshalableReport(t *testing.T) {
 		t.Fatal("expected the outcome to be logged even when the report cannot be marshalled")
 	} else if strings.Contains(entry.Message, "report=") {
 		t.Errorf("expected the fallback message without a report, got: %s", entry.Message)
+	}
+}
+
+type reportedResult struct {
+	namespace string
+	result    string
+	cacheHit  bool
+}
+
+// captureVerificationResults swaps the metric reporter for one that records
+// every call, and restores it when the test ends.
+func captureVerificationResults(t *testing.T) *[]reportedResult {
+	t.Helper()
+	var got []reportedResult
+	orig := reportVerificationResult
+	reportVerificationResult = func(ctx context.Context, result string, cacheHit bool) {
+		got = append(got, reportedResult{namespace: ctxUtils.GetNamespace(ctx), result: result, cacheHit: cacheHit})
+	}
+	t.Cleanup(func() { reportVerificationResult = orig })
+	return &got
+}
+
+func TestVerify_ReportsResultMetric(t *testing.T) {
+	tests := []struct {
+		name         string
+		key          string
+		cacheEntries map[string]*result
+		want         reportedResult
+	}{
+		{
+			name:         "cache hit succeeded",
+			key:          "ghcr.io/org/image:v1",
+			cacheEntries: map[string]*result{verifyKey("ghcr.io/org/image:v1"): {Succeeded: true}},
+			want:         reportedResult{result: metrics.VerificationResultSucceeded, cacheHit: true},
+		},
+		{
+			name:         "cache hit failed",
+			key:          "[team-a]ghcr.io/org/image:v1",
+			cacheEntries: map[string]*result{verifyKey("[team-a]ghcr.io/org/image:v1"): {Succeeded: false}},
+			want:         reportedResult{namespace: "team-a", result: metrics.VerificationResultFailed, cacheHit: true},
+		},
+		{
+			name:         "cache miss error",
+			key:          "[team-b]ghcr.io/org/image:v1",
+			cacheEntries: map[string]*result{},
+			want:         reportedResult{namespace: "team-b", result: metrics.VerificationResultError},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := captureVerificationResults(t)
+			srv := &server{
+				getExecutor: func(_ string) *executor.ScopedExecutor { return nil },
+				verifyCache: &mockResultCache{entries: tt.cacheEntries},
+				sfGroup:     new(singleflight.Group),
+			}
+			body := `{"request":{"keys":["` + tt.key + `"]}}`
+			req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(body))
+			if err := srv.verify(context.Background(), httptest.NewRecorder(), req); err != nil {
+				t.Fatalf("verify() error = %v", err)
+			}
+			if len(*got) != 1 {
+				t.Fatalf("expected exactly one result to be reported, got %d: %+v", len(*got), *got)
+			}
+			if (*got)[0] != tt.want {
+				t.Errorf("reported %+v, want %+v", (*got)[0], tt.want)
+			}
+		})
+	}
+}
+
+// A request that fails before any artifact is verified has no per-artifact
+// outcome, so it must not be counted as one.
+func TestVerify_InvalidRequestReportsNoResult(t *testing.T) {
+	got := captureVerificationResults(t)
+	srv := newHandlerTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader("not json"))
+	if err := srv.verify(context.Background(), httptest.NewRecorder(), req); err == nil {
+		t.Fatal("expected an error for an invalid request body")
+	}
+	if len(*got) != 0 {
+		t.Errorf("expected no result to be reported, got %+v", *got)
+	}
+}
+
+func TestVerificationOutcome(t *testing.T) {
+	if got := verificationOutcome(&result{Succeeded: true}); got != metrics.VerificationResultSucceeded {
+		t.Errorf("verificationOutcome(succeeded) = %q, want %q", got, metrics.VerificationResultSucceeded)
+	}
+	if got := verificationOutcome(&result{Succeeded: false}); got != metrics.VerificationResultFailed {
+		t.Errorf("verificationOutcome(failed) = %q, want %q", got, metrics.VerificationResultFailed)
 	}
 }
