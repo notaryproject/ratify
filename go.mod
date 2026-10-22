@@ -44,7 +44,7 @@ require (
 	golang.org/x/sync v0.24.0
 	k8s.io/apimachinery v0.33.13
 	k8s.io/client-go v0.33.13
-	oras.land/oras-go/v2 v2.6.2
+	oras.land/oras-go/v2 v2.6.4
 	sigs.k8s.io/controller-runtime v0.21.0
 )
 
