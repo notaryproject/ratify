@@ -31,14 +31,9 @@ const attrKeyWorkloadNamespace = "workload_namespace"
 // Values of the "result" attribute of ratify_verification_result_count. The set
 // is closed so the metric's label cardinality stays bounded.
 const (
-	// VerificationResultSucceeded means the artifact passed the verification policy.
 	VerificationResultSucceeded = "succeeded"
-	// VerificationResultFailed means verification completed and the artifact
-	// did not satisfy the policy, e.g. an unsigned or untrusted image.
-	VerificationResultFailed = "failed"
-	// VerificationResultError means no verdict could be reached, e.g. no
-	// executor was configured or a registry call failed.
-	VerificationResultError = "error"
+	VerificationResultFailed    = "failed"
+	VerificationResultError     = "error"
 )
 
 var (

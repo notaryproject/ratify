@@ -34,8 +34,6 @@ import (
 
 var logOpt = logger.Option{ComponentType: logger.Server}
 
-// reportVerificationResult is a package var so tests can observe the reported
-// outcomes without a metrics exporter.
 var reportVerificationResult = metrics.ReportVerificationResult
 
 // verify handles the verification request from Gatekeeper.
@@ -61,8 +59,6 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 			Key: artifact,
 		}
 		key := verifyKey(artifact)
-		// Only the metrics get the namespace-scoped context; the executor keeps
-		// the request context.
 		metricsCtx := ctxUtils.SetContextWithNamespace(ctx, extractNamespace(artifact))
 
 		// Fetch the cache value first.
