@@ -23,11 +23,19 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/notaryproject/ratify-go"
+	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
 	"github.com/notaryproject/ratify/v2/internal/executor"
+	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
+	"github.com/notaryproject/ratify/v2/internal/store"
+	"github.com/notaryproject/ratify/v2/internal/verifier"
+	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"golang.org/x/sync/singleflight"
@@ -611,5 +619,201 @@ func TestLogVerificationResult_UnmarshalableReport(t *testing.T) {
 		t.Fatal("expected the outcome to be logged even when the report cannot be marshalled")
 	} else if strings.Contains(entry.Message, "report=") {
 		t.Errorf("expected the fallback message without a report, got: %s", entry.Message)
+	}
+}
+
+type reportedResult struct {
+	namespace string
+	result    string
+	cacheHit  bool
+}
+
+// captureVerificationResults swaps the metric reporter for one that records
+// every call, and restores it when the test ends.
+func captureVerificationResults(t *testing.T) *[]reportedResult {
+	t.Helper()
+	var got []reportedResult
+	orig := reportVerificationResult
+	reportVerificationResult = func(ctx context.Context, result string, cacheHit bool) {
+		got = append(got, reportedResult{namespace: ctxUtils.GetNamespace(ctx), result: result, cacheHit: cacheHit})
+	}
+	t.Cleanup(func() { reportVerificationResult = orig })
+	return &got
+}
+
+const (
+	testStoreType          = "httpserver-test-store"
+	testVerifierType       = "httpserver-test-verifier"
+	testPolicyEnforcerType = "httpserver-test-policy-enforcer"
+	testExecutorScope      = "test.io"
+)
+
+var registerTestPluginsOnce sync.Once
+
+type testStore struct{}
+
+func (s *testStore) Resolve(_ context.Context, _ string) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, nil
+}
+
+func (s *testStore) ListReferrers(_ context.Context, _ string, _ []string, _ func([]ocispec.Descriptor) error) error {
+	return nil
+}
+
+func (s *testStore) FetchBlob(_ context.Context, _ string, _ ocispec.Descriptor) ([]byte, error) {
+	return nil, nil
+}
+
+func (s *testStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descriptor) ([]byte, error) {
+	return nil, nil
+}
+
+type testVerifier struct{}
+
+func (v *testVerifier) Name() string                         { return testVerifierType }
+func (v *testVerifier) Type() string                         { return testVerifierType }
+func (v *testVerifier) Verifiable(_ ocispec.Descriptor) bool { return true }
+func (v *testVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*ratify.VerificationResult, error) {
+	return &ratify.VerificationResult{}, nil
+}
+
+type testPolicyEnforcer struct{}
+
+func (p *testPolicyEnforcer) Evaluator(_ context.Context, _ string) (ratify.Evaluator, error) {
+	return &testEvaluator{}, nil
+}
+
+type testEvaluator struct{}
+
+func (e *testEvaluator) Pruned(_ context.Context, _, _, _ string) (ratify.PrunedState, error) {
+	return ratify.PrunedStateNone, nil
+}
+
+func (e *testEvaluator) AddResult(_ context.Context, _, _ string, _ *ratify.VerificationResult) error {
+	return nil
+}
+
+func (e *testEvaluator) Commit(_ context.Context, _ string) error { return nil }
+
+func (e *testEvaluator) Evaluate(_ context.Context) (bool, error) { return true, nil }
+
+// newTestScopedExecutor returns an executor for testExecutorScope that verifies
+// any artifact without contacting a registry. Without a policy enforcer the
+// executor reports the artifact as failed; with one it reports success.
+func newTestScopedExecutor(t *testing.T, withPolicy bool) *executor.ScopedExecutor {
+	t.Helper()
+	registerTestPluginsOnce.Do(func() {
+		store.Register(testStoreType, func(store.NewOptions) (ratify.Store, error) { return &testStore{}, nil })
+		verifier.Register(testVerifierType, func(verifier.NewOptions, []string) (ratify.Verifier, error) { return &testVerifier{}, nil })
+		policyenforcer.Register(testPolicyEnforcerType, func(policyenforcer.NewOptions) (ratify.PolicyEnforcer, error) {
+			return &testPolicyEnforcer{}, nil
+		})
+	})
+	opts := executor.ScopedOptions{
+		Scopes:    []string{testExecutorScope},
+		Verifiers: []verifier.NewOptions{{Name: testVerifierType, Type: testVerifierType}},
+		Stores:    []store.NewOptions{{Type: testStoreType, Scopes: []string{testExecutorScope}}},
+	}
+	if withPolicy {
+		opts.Policy = &policyenforcer.NewOptions{Type: testPolicyEnforcerType}
+	}
+	e, err := executor.NewScopedExecutor(executor.Options{Executors: []executor.ScopedOptions{opts}})
+	if err != nil {
+		t.Fatalf("failed to create scoped executor: %v", err)
+	}
+	return e
+}
+
+func TestVerify_ReportsResultMetric(t *testing.T) {
+	tests := []struct {
+		name         string
+		key          string
+		cacheEntries map[string]*result
+		withExecutor bool
+		withPolicy   bool
+		want         reportedResult
+	}{
+		{
+			name:         "cache hit succeeded",
+			key:          "ghcr.io/org/image:v1",
+			cacheEntries: map[string]*result{verifyKey("ghcr.io/org/image:v1"): {Succeeded: true}},
+			want:         reportedResult{result: metrics.VerificationResultSucceeded, cacheHit: true},
+		},
+		{
+			name:         "cache hit failed",
+			key:          "[team-a]ghcr.io/org/image:v1",
+			cacheEntries: map[string]*result{verifyKey("[team-a]ghcr.io/org/image:v1"): {Succeeded: false}},
+			want:         reportedResult{namespace: "team-a", result: metrics.VerificationResultFailed, cacheHit: true},
+		},
+		{
+			name:         "cache miss error",
+			key:          "[team-b]ghcr.io/org/image:v1",
+			cacheEntries: map[string]*result{},
+			want:         reportedResult{namespace: "team-b", result: metrics.VerificationResultError},
+		},
+		{
+			name:         "cache miss succeeded",
+			key:          "[team-c]" + testExecutorScope + "/org/image:v1",
+			cacheEntries: map[string]*result{},
+			withExecutor: true,
+			withPolicy:   true,
+			want:         reportedResult{namespace: "team-c", result: metrics.VerificationResultSucceeded},
+		},
+		{
+			name:         "cache miss failed",
+			key:          "[team-d]" + testExecutorScope + "/org/image:v1",
+			cacheEntries: map[string]*result{},
+			withExecutor: true,
+			want:         reportedResult{namespace: "team-d", result: metrics.VerificationResultFailed},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := captureVerificationResults(t)
+			var scoped *executor.ScopedExecutor
+			if tt.withExecutor {
+				scoped = newTestScopedExecutor(t, tt.withPolicy)
+			}
+			srv := &server{
+				getExecutor: func(_ string) *executor.ScopedExecutor { return scoped },
+				verifyCache: &mockResultCache{entries: tt.cacheEntries},
+				sfGroup:     new(singleflight.Group),
+			}
+			body := `{"request":{"keys":["` + tt.key + `"]}}`
+			req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(body))
+			if err := srv.verify(context.Background(), httptest.NewRecorder(), req); err != nil {
+				t.Fatalf("verify() error = %v", err)
+			}
+			if len(*got) != 1 {
+				t.Fatalf("expected exactly one result to be reported, got %d: %+v", len(*got), *got)
+			}
+			if (*got)[0] != tt.want {
+				t.Errorf("reported %+v, want %+v", (*got)[0], tt.want)
+			}
+		})
+	}
+}
+
+// A request that fails before any artifact is verified has no per-artifact
+// outcome, so it must not be counted as one.
+func TestVerify_InvalidRequestReportsNoResult(t *testing.T) {
+	got := captureVerificationResults(t)
+	srv := newHandlerTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader("not json"))
+	if err := srv.verify(context.Background(), httptest.NewRecorder(), req); err == nil {
+		t.Fatal("expected an error for an invalid request body")
+	}
+	if len(*got) != 0 {
+		t.Errorf("expected no result to be reported, got %+v", *got)
+	}
+}
+
+func TestVerificationOutcome(t *testing.T) {
+	if got := verificationOutcome(&result{Succeeded: true}); got != metrics.VerificationResultSucceeded {
+		t.Errorf("verificationOutcome(succeeded) = %q, want %q", got, metrics.VerificationResultSucceeded)
+	}
+	if got := verificationOutcome(&result{Succeeded: false}); got != metrics.VerificationResultFailed {
+		t.Errorf("verificationOutcome(failed) = %q, want %q", got, metrics.VerificationResultFailed)
 	}
 }

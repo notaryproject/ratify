@@ -260,3 +260,35 @@ func TestReportBlobCacheCount(t *testing.T) {
 		t.Fatalf("expected workload_namespace attribute to be %s but got %s", testNamespace, mockCounter.Attributes["workload_namespac"])
 	}
 }
+
+func TestReportVerificationResult(t *testing.T) {
+	if err := initStatsReporter(); err != nil {
+		t.Fatalf("initStatsReporter() error = %v", err)
+	}
+
+	mockCounter := &MockInt64Counter{Attributes: make(map[string]string)}
+	verificationResultCount = mockCounter
+	ctx := ctxUtils.SetContextWithNamespace(context.Background(), testNamespace)
+	ReportVerificationResult(ctx, VerificationResultFailed, true)
+	if mockCounter.Value != 1 {
+		t.Fatalf("ReportVerificationResult() mockCounter.Value = %v, expected %v", mockCounter.Value, 1)
+	}
+	if len(mockCounter.Attributes) != 3 {
+		t.Fatalf("ReportVerificationResult() len(mockCounter.Attributes) = %v, expected %v", len(mockCounter.Attributes), 3)
+	}
+	if mockCounter.Attributes["result"] != VerificationResultFailed {
+		t.Fatalf("expected result attribute to be %s but got %s", VerificationResultFailed, mockCounter.Attributes["result"])
+	}
+	if mockCounter.Attributes["cache_hit"] != "true" {
+		t.Fatalf("expected cache_hit attribute to be true but got %s", mockCounter.Attributes["cache_hit"])
+	}
+	if mockCounter.Attributes["workload_namespace"] != testNamespace {
+		t.Fatalf("expected workload_namespace attribute to be %s but got %s", testNamespace, mockCounter.Attributes["workload_namespace"])
+	}
+}
+
+func TestReportVerificationResult_Uninitialized(_ *testing.T) {
+	verificationResultCount = nil
+	// Must be a no-op rather than a nil dereference when metrics are disabled.
+	ReportVerificationResult(context.Background(), VerificationResultSucceeded, false)
+}
