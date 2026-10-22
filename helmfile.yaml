@@ -23,7 +23,7 @@ releases:
   - name: ratify
     namespace: gatekeeper-system
     chart: ratify/ratify
-    version: 1.15.8 # Make sure this matches Chart.yaml
+    version: 1.15.9 # Make sure this matches Chart.yaml
     wait: true
     needs:
       - gatekeeper
@@ -79,3 +79,4 @@ releases:
         value: {{ exec "curl" (list "-sSL" "https://raw.githubusercontent.com/notaryproject/ratify/main/test/testdata/notation.crt") | quote }}
       - name: featureFlags.RATIFY_CERT_ROTATION
         value: true
+
