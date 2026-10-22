@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
 	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
@@ -32,6 +33,8 @@ import (
 )
 
 var logOpt = logger.Option{ComponentType: logger.Server}
+
+var reportVerificationResult = metrics.ReportVerificationResult
 
 // verify handles the verification request from Gatekeeper.
 func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -56,12 +59,14 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 			Key: artifact,
 		}
 		key := verifyKey(artifact)
+		metricsCtx := ctxUtils.SetContextWithNamespace(ctx, extractNamespace(artifact))
 
 		// Fetch the cache value first.
 		cached, err := s.verifyCache.Get(ctx, key)
 		if err == nil && cached != nil {
 			log.Debugf("verify cache hit for %s", artifact)
 			logVerificationResult(log, artifact, cached)
+			reportVerificationResult(metricsCtx, verificationOutcome(cached), true)
 			results[idx].Value = cached
 			continue
 		}
@@ -87,9 +92,11 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		if err != nil {
 			log.Errorf("failed to verify %s: %v", artifact, err)
 			results[idx].Error = err.Error()
-			metrics.ReportSystemError(ctx, "verify_artifact")
+			metrics.ReportSystemError(metricsCtx, "verify_artifact")
+			reportVerificationResult(metricsCtx, metrics.VerificationResultError, false)
 		} else if res, ok := val.(*result); ok && res != nil {
 			logVerificationResult(log, artifact, res)
+			reportVerificationResult(metricsCtx, verificationOutcome(res), false)
 		}
 		results[idx].Value = val
 	}
@@ -246,4 +253,13 @@ func logVerificationResult(log resultLogger, artifact string, res *result) {
 		return
 	}
 	log.Infof("verification result for %s: succeeded=%t", artifact, res.Succeeded)
+}
+
+// verificationOutcome maps a verification result to the result attribute of
+// the verification result metric.
+func verificationOutcome(res *result) string {
+	if res.Succeeded {
+		return metrics.VerificationResultSucceeded
+	}
+	return metrics.VerificationResultFailed
 }
