@@ -19,7 +19,7 @@ COPY . .
 
 RUN go build -o /app/out/ /app/cmd/ratify-gatekeeper-provider
 
-FROM gcr.io/distroless/static:nonroot@sha256:e8a4044e0b4ae4257efa45fc026c0bc30ad320d43bd4c1a7d5271bd241e386d0
+FROM gcr.io/distroless/static:nonroot@sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88
 
 WORKDIR /app
 
