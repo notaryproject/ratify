@@ -26,6 +26,7 @@ import (
 	"time"
 
 	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
+	"github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
@@ -179,6 +180,13 @@ func (s *server) resolveReference(ctx context.Context, key string) externaldata.
 		}
 		return resolvedRef, nil
 	})
+	if errors.Is(err, executor.ErrNoExecutorMatched) {
+		// The mutation webhook fails closed, so return the reference unchanged
+		// instead of denying an image that no executor is scoped to. Whether it
+		// is admitted is left to the verification webhook.
+		log.Debugf("no executor matched %s, skipping mutation", reference)
+		return item
+	}
 	if err != nil {
 		log.Errorf("failed to resolve %s: %v", reference, err)
 		item.Error = err.Error()

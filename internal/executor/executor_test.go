@@ -17,6 +17,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -454,8 +455,8 @@ func TestValidateArtifact(t *testing.T) {
 		},
 	}
 
-	if _, err := scopedExecutor.ValidateArtifact(context.Background(), "unknown.com/foo:v1"); err == nil {
-		t.Error("expected error for unknown artifact, got nil")
+	if _, err := scopedExecutor.ValidateArtifact(context.Background(), "unknown.com/foo:v1"); !errors.Is(err, ErrNoExecutorMatched) {
+		t.Errorf("expected ErrNoExecutorMatched for unknown artifact, got: %v", err)
 	}
 
 	if _, err := scopedExecutor.ValidateArtifact(context.Background(), "test.example.com/foo:v1"); err == nil {
@@ -477,8 +478,8 @@ func TestResolve(t *testing.T) {
 		},
 	}
 
-	if _, err := scopedExecutor.Resolve(context.Background(), "unknown.com/foo:v1"); err == nil {
-		t.Error("expected error for invalid artifact, got nil")
+	if _, err := scopedExecutor.Resolve(context.Background(), "unknown.com/foo:v1"); !errors.Is(err, ErrNoExecutorMatched) {
+		t.Errorf("expected ErrNoExecutorMatched for unknown artifact, got: %v", err)
 	}
 
 	if _, err := scopedExecutor.Resolve(context.Background(), "test.example.com/foo:v1"); err != nil {
