@@ -118,7 +118,11 @@ metadata:
     helm.sh/hook-weight: "5"
 spec:
   name: cosign
+  {{- if (eq (include "ratify.cosignLegacy" .) "false") }}
   artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json,application/vnd.dev.sigstore.bundle.v0.3+json
+  {{- else }}
+  artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json
+  {{- end }}
   parameters:
     {{- if  (eq (include "ratify.cosignLegacy" .) "false") }}
     trustPolicies:

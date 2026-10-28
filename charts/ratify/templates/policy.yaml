@@ -40,6 +40,4 @@ spec:
   parameters:
     artifactVerificationPolicies:
       default: "all"
-      # cosign v3 stores each Sigstore bundle as a separate referrer, so one valid bundle is sufficient (matches cosign verify)
-      application/vnd.dev.sigstore.bundle.v0.3+json: "any"
 {{- end }}

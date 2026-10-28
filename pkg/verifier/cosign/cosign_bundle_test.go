@@ -23,6 +23,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/sha512"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
@@ -62,10 +63,17 @@ const (
 // statement whose subject is subjectHex. If cert is nil, a public key hint is used.
 func createTestBundle(t *testing.T, signer crypto.Signer, cert *x509.Certificate, subjectHex string) []byte {
 	t.Helper()
-	statement := fmt.Sprintf(`{"_type":"https://in-toto.io/Statement/v1","subject":[{"name":"test","digest":{"sha256":"%s"}}],"predicateType":"%s","predicate":{}}`, subjectHex, testSignPredicate)
+	return createTestBundleWithAlgorithms(t, signer, cert, v1.Hash{Algorithm: "sha256", Hex: subjectHex}, crypto.SHA256)
+}
+
+// createTestBundleWithAlgorithms creates a v0.3 Sigstore bundle with the given subject digest algorithm and signing hash.
+func createTestBundleWithAlgorithms(t *testing.T, signer crypto.Signer, cert *x509.Certificate, subject v1.Hash, signHash crypto.Hash) []byte {
+	t.Helper()
+	statement := fmt.Sprintf(`{"_type":"https://in-toto.io/Statement/v1","subject":[{"name":"test","digest":{"%s":"%s"}}],"predicateType":"%s","predicate":{}}`, subject.Algorithm, subject.Hex, testSignPredicate)
 	pae := fmt.Sprintf("DSSEv1 %d %s %d %s", len(testInTotoType), testInTotoType, len(statement), statement)
-	h := sha256.Sum256([]byte(pae))
-	sig, err := signer.Sign(rand.Reader, h[:], crypto.SHA256)
+	hasher := signHash.New()
+	hasher.Write([]byte(pae))
+	sig, err := signer.Sign(rand.Reader, hasher.Sum(nil), signHash)
 	if err != nil {
 		t.Fatalf("failed to sign: %v", err)
 	}
@@ -187,6 +195,36 @@ func TestVerifyBundle_Key(t *testing.T) {
 				if !v.IsSuccess && v.Err == "" {
 					t.Errorf("expected error message for failed verification")
 				}
+			}
+		})
+	}
+}
+
+func TestVerifyBundle_KeyAlgorithms(t *testing.T) {
+	p384, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	p521, _ := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	p256, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	sha256Subject := newTestSubjectHash(t)
+	sum512 := sha512.Sum512([]byte("subject"))
+	sha512Subject := v1.Hash{Algorithm: "sha512", Hex: hex.EncodeToString(sum512[:])}
+
+	tc := []struct {
+		name     string
+		key      *ecdsa.PrivateKey
+		signHash crypto.Hash
+		subject  v1.Hash
+	}{
+		{name: "ECDSA P-384 with SHA-384", key: p384, signHash: crypto.SHA384, subject: sha256Subject},
+		{name: "ECDSA P-521 with SHA-512", key: p521, signHash: crypto.SHA512, subject: sha256Subject},
+		{name: "SHA-512 subject digest", key: p256, signHash: crypto.SHA256, subject: sha512Subject},
+	}
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			bundleBytes := createTestBundleWithAlgorithms(t, tt.key, nil, tt.subject, tt.signHash)
+			keys := map[PKKey]keymanagementprovider.PublicKey{{Provider: "test"}: {Key: tt.key.Public(), ProviderType: "inline"}}
+			verifications, valid, err := verifyBundle(context.Background(), keys, bundleBytes, cosign.CheckOpts{IgnoreTlog: true}, tt.subject)
+			if err != nil || !valid {
+				t.Fatalf("verifyBundle() valid = %v, err = %v, verifications: %+v", valid, err, verifications)
 			}
 		})
 	}

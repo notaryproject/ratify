@@ -691,26 +691,34 @@ func verifyBundle(ctx context.Context, keysMap map[PKKey]keymanagementprovider.P
 				return nil, false, err
 			}
 		}
-		extension := verifyBundleWith(ctx, &co, artifactPolicy, b, subjectDescHash)
+		extension := verifyBundleWith(ctx, &co, artifactPolicy, b)
 		verifications = append(verifications, extension)
 		return verifications, extension.IsSuccess, nil
 	}
 
 	hasValidSignature := false
 	for mapKey, pubKey := range keysMap {
-		hashType := crypto.SHA256
+		var sigVerifier signature.Verifier
 		if pubKey.ProviderType == azurekeyvault.ProviderName {
-			if hashType, err = keyHashType(pubKey.Key); err != nil {
+			// AKV signing selects the hash type based on the key size or curve
+			hashType, err := keyHashType(pubKey.Key)
+			if err != nil {
 				return verifications, false, re.ErrorCodeVerifyPluginFailure.WithDetail("Failed to determine hash type of the Azure Key Vault key").WithError(err)
 			}
-		}
-		sigVerifier, err := signature.LoadVerifier(pubKey.Key, hashType)
-		if err != nil {
-			return verifications, false, re.ErrorCodeVerifyPluginFailure.WithDetail(fmt.Sprintf("Failed to load public key from provider [%s] name [%s] version [%s]", mapKey.Provider, mapKey.Name, mapKey.Version)).WithError(err)
+			sigVerifier, err = signature.LoadVerifier(pubKey.Key, hashType)
+			if err != nil {
+				return verifications, false, re.ErrorCodeVerifyPluginFailure.WithDetail(fmt.Sprintf("Failed to load public key from provider [%s] name [%s] version [%s]", mapKey.Provider, mapKey.Name, mapKey.Version)).WithError(err)
+			}
+		} else {
+			// cosign v3 signs with the default Sigstore algorithm for the key type (e.g. SHA-384 for ECDSA P-384)
+			sigVerifier, err = signature.LoadDefaultVerifier(pubKey.Key)
+			if err != nil {
+				return verifications, false, re.ErrorCodeVerifyPluginFailure.WithDetail(fmt.Sprintf("Failed to load public key from provider [%s] name [%s] version [%s]", mapKey.Provider, mapKey.Name, mapKey.Version)).WithError(err)
+			}
 		}
 		keyOpts := co
 		keyOpts.SigVerifier = sigVerifier
-		extension := verifyBundleWith(ctx, &keyOpts, artifactPolicy, b, subjectDescHash)
+		extension := verifyBundleWith(ctx, &keyOpts, artifactPolicy, b)
 		extension.KeyInformation = mapKey
 		hasValidSignature = hasValidSignature || extension.IsSuccess
 		verifications = append(verifications, extension)
@@ -734,28 +742,16 @@ func hasOnlyRekorV2Entries(b *sgbundle.Bundle) (bool, error) {
 	return hasRekorV2, nil
 }
 
-// verifyBundleWith verifies the bundle with the given options and checks the in-toto subject matches the subject digest
-func verifyBundleWith(ctx context.Context, co *cosign.CheckOpts, artifactPolicy verify.ArtifactPolicyOption, b *sgbundle.Bundle, subjectDescHash v1.Hash) cosignExtension {
+// verifyBundleWith verifies the bundle with the given options. The artifact policy ensures
+// the in-toto subject of the DSSE envelope matches the subject digest.
+func verifyBundleWith(ctx context.Context, co *cosign.CheckOpts, artifactPolicy verify.ArtifactPolicyOption, b *sgbundle.Bundle) cosignExtension {
 	extension := cosignExtension{}
-	err := func() error {
-		if _, err := cosign.VerifyNewBundle(ctx, co, artifactPolicy, b); err != nil {
-			return err
-		}
-		dsse, ok := b.Content.(*protobundle.Bundle_DsseEnvelope)
-		if !ok {
-			return fmt.Errorf("bundle does not contain a DSSE envelope")
-		}
-		payload, err := json.Marshal(dsse.DsseEnvelope)
-		if err != nil {
-			return fmt.Errorf("failed to marshal DSSE envelope: %w", err)
-		}
-		att, err := static.NewAttestation(payload)
-		if err != nil {
-			return err
-		}
-		return cosign.IntotoSubjectClaimVerifier(att, subjectDescHash, nil)
-	}()
-	if err != nil {
+	// cosign image signatures are DSSE in-toto statements, reject other bundle content such as blob signatures
+	if _, ok := b.Content.(*protobundle.Bundle_DsseEnvelope); !ok {
+		extension.Err = "bundle does not contain a DSSE envelope"
+		return extension
+	}
+	if _, err := cosign.VerifyNewBundle(ctx, co, artifactPolicy, b); err != nil {
 		extension.Err = err.Error()
 		return extension
 	}

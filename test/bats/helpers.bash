@@ -75,6 +75,16 @@ assert_cmd_cosign_keyless_verify_bundle_success() {
   fi
 }
 
+assert_cmd_cosign_bundle_verify_success() {
+  if [[ "$status" != 0 ]]; then
+    return 1
+  fi
+  if [[ "$output" != *'"artifactType": "application/vnd.dev.sigstore.bundle.v0.3+json"'* ]]; then
+    echo $output
+    return 1
+  fi
+}
+
 assert_cmd_verify_failure() {
   if [[ "$status" != 0 ]]; then
     return 1

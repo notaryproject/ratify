@@ -336,6 +336,32 @@ EOF
     assert_failure
 }
 
+@test "cosign v3 bundle test" {
+    teardown() {
+        echo "cleaning up"
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-bundle --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-unsigned --namespace default --force --ignore-not-found=true'
+    }
+    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
+    assert_success
+    sleep 5
+    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    assert_success
+    sleep 5
+
+    # image signed with cosign v3 Sigstore bundle format
+    run kubectl run cosign-demo-bundle --namespace default --image=registry:5000/cosign:signed-bundle
+    assert_success
+
+    # legacy cosign signature is still verified by the same verifier
+    run kubectl run cosign-demo-key --namespace default --image=registry:5000/cosign:signed-key
+    assert_success
+
+    run kubectl run cosign-demo-unsigned --namespace default --image=registry:5000/cosign:unsigned
+    assert_failure
+}
+
 @test "cosign legacy keyed test" {
     teardown() {
         echo "cleaning up"

@@ -83,6 +83,19 @@ load helpers
     assert_cmd_verify_failure
 }
 
+@test "cosign v3 bundle verifier test" {
+    run bin/ratify verify -c $RATIFY_DIR/cosign_bundle_config.json -s $TEST_REGISTRY/cosign:signed-bundle
+    assert_cmd_verify_success
+    assert_cmd_cosign_bundle_verify_success
+
+    # legacy cosign signature is still verified by the same verifier
+    run bin/ratify verify -c $RATIFY_DIR/cosign_bundle_config.json -s $TEST_REGISTRY/cosign:signed-key
+    assert_cmd_verify_success
+
+    run bin/ratify verify -c $RATIFY_DIR/cosign_bundle_config.json -s $TEST_REGISTRY/cosign:unsigned
+    assert_cmd_verify_failure
+}
+
 @test "licensechecker verifier test" {
     run bin/ratify verify -c $RATIFY_DIR/complete_licensechecker_config.json -s $TEST_REGISTRY/licensechecker:v0
     assert_cmd_verify_success
