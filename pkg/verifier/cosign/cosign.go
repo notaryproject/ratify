@@ -23,12 +23,14 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/ratify-project/ratify/internal/logger"
 	"github.com/ratify-project/ratify/pkg/common"
@@ -55,7 +57,12 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
 	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/cosign/v3/pkg/oci/static"
+	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
+	sgbundle "github.com/sigstore/sigstore-go/pkg/bundle"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/verify"
 	"github.com/sigstore/sigstore/pkg/signature"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type PluginConfig struct {
@@ -121,6 +128,14 @@ var logOpt = logger.Option{
 // used for mocking purposes
 var getKeyMapOpts = getKeyMapOptsDefault
 
+// used for mocking purposes
+var getTrustedRoot = getTrustedRootDefault
+
+var (
+	trustedRootMu sync.Mutex
+	trustedRoot   root.TrustedMaterial
+)
+
 const (
 	verifierType string = "cosign"
 	// messages for verificationPerformedMessage. source: https://github.com/sigstore/cosign/blob/d275a272ec0cdf5a4c22d01b891a4d7e20164d71/cmd/cosign/cli/verify/verify.go#L318
@@ -131,6 +146,10 @@ const (
 	rekorSigMessage      string = "The signatures were integrated into the transparency log when the certificate was valid."    // TODO: check if message has been updated by upstream cosign cli
 	sigVerifierMessage   string = "The signatures were verified against the specified public key."                              // TODO: check if message has been updated by upstream cosign cli
 	certVerifierMessage  string = "The code-signing certificate was verified using trusted certificate authority certificates." // TODO: check if message has been updated by upstream cosign cli
+	bundleSubjectMessage string = "The Sigstore bundle signature was verified and its in-toto subject matches the artifact digest."
+	bundleTlogMessage    string = "The transparency log entry in the Sigstore bundle was verified."
+	// sigstoreBundleMediaTypePrefix is the media type prefix of Sigstore bundles produced by cosign v3 (e.g. application/vnd.dev.sigstore.bundle.v0.3+json)
+	sigstoreBundleMediaTypePrefix string = "application/vnd.dev.sigstore.bundle"
 )
 
 // init() registers the cosign verifier with the factory
@@ -257,6 +276,18 @@ func (v *cosignVerifier) verifyInternal(ctx context.Context, subjectReference co
 		if err != nil {
 			return errorToVerifyResult(v.name, v.verifierType, re.ErrorCodeGetBlobContentFailure.WithDetail(fmt.Sprintf("Failed to get Cosign signature with digest %s", blob.Digest)).WithError(err)), nil
 		}
+		// Cosign v3 (new bundle format) stores a Sigstore bundle as the layer content
+		if isSigstoreBundle(blob) {
+			extensionListEntry.Signature = blob.Digest.String()
+			verifications, isValid, err := verifyBundle(ctx, keysMap, blobBytes, cosignOpts, subjectDescHash)
+			if err != nil {
+				return errorToVerifyResult(v.name, v.verifierType, re.ErrorCodeVerifyPluginFailure.WithDetail(fmt.Sprintf("Failed to validate the Sigstore bundle with digest %s", blob.Digest)).WithError(err)), nil
+			}
+			hasValidSignature = hasValidSignature || isValid
+			extensionListEntry.Verifications = append(extensionListEntry.Verifications, verifications...)
+			sigExtensions = append(sigExtensions, extensionListEntry)
+			continue
+		}
 		// convert the blob to a static signature
 		staticOpts, err := staticLayerOpts(blob)
 		if err != nil {
@@ -368,6 +399,9 @@ func (v *cosignVerifier) verifyLegacy(ctx context.Context, subjectReference comm
 	sigExtensions := make([]cosignExtension, 0)
 	signatures := []oci.Signature{}
 	for _, blob := range referenceManifest.Blobs {
+		if isSigstoreBundle(blob) {
+			return errorToVerifyResult(v.name, v.verifierType, fmt.Errorf("sigstore bundle signatures are not supported by the legacy cosign verifier configuration, please configure 'trustPolicies' instead")), nil
+		}
 		blobBytes, err := referrerStore.GetBlobContent(ctx, subjectReference, blob.Digest)
 		if err != nil {
 			return errorToVerifyResult(v.name, v.verifierType, fmt.Errorf("failed to get blob content: %w", err)), nil
@@ -588,6 +622,163 @@ func verifyKeyless(ctx context.Context, sig oci.Signature, cosignOpts *cosign.Ch
 	return extension, hasValidSignature
 }
 
+// isSigstoreBundle returns true if the layer descriptor is a Sigstore bundle (cosign v3 new bundle format)
+func isSigstoreBundle(desc imgspec.Descriptor) bool {
+	return strings.HasPrefix(desc.MediaType, sigstoreBundleMediaTypePrefix)
+}
+
+// getTrustedRootDefault returns the Sigstore trusted root fetched from TUF.
+// The live trusted root refreshes itself periodically, so it is created once and reused.
+func getTrustedRootDefault() (root.TrustedMaterial, error) {
+	trustedRootMu.Lock()
+	defer trustedRootMu.Unlock()
+	if trustedRoot != nil {
+		return trustedRoot, nil
+	}
+	tr, err := cosign.TrustedRoot()
+	if err != nil {
+		return nil, err
+	}
+	trustedRoot = tr
+	return trustedRoot, nil
+}
+
+// parseSigstoreBundle parses the Sigstore bundle (v0.3+) from the blob content
+func parseSigstoreBundle(bundleBytes []byte) (*sgbundle.Bundle, error) {
+	pb := &protobundle.Bundle{}
+	if err := protojson.Unmarshal(bundleBytes, pb); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal Sigstore bundle: %w", err)
+	}
+	b, err := sgbundle.NewBundle(pb)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Sigstore bundle: %w", err)
+	}
+	if !b.MinVersion("v0.3") {
+		return nil, fmt.Errorf("unsupported Sigstore bundle version, requires v0.3 or later")
+	}
+	return b, nil
+}
+
+// verifyBundle verifies a Sigstore bundle against the subject digest using either the
+// trust policy keys or keyless (Fulcio certificate identity) verification.
+func verifyBundle(ctx context.Context, keysMap map[PKKey]keymanagementprovider.PublicKey, bundleBytes []byte, cosignOpts cosign.CheckOpts, subjectDescHash v1.Hash) ([]cosignExtension, bool, error) {
+	b, err := parseSigstoreBundle(bundleBytes)
+	if err != nil {
+		return nil, false, err
+	}
+	digestBytes, err := hex.DecodeString(subjectDescHash.Hex)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to decode subject digest: %w", err)
+	}
+	artifactPolicy := verify.WithArtifactDigest(subjectDescHash.Algorithm, digestBytes)
+
+	// the sigstore-go based verifier requires trusted material for transparency log and certificate verification
+	co := cosignOpts
+	if !co.IgnoreTlog || len(keysMap) == 0 {
+		if co.TrustedMaterial, err = getTrustedRoot(); err != nil {
+			return nil, false, re.ErrorCodeVerifyPluginFailure.WithDetail("Failed to get Sigstore trusted root").WithError(err).WithRemediation("Please check if the Sigstore TUF repository is available")
+		}
+	} else {
+		co.TrustedMaterial = &root.BaseTrustedMaterial{}
+	}
+
+	verifications := make([]cosignExtension, 0)
+	if len(keysMap) == 0 {
+		co.SigVerifier = nil
+		// Rekor v2 entries do not carry an integrated time, so a signed timestamp is required to verify the certificate
+		if !co.IgnoreTlog {
+			if co.UseSignedTimestamps, err = hasOnlyRekorV2Entries(b); err != nil {
+				return nil, false, err
+			}
+		}
+		extension := verifyBundleWith(ctx, &co, artifactPolicy, b, subjectDescHash)
+		verifications = append(verifications, extension)
+		return verifications, extension.IsSuccess, nil
+	}
+
+	hasValidSignature := false
+	for mapKey, pubKey := range keysMap {
+		hashType := crypto.SHA256
+		if pubKey.ProviderType == azurekeyvault.ProviderName {
+			if hashType, err = keyHashType(pubKey.Key); err != nil {
+				return verifications, false, re.ErrorCodeVerifyPluginFailure.WithDetail("Failed to determine hash type of the Azure Key Vault key").WithError(err)
+			}
+		}
+		sigVerifier, err := signature.LoadVerifier(pubKey.Key, hashType)
+		if err != nil {
+			return verifications, false, re.ErrorCodeVerifyPluginFailure.WithDetail(fmt.Sprintf("Failed to load public key from provider [%s] name [%s] version [%s]", mapKey.Provider, mapKey.Name, mapKey.Version)).WithError(err)
+		}
+		keyOpts := co
+		keyOpts.SigVerifier = sigVerifier
+		extension := verifyBundleWith(ctx, &keyOpts, artifactPolicy, b, subjectDescHash)
+		extension.KeyInformation = mapKey
+		hasValidSignature = hasValidSignature || extension.IsSuccess
+		verifications = append(verifications, extension)
+	}
+	return verifications, hasValidSignature, nil
+}
+
+// hasOnlyRekorV2Entries returns true if all transparency log entries in the bundle are Rekor v2 entries
+func hasOnlyRekorV2Entries(b *sgbundle.Bundle) (bool, error) {
+	entries, err := b.TlogEntries()
+	if err != nil {
+		return false, err
+	}
+	hasRekorV2 := false
+	for _, entry := range entries {
+		if !entry.IntegratedTime().IsZero() {
+			return false, nil
+		}
+		hasRekorV2 = true
+	}
+	return hasRekorV2, nil
+}
+
+// verifyBundleWith verifies the bundle with the given options and checks the in-toto subject matches the subject digest
+func verifyBundleWith(ctx context.Context, co *cosign.CheckOpts, artifactPolicy verify.ArtifactPolicyOption, b *sgbundle.Bundle, subjectDescHash v1.Hash) cosignExtension {
+	extension := cosignExtension{}
+	err := func() error {
+		if _, err := cosign.VerifyNewBundle(ctx, co, artifactPolicy, b); err != nil {
+			return err
+		}
+		dsse, ok := b.Content.(*protobundle.Bundle_DsseEnvelope)
+		if !ok {
+			return fmt.Errorf("bundle does not contain a DSSE envelope")
+		}
+		payload, err := json.Marshal(dsse.DsseEnvelope)
+		if err != nil {
+			return fmt.Errorf("failed to marshal DSSE envelope: %w", err)
+		}
+		att, err := static.NewAttestation(payload)
+		if err != nil {
+			return err
+		}
+		return cosign.IntotoSubjectClaimVerifier(att, subjectDescHash, nil)
+	}()
+	if err != nil {
+		extension.Err = err.Error()
+		return extension
+	}
+	extension.IsSuccess = true
+	extension.BundleVerified = !co.IgnoreTlog
+	extension.Summary = bundleVerificationMessage(co)
+	return extension
+}
+
+// bundleVerificationMessage returns a string list of all verifications performed for a Sigstore bundle
+func bundleVerificationMessage(co *cosign.CheckOpts) []string {
+	messages := []string{bundleSubjectMessage}
+	if !co.IgnoreTlog {
+		messages = append(messages, bundleTlogMessage)
+	}
+	if co.SigVerifier != nil {
+		messages = append(messages, sigVerifierMessage)
+	} else {
+		messages = append(messages, certVerifierMessage)
+	}
+	return messages
+}
+
 // getKeyMapOptsDefault returns the map of keys and cosign options for the reference
 func getKeyMapOptsDefault(ctx context.Context, trustPolicy TrustPolicy, namespace string) (map[PKKey]keymanagementprovider.PublicKey, cosign.CheckOpts, error) {
 	// get the map of keys for that reference
@@ -607,20 +798,11 @@ func getKeyMapOptsDefault(ctx context.Context, trustPolicy TrustPolicy, namespac
 
 // processAKVSignature processes the AKV signature and returns the hash type, signature and error
 func processAKVSignature(sigEncoded string, staticSig oci.Signature, publicKey crypto.PublicKey, payloadBytes []byte, staticOpts []static.Option) (crypto.Hash, oci.Signature, error) {
-	var hashType crypto.Hash
-	switch keyType := publicKey.(type) {
-	case *rsa.PublicKey:
-		switch keyType.Size() {
-		case 256:
-			hashType = crypto.SHA256
-		case 384:
-			hashType = crypto.SHA384
-		case 512:
-			hashType = crypto.SHA512
-		default:
-			return crypto.SHA256, nil, fmt.Errorf("RSA key check: unsupported key size: %d", keyType.Size())
-		}
-
+	hashType, err := keyHashType(publicKey)
+	if err != nil {
+		return crypto.SHA256, nil, err
+	}
+	if _, ok := publicKey.(*rsa.PublicKey); ok {
 		// TODO: remove section after fix for bug in cosign azure key vault implementation
 		// tracking issue: https://github.com/sigstore/sigstore/issues/1384
 		// summary: azure keyvault implementation ASN.1 encodes sig after online signing with keyvault
@@ -639,21 +821,38 @@ func processAKVSignature(sigEncoded string, staticSig oci.Signature, publicKey c
 		if err != nil {
 			return crypto.SHA256, nil, re.ErrorCodeVerifyPluginFailure.WithDetail("RSA key check: failed to generate static signature").WithError(err)
 		}
+	}
+	return hashType, staticSig, nil
+}
+
+// keyHashType returns the hash type to use for the public key based on the key size or curve
+func keyHashType(publicKey crypto.PublicKey) (crypto.Hash, error) {
+	switch keyType := publicKey.(type) {
+	case *rsa.PublicKey:
+		switch keyType.Size() {
+		case 256:
+			return crypto.SHA256, nil
+		case 384:
+			return crypto.SHA384, nil
+		case 512:
+			return crypto.SHA512, nil
+		default:
+			return crypto.SHA256, fmt.Errorf("RSA key check: unsupported key size: %d", keyType.Size())
+		}
 	case *ecdsa.PublicKey:
 		switch keyType.Curve {
 		case elliptic.P256():
-			hashType = crypto.SHA256
+			return crypto.SHA256, nil
 		case elliptic.P384():
-			hashType = crypto.SHA384
+			return crypto.SHA384, nil
 		case elliptic.P521():
-			hashType = crypto.SHA512
+			return crypto.SHA512, nil
 		default:
-			return crypto.SHA256, nil, fmt.Errorf("ECDSA key check: unsupported key curve [%s]", keyType.Params().Name)
+			return crypto.SHA256, fmt.Errorf("ECDSA key check: unsupported key curve [%s]", keyType.Params().Name)
 		}
 	default:
-		return crypto.SHA256, nil, fmt.Errorf("unsupported public key type [%T]", publicKey)
+		return crypto.SHA256, fmt.Errorf("unsupported public key type [%T]", publicKey)
 	}
-	return hashType, staticSig, nil
 }
 
 // verificationPerformedMessage returns a string list of all verifications performed
