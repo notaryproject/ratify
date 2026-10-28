@@ -4,7 +4,7 @@ metadata:
   name: verifier-cosign
 spec:
   name: cosign
-  artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json
+  artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json,application/vnd.dev.sigstore.bundle.v0.3+json
   parameters:
     trustPolicies:
       - name: default
