@@ -19,14 +19,17 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -35,6 +38,7 @@ import (
 	imgspec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/ratify-project/ratify/pkg/common"
 	"github.com/ratify-project/ratify/pkg/keymanagementprovider"
+	"github.com/ratify-project/ratify/pkg/keymanagementprovider/azurekeyvault"
 	"github.com/ratify-project/ratify/pkg/ocispecs"
 	"github.com/ratify-project/ratify/pkg/referrerstore/mocks"
 	"github.com/ratify-project/ratify/pkg/verifier/config"
@@ -309,6 +313,41 @@ func TestVerifyInternal_Bundle(t *testing.T) {
 	}
 }
 
+func TestVerifyInternal_InvalidBundle(t *testing.T) {
+	subjectDigest := digest.FromString("subject")
+	refDigest := digest.FromString("ref")
+	bundleDigest := digest.FromString("bundle")
+	store := &mocks.MemoryTestStore{
+		Manifests: map[digest.Digest]ocispecs.ReferenceManifest{
+			refDigest: {
+				MediaType: imgspec.MediaTypeImageManifest,
+				Blobs:     []imgspec.Descriptor{{Digest: bundleDigest, MediaType: testBundleMediaType}},
+			},
+		},
+		Subjects: map[digest.Digest]*ocispecs.SubjectDescriptor{
+			subjectDigest: {Descriptor: imgspec.Descriptor{Digest: subjectDigest, MediaType: imgspec.MediaTypeImageManifest}},
+		},
+		Blobs: map[digest.Digest][]byte{bundleDigest: []byte("invalid")},
+	}
+	defer func() { getKeyMapOpts = getKeyMapOptsDefault }()
+	getKeyMapOpts = func(_ context.Context, _ TrustPolicy, _ string) (map[PKKey]keymanagementprovider.PublicKey, cosign.CheckOpts, error) {
+		return nil, cosign.CheckOpts{IgnoreTlog: true}, nil
+	}
+	v, err := (&cosignVerifierFactory{}).Create("", config.VerifierConfig{
+		"name":          "test",
+		"artifactTypes": testBundleMediaType,
+		"trustPolicies": []TrustPolicyConfig{{Name: "test-policy", Keyless: KeylessConfig{CertificateIdentity: testIdentity, CertificateOIDCIssuer: testIssuer}, Scopes: []string{"*"}}},
+	}, "", "test-namespace")
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	result, _ := v.Verify(context.Background(), common.Reference{Digest: subjectDigest, Original: ratifySampleImageRef},
+		ocispecs.ReferenceDescriptor{ArtifactType: testBundleMediaType, Descriptor: imgspec.Descriptor{Digest: refDigest, MediaType: imgspec.MediaTypeImageManifest}}, store)
+	if result.IsSuccess || !strings.Contains(result.ErrorReason, "Sigstore bundle") {
+		t.Fatalf("expected invalid bundle failure, got: %+v", result)
+	}
+}
+
 func TestVerifyLegacy_BundleNotSupported(t *testing.T) {
 	refDigest := digest.FromString("ref")
 	subjectDigest := digest.FromString("subject")
@@ -337,6 +376,223 @@ func TestVerifyLegacy_BundleNotSupported(t *testing.T) {
 		ocispecs.ReferenceDescriptor{Descriptor: imgspec.Descriptor{Digest: refDigest, MediaType: imgspec.MediaTypeImageManifest}}, store)
 	if result.IsSuccess || !strings.Contains(result.ErrorReason, "trustPolicies") {
 		t.Fatalf("expected legacy bundle failure, got: %+v", result)
+	}
+}
+
+// entityToBundle converts a VirtualSigstore Rekor v2 test entity to a serialized v0.3 Sigstore bundle
+func entityToBundle(t *testing.T, e *ca.TestEntity) []byte {
+	t.Helper()
+	vc, err := e.VerificationContent()
+	if err != nil {
+		t.Fatalf("failed to get verification content: %v", err)
+	}
+	sc, err := e.SignatureContent()
+	if err != nil {
+		t.Fatalf("failed to get signature content: %v", err)
+	}
+	env := sc.EnvelopeContent().RawEnvelope()
+	payload, err := base64.StdEncoding.DecodeString(env.Payload)
+	if err != nil {
+		t.Fatalf("failed to decode payload: %v", err)
+	}
+	sig, err := base64.StdEncoding.DecodeString(env.Signatures[0].Sig)
+	if err != nil {
+		t.Fatalf("failed to decode signature: %v", err)
+	}
+	entries, err := e.TlogEntries()
+	if err != nil {
+		t.Fatalf("failed to get tlog entries: %v", err)
+	}
+	timestamps, err := e.Timestamps()
+	if err != nil {
+		t.Fatalf("failed to get timestamps: %v", err)
+	}
+	vm := &protobundle.VerificationMaterial{
+		Content:                   &protobundle.VerificationMaterial_Certificate{Certificate: &protocommon.X509Certificate{RawBytes: vc.Certificate().Raw}},
+		TimestampVerificationData: &protobundle.TimestampVerificationData{},
+	}
+	for _, entry := range entries {
+		tle := entry.TransparencyLogEntry()
+		// Rekor v2 entries do not carry an integrated time
+		tle.IntegratedTime = 0
+		vm.TlogEntries = append(vm.TlogEntries, tle)
+	}
+	for _, ts := range timestamps {
+		vm.TimestampVerificationData.Rfc3161Timestamps = append(vm.TimestampVerificationData.Rfc3161Timestamps, &protocommon.RFC3161SignedTimestamp{SignedTimestamp: ts})
+	}
+	b, err := protojson.Marshal(&protobundle.Bundle{
+		MediaType:            testBundleMediaType,
+		VerificationMaterial: vm,
+		Content: &protobundle.Bundle_DsseEnvelope{DsseEnvelope: &protodsse.Envelope{
+			Payload:     payload,
+			PayloadType: env.PayloadType,
+			Signatures:  []*protodsse.Signature{{Sig: sig}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal bundle: %v", err)
+	}
+	return b
+}
+
+func TestVerifyBundle_KeylessRekorV2(t *testing.T) {
+	subjectHash := newTestSubjectHash(t)
+	statement := []byte(fmt.Sprintf(`{"_type":"https://in-toto.io/Statement/v1","subject":[{"name":"test","digest":{"sha256":"%s"}}],"predicateType":"%s","predicate":{}}`, subjectHash.Hex, testSignPredicate))
+	vs, err := ca.NewVirtualSigstore()
+	if err != nil {
+		t.Fatalf("failed to create virtual sigstore: %v", err)
+	}
+	entity, err := vs.AttestHashedRekordV2(testIdentity, testIssuer, statement)
+	if err != nil {
+		t.Fatalf("failed to attest: %v", err)
+	}
+	bundleBytes := entityToBundle(t, entity)
+	b, err := parseSigstoreBundle(bundleBytes)
+	if err != nil {
+		t.Fatalf("failed to parse bundle: %v", err)
+	}
+	if onlyV2, err := hasOnlyRekorV2Entries(b); err != nil || !onlyV2 {
+		t.Fatalf("hasOnlyRekorV2Entries() = %v, %v, want true", onlyV2, err)
+	}
+	getTrustedRoot = func() (root.TrustedMaterial, error) { return vs, nil }
+	defer func() { getTrustedRoot = getTrustedRootDefault }()
+
+	co := cosign.CheckOpts{
+		IgnoreSCT:  true,
+		Identities: []cosign.Identity{{Subject: testIdentity, Issuer: testIssuer}},
+	}
+	verifications, valid, err := verifyBundle(context.Background(), nil, bundleBytes, co, subjectHash)
+	if err != nil || !valid {
+		t.Fatalf("verifyBundle() valid = %v, err = %v, verifications: %+v", valid, err, verifications)
+	}
+	if !verifications[0].BundleVerified || !slices.Contains(verifications[0].Summary, bundleTlogMessage) {
+		t.Errorf("expected tlog verification in result: %+v", verifications[0])
+	}
+}
+
+func TestGetTrustedRootDefault_Cached(t *testing.T) {
+	vs, err := ca.NewVirtualSigstore()
+	if err != nil {
+		t.Fatalf("failed to create virtual sigstore: %v", err)
+	}
+	trustedRoot = vs
+	defer func() { trustedRoot = nil }()
+	tr, err := getTrustedRootDefault()
+	if err != nil || tr != vs {
+		t.Fatalf("expected cached trusted root, got %v, %v", tr, err)
+	}
+}
+
+func TestGetTrustedRootDefault_Error(t *testing.T) {
+	trustedRoot = nil
+	// a custom mirror without a cached root.json cannot be trusted
+	t.Setenv("TUF_ROOT", t.TempDir())
+	t.Setenv("TUF_MIRROR", "http://127.0.0.1:1")
+	if _, err := getTrustedRootDefault(); err == nil {
+		t.Fatalf("expected error for untrusted TUF mirror")
+	}
+	if trustedRoot != nil {
+		t.Fatalf("expected trusted root to not be cached on error")
+	}
+}
+
+func TestVerifyBundle_KeyEdgeCases(t *testing.T) {
+	subjectHash := newTestSubjectHash(t)
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	validBundle := createTestBundle(t, key, nil, subjectHash.Hex)
+	_, edKey, _ := ed25519.GenerateKey(rand.Reader)
+	vs, err := ca.NewVirtualSigstore()
+	if err != nil {
+		t.Fatalf("failed to create virtual sigstore: %v", err)
+	}
+	defer func() { getTrustedRoot = getTrustedRootDefault }()
+
+	// message signature bundle (e.g. cosign sign-blob) over the subject digest is not an image signature
+	digestBytes, _ := hex.DecodeString(subjectHash.Hex)
+	msgSig, _ := key.Sign(rand.Reader, digestBytes, crypto.SHA256)
+	msgBundle, err := protojson.Marshal(&protobundle.Bundle{
+		MediaType:            testBundleMediaType,
+		VerificationMaterial: &protobundle.VerificationMaterial{Content: &protobundle.VerificationMaterial_PublicKey{PublicKey: &protocommon.PublicKeyIdentifier{Hint: "test"}}},
+		Content: &protobundle.Bundle_MessageSignature{MessageSignature: &protocommon.MessageSignature{
+			MessageDigest: &protocommon.HashOutput{Algorithm: protocommon.HashAlgorithm_SHA2_256, Digest: digestBytes},
+			Signature:     msgSig,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal bundle: %v", err)
+	}
+
+	tc := []struct {
+		name        string
+		keys        map[PKKey]keymanagementprovider.PublicKey
+		bundle      []byte
+		co          cosign.CheckOpts
+		rootErr     bool
+		expectValid bool
+		expectErr   bool
+		expectMsg   string
+	}{
+		{
+			name:        "azure key vault ECDSA key",
+			keys:        map[PKKey]keymanagementprovider.PublicKey{{Provider: "akv"}: {Key: key.Public(), ProviderType: azurekeyvault.ProviderName}},
+			bundle:      validBundle,
+			co:          cosign.CheckOpts{IgnoreTlog: true},
+			expectValid: true,
+		},
+		{
+			name:      "azure key vault unsupported key",
+			keys:      map[PKKey]keymanagementprovider.PublicKey{{Provider: "akv"}: {Key: edKey.Public(), ProviderType: azurekeyvault.ProviderName}},
+			bundle:    validBundle,
+			co:        cosign.CheckOpts{IgnoreTlog: true},
+			expectErr: true,
+		},
+		{
+			name:      "unsupported inline key",
+			keys:      map[PKKey]keymanagementprovider.PublicKey{{Provider: "test"}: {Key: "invalid", ProviderType: "inline"}},
+			bundle:    validBundle,
+			co:        cosign.CheckOpts{IgnoreTlog: true},
+			expectErr: true,
+		},
+		{
+			name:      "tlog verification with trusted root error",
+			keys:      map[PKKey]keymanagementprovider.PublicKey{{Provider: "test"}: {Key: key.Public(), ProviderType: "inline"}},
+			bundle:    validBundle,
+			rootErr:   true,
+			expectErr: true,
+		},
+		{
+			name:      "tlog verification without tlog entry",
+			keys:      map[PKKey]keymanagementprovider.PublicKey{{Provider: "test"}: {Key: key.Public(), ProviderType: "inline"}},
+			bundle:    validBundle,
+			expectMsg: "transparency log",
+		},
+		{
+			name:      "message signature bundle",
+			keys:      map[PKKey]keymanagementprovider.PublicKey{{Provider: "test"}: {Key: key.Public(), ProviderType: "inline"}},
+			bundle:    msgBundle,
+			co:        cosign.CheckOpts{IgnoreTlog: true},
+			expectMsg: "DSSE envelope",
+		},
+	}
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			getTrustedRoot = func() (root.TrustedMaterial, error) {
+				if tt.rootErr {
+					return nil, fmt.Errorf("tuf error")
+				}
+				return vs, nil
+			}
+			verifications, valid, err := verifyBundle(context.Background(), tt.keys, tt.bundle, tt.co, subjectHash)
+			if (err != nil) != tt.expectErr {
+				t.Fatalf("verifyBundle() error = %v, expectErr %v", err, tt.expectErr)
+			}
+			if valid != tt.expectValid {
+				t.Fatalf("verifyBundle() valid = %v, want %v, verifications: %+v", valid, tt.expectValid, verifications)
+			}
+			if tt.expectMsg != "" && (len(verifications) != 1 || !strings.Contains(verifications[0].Err, tt.expectMsg)) {
+				t.Fatalf("expected error containing %q, got %+v", tt.expectMsg, verifications)
+			}
+		})
 	}
 }
 
