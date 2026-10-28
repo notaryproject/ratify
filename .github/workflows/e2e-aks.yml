@@ -50,6 +50,10 @@ jobs:
         uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           go-version: "1.26"
+      - name: Set up Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v3.22.0
       - name: Az CLI login
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
