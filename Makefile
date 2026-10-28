@@ -31,6 +31,7 @@ KIND_KUBERNETES_VERSION ?= 1.34.8
 GATEKEEPER_VERSION ?= 3.18.0
 DAPR_VERSION ?= 1.14.4
 COSIGN_VERSION ?= 2.4.1
+COSIGN_V3_VERSION ?= 3.1.3
 NOTATION_VERSION ?= 1.2.0
 ORAS_VERSION ?= 1.2.1
 
@@ -366,6 +367,8 @@ e2e-cosign-setup:
 	curl -sSLO https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64
 	mv cosign-linux-amd64 .staging/cosign
 	chmod +x .staging/cosign/cosign-linux-amd64
+	curl -sSL -o .staging/cosign/cosign-v3-linux-amd64 https://github.com/sigstore/cosign/releases/download/v${COSIGN_V3_VERSION}/cosign-linux-amd64
+	chmod +x .staging/cosign/cosign-v3-linux-amd64
 
 	# image signed with a key
 	printf 'FROM ${ALPINE_IMAGE}\nCMD ["echo", "cosign signed image"]' > .staging/cosign/Dockerfile
@@ -380,12 +383,21 @@ e2e-cosign-setup:
 	${GITHUB_WORKSPACE}/bin/oras cp --from-oci-layout .staging/cosign/cosign.tar:v0 ${TEST_REGISTRY}/cosign:unsigned
 	rm .staging/cosign/cosign.tar
 
+	# image signed with a key using the cosign v3 Sigstore bundle format
+	printf 'FROM ${ALPINE_IMAGE}\nCMD ["echo", "cosign bundle signed image"]' > .staging/cosign/Dockerfile
+	docker buildx create --use
+	docker buildx build --output type=oci,dest=.staging/cosign/cosign.tar -t cosign:v0 .staging/cosign
+	${GITHUB_WORKSPACE}/bin/oras cp --from-oci-layout .staging/cosign/cosign.tar:v0 ${TEST_REGISTRY}/cosign:signed-bundle
+	rm .staging/cosign/cosign.tar
+
 	export COSIGN_PASSWORD="test" && \
 	cd .staging/cosign && \
 	./cosign-linux-amd64 login ${TEST_REGISTRY} -u ${TEST_REGISTRY_USERNAME} -p ${TEST_REGISTRY_PASSWORD} && \
 	./cosign-linux-amd64 generate-key-pair && \
 	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --tlog-upload=false --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-key --descriptor | jq .digest | xargs` && \
-	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --tlog-upload=false --key cosign.key ${TEST_REGISTRY}/all@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/all:v0 --descriptor | jq .digest | xargs`
+	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --tlog-upload=false --key cosign.key ${TEST_REGISTRY}/all@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/all:v0 --descriptor | jq .digest | xargs` && \
+	./cosign-v3-linux-amd64 signing-config create --out signing-config-no-tlog.json && \
+	./cosign-v3-linux-amd64 sign --yes --allow-insecure-registry --allow-http-registry --signing-config signing-config-no-tlog.json --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-bundle --descriptor | jq .digest | xargs`
 
 e2e-cosign-akv-setup:
 	rm -rf .staging/cosign
