@@ -17,6 +17,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -28,6 +29,10 @@ import (
 
 	"oras.land/oras-go/v2/registry"
 )
+
+// ErrNoExecutorMatched is returned when none of the configured scopes matches
+// the artifact.
+var ErrNoExecutorMatched = errors.New("no executor configured for the artifact")
 
 // ScopedOptions contains the configuration options to create a group of plugins
 // for the executor under a scope.
@@ -146,7 +151,7 @@ func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 
 // ValidateArtifact routes the artifact validation request to the appropriate
 // executor based on the artifact's reference. It returns the validation result
-// or an error if no matching executor is found.
+// or an error wrapping [ErrNoExecutorMatched] if no matching executor is found.
 func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) (*ratify.ValidationResult, error) {
 	reference := stripNamespacePrefix(artifact)
 	executor, err := s.matchExecutor(reference)
@@ -161,7 +166,8 @@ func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) 
 
 // Resolve retrieves the descriptor for the specified artifact by routing the
 // request to the appropriate executor based on the artifact's reference.
-// It returns the descriptor or an error if no matching executor is found.
+// It returns the descriptor or an error wrapping [ErrNoExecutorMatched] if no
+// matching executor is found.
 func (s *ScopedExecutor) Resolve(ctx context.Context, artifact string) (ocispec.Descriptor, error) {
 	reference := stripNamespacePrefix(artifact)
 	executor, err := s.matchExecutor(reference)
@@ -205,7 +211,7 @@ func (s *ScopedExecutor) matchExecutor(artifact string) (*ratify.Executor, error
 			return executor, nil
 		}
 	}
-	return nil, fmt.Errorf("no executor configured for the artifact %q", artifact)
+	return nil, fmt.Errorf("%w %q", ErrNoExecutorMatched, artifact)
 }
 
 // registerExecutor registers an executor for a given scope.

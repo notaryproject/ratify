@@ -256,7 +256,7 @@ func TestMutate(t *testing.T) {
 			},
 		},
 		{
-			name: "Store fails to resolve reference",
+			name: "No executor matched",
 			requestBody: `{
 				"request": {
 					"keys": ["testrepo/testimage:v1"]
@@ -267,7 +267,21 @@ func TestMutate(t *testing.T) {
 				{
 					Key:   "testrepo/testimage:v1",
 					Value: "testrepo/testimage:v1",
-					Error: "failed to match executor for artifact \"testrepo/testimage:v1\": no executor configured for the artifact \"testrepo/testimage:v1\"",
+				},
+			},
+		},
+		{
+			name: "No executor matched with namespace prefix",
+			requestBody: `{
+				"request": {
+					"keys": ["[team-a]testrepo/testimage:v1"]
+				}
+			}`,
+			expectedError: false,
+			expectedItems: []externaldata.Item{
+				{
+					Key:   "[team-a]testrepo/testimage:v1",
+					Value: "testrepo/testimage:v1",
 				},
 			},
 		},
@@ -524,6 +538,45 @@ func TestResolveReference_LogsFailures(t *testing.T) {
 
 	if findEntry(hook, logrus.ErrorLevel, "!invalid!") == nil {
 		t.Error("expected the invalid reference to be logged at error level")
+	}
+}
+
+// An image outside every executor scope must be passed through unchanged
+// rather than reported as an error, which would make the fail-closed mutation
+// webhook deny the admission request.
+func TestResolveReference_NoExecutorMatched(t *testing.T) {
+	scopedExecutor := newTestScopedExecutor(t, false)
+	cache := &mockCache{entries: make(map[string]string)}
+	srv := &server{
+		getExecutor: func(_ string) *executor.ScopedExecutor { return scopedExecutor },
+		mutateCache: cache,
+		sfGroup:     new(singleflight.Group),
+	}
+
+	item := srv.resolveReference(context.Background(), "docker.io/library/busybox:latest")
+	if item.Error != "" {
+		t.Errorf("expected no error for an image without a matching executor, got: %q", item.Error)
+	}
+	if item.Value != "docker.io/library/busybox:latest" {
+		t.Errorf("expected the reference to be returned unchanged, got: %v", item.Value)
+	}
+	if len(cache.entries) != 0 {
+		t.Errorf("expected the pass-through not to be cached, got: %v", cache.entries)
+	}
+}
+
+// Failures other than an unmatched scope must still be reported so that the
+// mutation webhook does not silently skip images it is expected to resolve.
+func TestResolveReference_NoExecutorLoaded(t *testing.T) {
+	srv := &server{
+		getExecutor: func(_ string) *executor.ScopedExecutor { return nil },
+		mutateCache: &mockCache{entries: make(map[string]string)},
+		sfGroup:     new(singleflight.Group),
+	}
+
+	item := srv.resolveReference(context.Background(), "docker.io/library/busybox:latest")
+	if item.Error != "no valid executor configured" {
+		t.Errorf("expected the missing executor to be reported, got: %q", item.Error)
 	}
 }
 
