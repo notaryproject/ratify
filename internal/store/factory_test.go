@@ -126,9 +126,14 @@ func newMockStoreWithErr(_ NewOptions) (ratify.Store, error) {
 	return nil, fmt.Errorf("mock store error")
 }
 
+func newNilMockStore(_ NewOptions) (ratify.Store, error) {
+	return nil, nil
+}
+
 func TestNew(t *testing.T) {
 	Register("mock-store", newMockStore)
 	Register("mock-store-with-error", newMockStoreWithErr)
+	Register("mock-store-nil", newNilMockStore)
 	tests := []struct {
 		name          string
 		opts          []NewOptions
@@ -162,15 +167,15 @@ func TestNew(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "invalid store scope",
+			name: "fallback store with star scope",
 			opts: []NewOptions{
 				{
 					Type:       "mock-store",
 					Parameters: map[string]any{},
+					Scopes:     []string{"*"},
 				},
 			},
-			globalScopes:  []string{"*"},
-			expectedError: true,
+			expectedError: false,
 		},
 		{
 			name: "multiple stores clear global scopes",
@@ -188,14 +193,100 @@ func TestNew(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "store registration failure with bad store type",
+			name: "store creation failure with fallback scope",
 			opts: []NewOptions{
 				{
 					Type:   "mock-store-with-error",
-					Scopes: []string{"*"}, // Invalid scope that causes Register to fail
+					Scopes: []string{"*"},
 				},
 			},
 			globalScopes:  []string{},
+			expectedError: true,
+		},
+		{
+			name: "single store without scopes registers fallback",
+			opts: []NewOptions{
+				{
+					Type: "mock-store",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "store with mixed explicit and fallback scopes",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"registry.example.com", "*"},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "single store inherits mixed global scopes",
+			opts: []NewOptions{
+				{
+					Type: "mock-store",
+				},
+			},
+			globalScopes:  []string{"registry.example.com", "*"},
+			expectedError: false,
+		},
+		{
+			name: "multiple stores with duplicate fallback scope",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"*"},
+				},
+				{
+					Type:   "mock-store",
+					Scopes: []string{"example.com", "*"},
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "single unscoped store fails fallback registration",
+			opts: []NewOptions{
+				{
+					Type: "mock-store-nil",
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "store with fallback scope fails fallback registration",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store-nil",
+					Scopes: []string{"*"},
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "multiple stores with one missing scopes",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"example.com"},
+				},
+				{
+					Type: "mock-store",
+				},
+			},
+			globalScopes:  []string{"global.com"},
+			expectedError: true,
+		},
+		{
+			name: "store with invalid scope",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"invalid:scope:with:colons"},
+				},
+			},
 			expectedError: true,
 		},
 	}
