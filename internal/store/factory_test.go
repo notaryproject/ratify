@@ -126,9 +126,14 @@ func newMockStoreWithErr(_ NewOptions) (ratify.Store, error) {
 	return nil, fmt.Errorf("mock store error")
 }
 
+func newNilMockStore(_ NewOptions) (ratify.Store, error) {
+	return nil, nil
+}
+
 func TestNew(t *testing.T) {
 	Register("mock-store", newMockStore)
 	Register("mock-store-with-error", newMockStoreWithErr)
+	Register("mock-store-nil", newNilMockStore)
 	tests := []struct {
 		name          string
 		opts          []NewOptions
@@ -237,6 +242,49 @@ func TestNew(t *testing.T) {
 				{
 					Type:   "mock-store",
 					Scopes: []string{"example.com", "*"},
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "single unscoped store fails fallback registration",
+			opts: []NewOptions{
+				{
+					Type: "mock-store-nil",
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "store with fallback scope fails fallback registration",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store-nil",
+					Scopes: []string{"*"},
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "multiple stores with one missing scopes",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"example.com"},
+				},
+				{
+					Type: "mock-store",
+				},
+			},
+			globalScopes:  []string{"global.com"},
+			expectedError: true,
+		},
+		{
+			name: "store with invalid scope",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"invalid:scope:with:colons"},
 				},
 			},
 			expectedError: true,

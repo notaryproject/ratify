@@ -211,6 +211,25 @@ func TestNewExecutor(t *testing.T) {
 			expectExecutor: true,
 		},
 		{
+			name: "duplicate fallback executors",
+			opts: Options{
+				Executors: []ScopedOptions{
+					{
+						Scopes:    []string{"*"},
+						Verifiers: []verifier.NewOptions{{Name: mockVerifierName, Type: mockVerifierType}},
+						Stores:    []store.NewOptions{{Type: mockStoreType}},
+					},
+					{
+						Scopes:    []string{"*"},
+						Verifiers: []verifier.NewOptions{{Name: mockVerifierName, Type: mockVerifierType}},
+						Stores:    []store.NewOptions{{Type: mockStoreType}},
+					},
+				},
+			},
+			expectErr:      true,
+			expectExecutor: false,
+		},
+		{
 			name: "fallback scope with cosign verifier inheriting scopes",
 			opts: Options{
 				Executors: []ScopedOptions{
