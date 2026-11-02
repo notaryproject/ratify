@@ -47,16 +47,19 @@ const (
 //   - Repository paths: "registry.example.com/namespace/repo" matches a
 //     specific repository
 //
+// Note: The special scope value "*" registers a global fallback verifier.
 // Scope matching follows a precedence order from most specific to least
 // specific:
 //  1. Exact repository match
 //  2. Exact registry match
 //  3. Wildcard registry match
+//  4. Fallback verifier
 type Verifier struct {
 	name       string
 	wildcard   map[string]*cosign.Verifier
 	registry   map[string]*cosign.Verifier
 	repository map[string]*cosign.Verifier
+	fallback   *cosign.Verifier
 }
 
 // ScopedOptions defines the configuration options for a scoped
@@ -231,6 +234,9 @@ func (v *Verifier) matchVerifier(repository string) (*cosign.Verifier, error) {
 		}
 	}
 
+	if v.fallback != nil {
+		return v.fallback, nil
+	}
 	return nil, fmt.Errorf("no verifier configured for the repository %q", repository)
 }
 
@@ -241,6 +247,13 @@ func (v *Verifier) registerVerifier(scope string, verifier *cosign.Verifier) err
 	}
 	if verifier == nil {
 		return fmt.Errorf("verifier cannot be nil")
+	}
+	if scope == "*" {
+		if v.fallback != nil {
+			return fmt.Errorf("duplicate fallback scope %q detected", scope)
+		}
+		v.fallback = verifier
+		return nil
 	}
 
 	if strings.Contains(scope, "/") {

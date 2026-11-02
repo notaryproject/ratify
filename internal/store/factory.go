@@ -79,6 +79,7 @@ func New(opts []NewOptions, globalScopes []string) (ratify.Store, error) {
 	}
 
 	storeMux := ratify.NewStoreMux()
+	hasFallback := false
 	for _, storeOptions := range opts {
 		scopes := storeOptions.Scopes
 		if len(scopes) == 0 {
@@ -91,17 +92,20 @@ func New(opts []NewOptions, globalScopes []string) (ratify.Store, error) {
 			return nil, fmt.Errorf("failed to create store for type %q: %w", storeOptions.Type, err)
 		}
 
-		if len(scopes) == 1 && scopes[0] == "*" {
-			if err = storeMux.RegisterFallback(store); err != nil {
-				return nil, fmt.Errorf("failed to register fallback store: %w", err)
-			}
-			continue
-		}
-
 		if len(scopes) == 0 {
 			return nil, fmt.Errorf("store options must contain at least one scope")
 		}
 		for _, scope := range scopes {
+			if scope == "*" {
+				if hasFallback {
+					return nil, fmt.Errorf("fallback store already registered")
+				}
+				hasFallback = true
+				if err = storeMux.RegisterFallback(store); err != nil {
+					return nil, fmt.Errorf("failed to register fallback store: %w", err)
+				}
+				continue
+			}
 			if err = storeMux.Register(scope, store); err != nil {
 				return nil, fmt.Errorf("failed to register store for scope %q: %w", scope, err)
 			}

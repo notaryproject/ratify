@@ -26,6 +26,7 @@ import (
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
+	_ "github.com/notaryproject/ratify/v2/internal/verifier/cosign"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -202,6 +203,62 @@ func TestNewExecutor(t *testing.T) {
 						},
 						Policy: &policyenforcer.NewOptions{
 							Type: mockPolicyEnforcerType,
+						},
+					},
+				},
+			},
+			expectErr:      false,
+			expectExecutor: true,
+		},
+		{
+			name: "fallback scope with cosign verifier inheriting scopes",
+			opts: Options{
+				Executors: []ScopedOptions{
+					{
+						Scopes: []string{"*"},
+						Verifiers: []verifier.NewOptions{
+							{
+								Name: "cosign",
+								Type: "cosign",
+								Parameters: map[string]any{
+									"trustPolicies": []any{
+										map[string]any{},
+									},
+								},
+							},
+						},
+						Stores: []store.NewOptions{
+							{
+								Type: mockStoreType,
+							},
+						},
+					},
+				},
+			},
+			expectErr:      false,
+			expectExecutor: true,
+		},
+		{
+			name: "mixed explicit and fallback scopes with cosign verifier and single store",
+			opts: Options{
+				Executors: []ScopedOptions{
+					{
+						Scopes: []string{"registry.example.com", "*"},
+						Verifiers: []verifier.NewOptions{
+							{
+								Name: "cosign",
+								Type: "cosign",
+								Parameters: map[string]any{
+									"trustPolicies": []any{
+										map[string]any{},
+									},
+								},
+							},
+						},
+						Stores: []store.NewOptions{
+							{
+								Type: mockStoreType,
+							},
 						},
 					},
 				},

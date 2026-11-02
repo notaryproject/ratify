@@ -637,6 +637,19 @@ func TestRegisterVerifier(t *testing.T) {
 			cosignVerifier: mockCosignVerifier,
 			wantErr:        false,
 		},
+		{
+			name:           "valid fallback scope",
+			scope:          "*",
+			cosignVerifier: mockCosignVerifier,
+			wantErr:        false,
+		},
+		{
+			name:           "duplicate fallback scope",
+			scope:          "*",
+			cosignVerifier: mockCosignVerifier,
+			wantErr:        true,
+			errContains:    "duplicate fallback scope",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1189,6 +1202,75 @@ func TestVerifier_ScopeMatchingPrecedence(t *testing.T) {
 			// The test validates that a verifier is found - the specific verifier
 			// instance validation would require more complex setup with different
 			// verifier instances per scope
+		})
+	}
+}
+
+func TestNewVerifier_FallbackScope(t *testing.T) {
+	newOpts := func(scopes []string) verifier.NewOptions {
+		policy := map[string]interface{}{"name": "fallback-policy"}
+		if scopes != nil {
+			policy["scopes"] = scopes
+		}
+		return verifier.NewOptions{
+			Name: testVerifierName,
+			Parameters: map[string]interface{}{
+				"trustPolicies": []interface{}{
+					map[string]interface{}{
+						"name":   "registry-policy",
+						"scopes": []string{"registry.example.com"},
+					},
+					policy,
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name         string
+		scopes       []string
+		globalScopes []string
+	}{
+		{
+			name:   "explicit fallback scope",
+			scopes: []string{"*"},
+		},
+		{
+			name:         "inherited fallback scope",
+			globalScopes: []string{"*"},
+		},
+		{
+			name:         "inherited mixed scopes",
+			globalScopes: []string{"other.example.com", "*"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v, err := NewVerifier(newOpts(tt.scopes), tt.globalScopes)
+			if err != nil {
+				t.Fatalf("NewVerifier() unexpected error = %v", err)
+			}
+			scopedVerifier := v.(*Verifier)
+			if scopedVerifier.fallback == nil {
+				t.Fatal("expected fallback verifier to be registered")
+			}
+
+			matched, err := scopedVerifier.matchVerifier("unknown.io/foo")
+			if err != nil {
+				t.Fatalf("matchVerifier() unexpected error = %v", err)
+			}
+			if matched != scopedVerifier.fallback {
+				t.Error("expected unmatched repository to route to fallback verifier")
+			}
+
+			matched, err = scopedVerifier.matchVerifier("registry.example.com/foo")
+			if err != nil {
+				t.Fatalf("matchVerifier() unexpected error = %v", err)
+			}
+			if matched == scopedVerifier.fallback {
+				t.Error("expected exact registry match to take precedence over fallback")
+			}
 		})
 	}
 }

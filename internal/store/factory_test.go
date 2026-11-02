@@ -207,6 +207,40 @@ func TestNew(t *testing.T) {
 			},
 			expectedError: false,
 		},
+		{
+			name: "store with mixed explicit and fallback scopes",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"registry.example.com", "*"},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "single store inherits mixed global scopes",
+			opts: []NewOptions{
+				{
+					Type: "mock-store",
+				},
+			},
+			globalScopes:  []string{"registry.example.com", "*"},
+			expectedError: false,
+		},
+		{
+			name: "multiple stores with duplicate fallback scope",
+			opts: []NewOptions{
+				{
+					Type:   "mock-store",
+					Scopes: []string{"*"},
+				},
+				{
+					Type:   "mock-store",
+					Scopes: []string{"example.com", "*"},
+				},
+			},
+			expectedError: true,
+		},
 	}
 
 	for _, tt := range tests {
