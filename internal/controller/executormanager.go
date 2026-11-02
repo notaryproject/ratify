@@ -198,6 +198,7 @@ func convertStoreOptions(stores []*configv2beta1.StoreOptions) ([]store.NewOptio
 	for i, s := range stores {
 		opts := store.NewOptions{
 			Type:       s.Type,
+			Scopes:     s.Scopes,
 			Parameters: s.Parameters,
 		}
 		storeOpts[i] = opts
