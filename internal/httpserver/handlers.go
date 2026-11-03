@@ -27,6 +27,7 @@ import (
 
 	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
 	"github.com/notaryproject/ratify/v2/internal/executor"
+	"github.com/notaryproject/ratify/v2/internal/imageref"
 	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"
@@ -140,7 +141,7 @@ func (s *server) resolveReference(ctx context.Context, key string) externaldata.
 
 	// Normalize short names such as "nginx:latest" to the Docker Hub reference
 	// that the kubelet pulls, since they do not name a registry.
-	ref, err := registry.ParseReference(executor.NormalizeReference(reference))
+	ref, err := registry.ParseReference(imageref.Normalize(reference))
 	if err != nil {
 		item.Error = fmt.Sprintf("failed to parse reference: %v", err)
 		log.Errorf("failed to parse reference %s: %v", reference, err)

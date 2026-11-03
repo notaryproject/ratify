@@ -22,22 +22,13 @@ import (
 	"strings"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify/v2/internal/imageref"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"oras.land/oras-go/v2/registry"
-)
-
-const (
-	// defaultRegistry is the registry that container runtimes assume when an
-	// image reference does not name one.
-	defaultRegistry = "docker.io"
-
-	// officialRepositoryPrefix is the namespace that Docker Hub uses for
-	// official images referenced by a single path component, such as "nginx".
-	officialRepositoryPrefix = "library/"
 )
 
 // ErrNoExecutorMatched is returned when none of the configured scopes matches
@@ -161,10 +152,10 @@ func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 
 // ValidateArtifact routes the artifact validation request to the appropriate
 // executor based on the artifact's reference, normalized by
-// [NormalizeReference]. It returns the validation result or an error wrapping
+// [imageref.Normalize]. It returns the validation result or an error wrapping
 // [ErrNoExecutorMatched] if no matching executor is found.
 func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) (*ratify.ValidationResult, error) {
-	reference := NormalizeReference(stripNamespacePrefix(artifact))
+	reference := imageref.Normalize(stripNamespacePrefix(artifact))
 	executor, err := s.matchExecutor(reference)
 	if err != nil {
 		return nil, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
@@ -177,10 +168,10 @@ func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) 
 
 // Resolve retrieves the descriptor for the specified artifact by routing the
 // request to the appropriate executor based on the artifact's reference,
-// normalized by [NormalizeReference]. It returns the descriptor or an error
+// normalized by [imageref.Normalize]. It returns the descriptor or an error
 // wrapping [ErrNoExecutorMatched] if no matching executor is found.
 func (s *ScopedExecutor) Resolve(ctx context.Context, artifact string) (ocispec.Descriptor, error) {
-	reference := NormalizeReference(stripNamespacePrefix(artifact))
+	reference := imageref.Normalize(stripNamespacePrefix(artifact))
 	executor, err := s.matchExecutor(reference)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
@@ -198,31 +189,6 @@ func stripNamespacePrefix(artifact string) string {
 		}
 	}
 	return artifact
-}
-
-// NormalizeReference expands an image reference that does not name a registry
-// in the same way as container runtimes, so that Ratify verifies and resolves
-// the image that is actually pulled. The first path component is treated as a
-// registry only if it contains a "." or ":", is "localhost", or contains
-// uppercase letters. Otherwise the reference is assumed to point to Docker
-// Hub. A Docker Hub repository with a single path component also gets the
-// "library/" prefix. For example:
-//   - "nginx:latest" becomes "docker.io/library/nginx:latest"
-//   - "org/app:v1" becomes "docker.io/org/app:v1"
-//   - "docker.io/nginx" becomes "docker.io/library/nginx"
-//   - "registry.example.com/app:v1" is returned unchanged
-func NormalizeReference(reference string) string {
-	if reference == "" {
-		return reference
-	}
-	domain, remainder, found := strings.Cut(reference, "/")
-	if !found || (!strings.ContainsAny(domain, ".:") && domain != "localhost" && strings.ToLower(domain) == domain) {
-		domain, remainder = defaultRegistry, reference
-	}
-	if domain == defaultRegistry && !strings.Contains(remainder, "/") {
-		remainder = officialRepositoryPrefix + remainder
-	}
-	return domain + "/" + remainder
 }
 
 // matchExecutor finds the appropriate executor for the given artifact.
