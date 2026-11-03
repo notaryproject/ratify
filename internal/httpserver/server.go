@@ -225,7 +225,9 @@ func middlewareWithTimeout(next http.Handler, timeout time.Duration) http.Handle
 }
 
 // Run starts the HTTP server and listens for incoming requests.
-// It also handles graceful shutdown on receiving an interrupt signal.
+// It also handles graceful shutdown on receiving an interrupt signal. It
+// returns an error if the server fails to start or stops serving, so that the
+// process exits instead of staying alive without serving requests.
 func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watcher) error {
 	srv := &http.Server{
 		Addr:         s.HTTPServerAddress,
@@ -234,12 +236,20 @@ func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watch
 		ReadTimeout:  readTimeout,
 		IdleTimeout:  idleTimeout,
 	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(quit)
+
+	// serveErr receives the error that made the server goroutine exit before
+	// shutdown was requested.
+	serveErr := make(chan error, 1)
 	go func() {
 		// Start the configuration watcher (if any) and ensure
 		// it is properly stopped when the server goroutine exits.
 		if configWatcher != nil {
 			if err := configWatcher.Start(); err != nil {
-				logrus.WithError(err).Error("failed to start config watcher")
+				serveErr <- fmt.Errorf("failed to start config watcher: %w", err)
 				return
 			}
 			defer configWatcher.Stop()
@@ -254,11 +264,11 @@ func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watch
 
 			certWatcher, err := tlssecret.NewWatcher(s.GatekeeperCACertFile, s.CertFile, s.KeyFile)
 			if err != nil {
-				logrus.Errorf("failed to create TLS secret watcher: %v", err)
+				serveErr <- fmt.Errorf("failed to create TLS secret watcher: %w", err)
 				return
 			}
 			if err = certWatcher.Start(); err != nil {
-				logrus.Errorf("failed to start TLS secret watcher: %v", err)
+				serveErr <- fmt.Errorf("failed to start TLS secret watcher: %w", err)
 				return
 			}
 			defer certWatcher.Stop()
@@ -269,21 +279,23 @@ func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watch
 				GetConfigForClient: certWatcher.GetConfigForClient,
 			}
 			if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-				logrus.Errorf("failed to start server: %v", err)
+				serveErr <- fmt.Errorf("failed to start server: %w", err)
 			}
 		} else {
 			logrus.Infof("starting server without TLS at %s", s.HTTPServerAddress)
 			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				logrus.Errorf("failed to start server: %v", err)
+				serveErr <- fmt.Errorf("failed to start server: %w", err)
 			}
 		}
 	}()
 
-	// Handle graceful shutdown.
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit
+	select {
+	case err := <-serveErr:
+		return err
+	case <-quit:
+	}
 
+	// Handle graceful shutdown.
 	ctx, cancel := context.WithTimeout(context.Background(), s.VerifyTimeout)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {

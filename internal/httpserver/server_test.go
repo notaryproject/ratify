@@ -26,8 +26,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -169,23 +171,10 @@ func TestStartServer_NoTLS(t *testing.T) {
 		t.Fatalf("failed to write config file: %v", err)
 	}
 	serverOpts := &ServerOptions{
-		HTTPServerAddress: ":8080",
+		HTTPServerAddress: "127.0.0.1:0",
 	}
 
-	errChan := make(chan error)
-	go func() {
-		errChan <- StartServer(serverOpts, configPath)
-	}()
-
-	time.Sleep(1 * time.Second)
-	p, _ := os.FindProcess(os.Getpid())
-	if err = p.Signal(syscall.SIGTERM); err != nil {
-		t.Fatalf("failed to send SIGTERM: %v", err)
-	}
-
-	if err := <-errChan; err != nil {
-		t.Fatalf("failed to start server: %v", err)
-	}
+	runServerUntilSignaled(t, serverOpts, configPath)
 }
 
 func TestStartServer_TLSEnabled(t *testing.T) {
@@ -224,25 +213,12 @@ func TestStartServer_TLSEnabled(t *testing.T) {
 		t.Fatalf("failed to create TLS cert and key: %v", err)
 	}
 	serverOpts := &ServerOptions{
-		HTTPServerAddress: ":8080",
+		HTTPServerAddress: "127.0.0.1:0",
 		CertFile:          certPath,
 		KeyFile:           keyPath,
 	}
 
-	errChan := make(chan error)
-	go func() {
-		errChan <- StartServer(serverOpts, configPath)
-	}()
-
-	time.Sleep(1 * time.Second)
-	p, _ := os.FindProcess(os.Getpid())
-	if err = p.Signal(syscall.SIGTERM); err != nil {
-		t.Fatalf("failed to send SIGTERM: %v", err)
-	}
-
-	if err := <-errChan; err != nil {
-		t.Fatalf("failed to start server: %v", err)
-	}
+	runServerUntilSignaled(t, serverOpts, configPath)
 }
 
 func TestStartServer_InvalidTLS(t *testing.T) {
@@ -277,24 +253,170 @@ func TestStartServer_InvalidTLS(t *testing.T) {
 	}
 
 	serverOpts := &ServerOptions{
-		HTTPServerAddress: ":8080",
+		HTTPServerAddress: "127.0.0.1:0",
 		CertFile:          "invalid/path/to/cert.pem",
 		KeyFile:           "invalid/path/to/key.pem",
 	}
 
-	errChan := make(chan error)
+	// The server cannot serve TLS without its certificate, so StartServer must
+	// return an error instead of blocking until it is signaled to stop.
+	err = startServerWithTimeout(t, serverOpts, configPath)
+	if err == nil || !strings.Contains(err.Error(), "failed to create TLS secret watcher") {
+		t.Fatalf("expected a TLS secret watcher error, got: %v", err)
+	}
+}
+
+func TestStartServer_AddressInUse(t *testing.T) {
+	tempDir := t.TempDir()
+
+	executorOpts := &executor.Options{
+		Executors: []executor.ScopedOptions{
+			{
+				Scopes: []string{registryPattern},
+				Verifiers: []verifier.NewOptions{
+					{
+						Name: mockVerifierName,
+						Type: mockVerifierType,
+					},
+				},
+				Stores: []store.NewOptions{
+					{
+						Type: mockStoreType,
+					},
+				},
+			},
+		},
+	}
+
+	raw, err := json.Marshal(executorOpts)
+	if err != nil {
+		t.Fatalf("failed to marshal executor options: %v", err)
+	}
+	configPath := filepath.Join(tempDir, "config.json")
+	if err := os.WriteFile(configPath, raw, 0600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	defer listener.Close()
+
+	serverOpts := &ServerOptions{
+		HTTPServerAddress: listener.Addr().String(),
+		DisableCRDManager: true,
+	}
+
+	// The server cannot bind to an address that is already in use, so
+	// StartServer must return an error instead of blocking until it is
+	// signaled to stop.
+	err = startServerWithTimeout(t, serverOpts, configPath)
+	if err == nil || !strings.Contains(err.Error(), "failed to start server") {
+		t.Fatalf("expected a server start error, got: %v", err)
+	}
+}
+
+func TestStartServer_TLSAddressInUse(t *testing.T) {
+	tempDir := t.TempDir()
+
+	executorOpts := &executor.Options{
+		Executors: []executor.ScopedOptions{
+			{
+				Scopes: []string{registryPattern},
+				Verifiers: []verifier.NewOptions{
+					{
+						Name: mockVerifierName,
+						Type: mockVerifierType,
+					},
+				},
+				Stores: []store.NewOptions{
+					{
+						Type: mockStoreType,
+					},
+				},
+			},
+		},
+	}
+
+	raw, err := json.Marshal(executorOpts)
+	if err != nil {
+		t.Fatalf("failed to marshal executor options: %v", err)
+	}
+	configPath := filepath.Join(tempDir, "config.json")
+	if err := os.WriteFile(configPath, raw, 0600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	certPath, keyPath, err := createTLSCertAndKey(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create TLS cert and key: %v", err)
+	}
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	defer listener.Close()
+
+	serverOpts := &ServerOptions{
+		HTTPServerAddress: listener.Addr().String(),
+		CertFile:          certPath,
+		KeyFile:           keyPath,
+	}
+
+	// The TLS server cannot bind to an address that is already in use, so
+	// StartServer must return an error instead of blocking until it is
+	// signaled to stop.
+	err = startServerWithTimeout(t, serverOpts, configPath)
+	if err == nil || !strings.Contains(err.Error(), "failed to start server") {
+		t.Fatalf("expected a server start error, got: %v", err)
+	}
+}
+
+// runServerUntilSignaled runs StartServer, sends SIGTERM to the process once
+// the server is running, and fails the test if StartServer does not shut down
+// gracefully.
+func runServerUntilSignaled(t *testing.T, serverOpts *ServerOptions, configPath string) {
+	t.Helper()
+	errChan := make(chan error, 1)
 	go func() {
 		errChan <- StartServer(serverOpts, configPath)
 	}()
 
-	time.Sleep(1 * time.Second)
+	// StartServer only returns before the signal if the server failed. Do not
+	// send SIGTERM in that case, as nothing would handle it.
+	select {
+	case err := <-errChan:
+		t.Fatalf("expected the server to keep running until signaled, got: %v", err)
+	case <-time.After(1 * time.Second):
+	}
+
 	p, _ := os.FindProcess(os.Getpid())
-	if err = p.Signal(syscall.SIGTERM); err != nil {
+	if err := p.Signal(syscall.SIGTERM); err != nil {
 		t.Fatalf("failed to send SIGTERM: %v", err)
 	}
 
 	if err := <-errChan; err != nil {
-		t.Fatalf("failed to start server: %v", err)
+		t.Fatalf("failed to shut down server: %v", err)
+	}
+}
+
+// startServerWithTimeout runs StartServer and returns its error. It fails the
+// test if StartServer does not return in time.
+func startServerWithTimeout(t *testing.T, serverOpts *ServerOptions, configPath string) error {
+	t.Helper()
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- StartServer(serverOpts, configPath)
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected StartServer to return when the server fails to start")
+		return nil
 	}
 }
 
