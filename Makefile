@@ -390,6 +390,12 @@ e2e-cosign-setup:
 	${GITHUB_WORKSPACE}/bin/oras cp --from-oci-layout .staging/cosign/cosign.tar:v0 ${TEST_REGISTRY}/cosign:signed-bundle
 	rm .staging/cosign/cosign.tar
 
+	# image signed with a trusted key in the legacy format and an untrusted key in the cosign v3 Sigstore bundle format
+	printf 'FROM ${ALPINE_IMAGE}\nCMD ["echo", "cosign legacy and bundle signed image"]' > .staging/cosign/Dockerfile
+	docker buildx build --output type=oci,dest=.staging/cosign/cosign.tar -t cosign:v0 .staging/cosign
+	${GITHUB_WORKSPACE}/bin/oras cp --from-oci-layout .staging/cosign/cosign.tar:v0 ${TEST_REGISTRY}/cosign:signed-both-untrusted-bundle
+	rm .staging/cosign/cosign.tar
+
 	export COSIGN_PASSWORD="test" && \
 	cd .staging/cosign && \
 	./cosign-linux-amd64 login ${TEST_REGISTRY} -u ${TEST_REGISTRY_USERNAME} -p ${TEST_REGISTRY_PASSWORD} && \
@@ -397,7 +403,10 @@ e2e-cosign-setup:
 	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --tlog-upload=false --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-key --descriptor | jq .digest | xargs` && \
 	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --tlog-upload=false --key cosign.key ${TEST_REGISTRY}/all@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/all:v0 --descriptor | jq .digest | xargs` && \
 	./cosign-v3-linux-amd64 signing-config create --out signing-config-no-tlog.json && \
-	./cosign-v3-linux-amd64 sign --yes --allow-insecure-registry --allow-http-registry --signing-config signing-config-no-tlog.json --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-bundle --descriptor | jq .digest | xargs`
+	./cosign-v3-linux-amd64 sign --yes --allow-insecure-registry --allow-http-registry --signing-config signing-config-no-tlog.json --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-bundle --descriptor | jq .digest | xargs` && \
+	./cosign-linux-amd64 generate-key-pair --output-key-prefix untrusted && \
+	./cosign-linux-amd64 sign --allow-insecure-registry --allow-http-registry --tlog-upload=false --key cosign.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-both-untrusted-bundle --descriptor | jq .digest | xargs` && \
+	./cosign-v3-linux-amd64 sign --yes --allow-insecure-registry --allow-http-registry --signing-config signing-config-no-tlog.json --key untrusted.key ${TEST_REGISTRY}/cosign@`${GITHUB_WORKSPACE}/bin/oras manifest fetch ${TEST_REGISTRY}/cosign:signed-both-untrusted-bundle --descriptor | jq .digest | xargs`
 
 e2e-cosign-akv-setup:
 	rm -rf .staging/cosign

@@ -171,17 +171,26 @@ EOF
     [[ "$output" == *"$expected_verifier_notation"* ]]
 }
 
-@test "test rendering cosign verifier with bundle format" {
-    run helm template cosign-bundle ./charts/ratify \
+@test "test rendering cosign verifier with signature format" {
+    run helm template cosign-format ./charts/ratify \
         --set featureFlags.RATIFY_CERT_ROTATION=true \
         --set cosignKeys[0]="test-key" \
-        --set cosign.bundleFormat=true \
+        --set cosign.signatureFormat=bundle \
         --show-only templates/verifier.yaml
     assert_success
     [[ "$output" == *"artifactTypes: application/vnd.dev.sigstore.bundle.v0.3+json"* ]]
     [[ "$output" != *"application/vnd.dev.cosign.artifact.sig.v1+json"* ]]
 
-    run helm template cosign-bundle ./charts/ratify \
+    run helm template cosign-format ./charts/ratify \
+        --set featureFlags.RATIFY_CERT_ROTATION=true \
+        --set cosignKeys[0]="test-key" \
+        --set cosign.signatureFormat=both \
+        --show-only templates/verifier.yaml
+    assert_success
+    [[ "$output" == *"artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json,application/vnd.dev.sigstore.bundle.v0.3+json"* ]]
+
+    # default is legacy
+    run helm template cosign-format ./charts/ratify \
         --set featureFlags.RATIFY_CERT_ROTATION=true \
         --set cosignKeys[0]="test-key" \
         --show-only templates/verifier.yaml
@@ -189,14 +198,22 @@ EOF
     [[ "$output" == *"artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json"* ]]
     [[ "$output" != *"application/vnd.dev.sigstore.bundle.v0.3+json"* ]]
 
-    # bundle format is not supported by the legacy cosign configuration
-    run helm template cosign-bundle ./charts/ratify \
+    run helm template cosign-format ./charts/ratify \
         --set featureFlags.RATIFY_CERT_ROTATION=true \
-        --set cosign.key="test-key" \
-        --set cosign.bundleFormat=true \
+        --set cosignKeys[0]="test-key" \
+        --set cosign.signatureFormat=unknown \
         --show-only templates/verifier.yaml
     assert_failure
-    [[ "$output" == *"cosign.bundleFormat requires trust policy configuration"* ]]
+    [[ "$output" == *"cosign.signatureFormat must be one of legacy, bundle or both"* ]]
+
+    # bundle format is not supported by the legacy cosign configuration
+    run helm template cosign-format ./charts/ratify \
+        --set featureFlags.RATIFY_CERT_ROTATION=true \
+        --set cosign.key="test-key" \
+        --set cosign.signatureFormat=both \
+        --show-only templates/verifier.yaml
+    assert_failure
+    [[ "$output" == *"require trust policy configuration"* ]]
 }
 
 @test "crd version test" {

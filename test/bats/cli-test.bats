@@ -96,6 +96,33 @@ load helpers
     assert_cmd_verify_failure
 }
 
+@test "cosign both signature formats verifier test" {
+    # default config policy: every cosign signature on the image must pass
+    run bin/ratify verify -c $RATIFY_DIR/cosign_both_config.json -s $TEST_REGISTRY/cosign:signed-bundle
+    assert_cmd_verify_success
+    assert_cmd_cosign_bundle_verify_success
+
+    run bin/ratify verify -c $RATIFY_DIR/cosign_both_config.json -s $TEST_REGISTRY/cosign:signed-key
+    assert_cmd_verify_success
+
+    # the legacy signature passes but the bundle is signed by an untrusted key
+    run bin/ratify verify -c $RATIFY_DIR/cosign_both_config.json -s $TEST_REGISTRY/cosign:signed-both-untrusted-bundle
+    assert_cmd_verify_overall_failure
+
+    run bin/ratify verify -c $RATIFY_DIR/cosign_both_config.json -s $TEST_REGISTRY/cosign:unsigned
+    assert_cmd_verify_failure
+
+    # rego policy: any cosign signature on the image passing is enough
+    run bin/ratify verify -c $RATIFY_DIR/cosign_both_rego_any_config.json -s $TEST_REGISTRY/cosign:signed-both-untrusted-bundle
+    assert_cmd_verify_overall_success
+
+    run bin/ratify verify -c $RATIFY_DIR/cosign_both_rego_any_config.json -s $TEST_REGISTRY/cosign:signed-bundle
+    assert_cmd_verify_success
+
+    run bin/ratify verify -c $RATIFY_DIR/cosign_both_rego_any_config.json -s $TEST_REGISTRY/cosign:unsigned
+    assert_cmd_verify_failure
+}
+
 @test "licensechecker verifier test" {
     run bin/ratify verify -c $RATIFY_DIR/complete_licensechecker_config.json -s $TEST_REGISTRY/licensechecker:v0
     assert_cmd_verify_success

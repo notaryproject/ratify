@@ -95,6 +95,28 @@ assert_cmd_verify_failure() {
   fi
 }
 
+# checks the top-level isSuccess of the verify result, which is only printed when true.
+# Use when individual verifier reports are expected to disagree with the overall result.
+assert_cmd_verify_overall_success() {
+  if [[ "$status" != 0 ]]; then
+    return 1
+  fi
+  if [[ "$output" != *$'\n  "isSuccess": true,'* ]]; then
+    echo "$output"
+    return 1
+  fi
+}
+
+assert_cmd_verify_overall_failure() {
+  if [[ "$status" != 0 ]]; then
+    return 1
+  fi
+  if [[ "$output" == *$'\n  "isSuccess": true,'* ]]; then
+    echo "$output"
+    return 1
+  fi
+}
+
 assert_mutate_success() {
   if [[ "$status" != 0 ]]; then
     echo $result

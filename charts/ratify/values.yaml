@@ -28,8 +28,9 @@ cosign:
   key: "" # DEPRECATED: Use cosignKeys instead
   rekorURL: ""
   tLogVerify: true
-  # Verify cosign v3 Sigstore bundle signatures (application/vnd.dev.sigstore.bundle.v0.3+json) instead of legacy cosign signatures. Requires trust policy configuration.
-  bundleFormat: false
+  # Cosign signature format to verify: legacy (cosign v2 signatures), bundle (cosign v3 Sigstore bundles) or both.
+  # bundle and both require trust policy configuration. See the chart README for details.
+  signatureFormat: legacy
   keyless:
     ctLogVerify: true
     certificateIdentity: ""

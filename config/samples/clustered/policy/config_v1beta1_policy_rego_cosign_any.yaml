@@ -1,0 +1,54 @@
+apiVersion: config.ratify.deislabs.io/v1beta1
+kind: Policy # Policy applies to the cluster.
+metadata:
+  name: "ratify-policy" # metadata.name MUST be set to ratify-policy since v1beta1.
+spec:
+  type: "rego-policy" # Ensure that spec.type is either 'rego-policy' or 'config-policy' in v1beta1.
+  parameters:
+    passthroughEnabled: false
+    # Use with a cosign verifier that verifies both legacy cosign signatures and
+    # cosign v3 Sigstore bundles (helm value cosign.signatureFormat=both).
+    # An image is valid when at least one cosign signature, in either format, passes
+    # verification, and every other artifact attached to the image passes verification.
+    policy: |
+      package ratify.policy
+
+      default valid := false
+
+      cosign_artifact_types := {
+        "application/vnd.dev.cosign.artifact.sig.v1+json",
+        "application/vnd.dev.sigstore.bundle.v0.3+json",
+      }
+
+      valid {
+        cosign_verified
+        not other_artifact_failed
+      }
+
+      # at least one cosign signature, legacy or bundle, MUST pass the verification
+      cosign_verified {
+        report := input.verifierReports[_]
+        cosign_artifact_types[report.artifactType]
+        not failed_verify(report)
+      }
+
+      # every other artifact MUST pass the verification
+      other_artifact_failed {
+        report := input.verifierReports[_]
+        not cosign_artifact_types[report.artifactType]
+        failed_verify(report)
+      }
+
+      # a report fails if any verifier report, including nested ones, fails
+      failed_verify(report) {
+        [path, value] := walk(report)
+        value == false
+        path[count(path) - 1] == "isSuccess"
+      }
+
+      # a report fails if an artifact has no verifier report
+      failed_verify(report) {
+        [path, value] := walk(report)
+        path[count(path) - 1] == "verifierReports"
+        count(value) == 0
+      }
