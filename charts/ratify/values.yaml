@@ -28,6 +28,8 @@ cosign:
   key: "" # DEPRECATED: Use cosignKeys instead
   rekorURL: ""
   tLogVerify: true
+  # Verify cosign v3 Sigstore bundle signatures (application/vnd.dev.sigstore.bundle.v0.3+json) instead of legacy cosign signatures. Requires trust policy configuration.
+  bundleFormat: false
   keyless:
     ctLogVerify: true
     certificateIdentity: ""

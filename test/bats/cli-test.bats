@@ -88,9 +88,9 @@ load helpers
     assert_cmd_verify_success
     assert_cmd_cosign_bundle_verify_success
 
-    # legacy cosign signature is still verified by the same verifier
+    # legacy cosign signatures are not verified in bundle format mode
     run bin/ratify verify -c $RATIFY_DIR/cosign_bundle_config.json -s $TEST_REGISTRY/cosign:signed-key
-    assert_cmd_verify_success
+    assert_cmd_verify_failure
 
     run bin/ratify verify -c $RATIFY_DIR/cosign_bundle_config.json -s $TEST_REGISTRY/cosign:unsigned
     assert_cmd_verify_failure

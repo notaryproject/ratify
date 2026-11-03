@@ -171,6 +171,34 @@ EOF
     [[ "$output" == *"$expected_verifier_notation"* ]]
 }
 
+@test "test rendering cosign verifier with bundle format" {
+    run helm template cosign-bundle ./charts/ratify \
+        --set featureFlags.RATIFY_CERT_ROTATION=true \
+        --set cosignKeys[0]="test-key" \
+        --set cosign.bundleFormat=true \
+        --show-only templates/verifier.yaml
+    assert_success
+    [[ "$output" == *"artifactTypes: application/vnd.dev.sigstore.bundle.v0.3+json"* ]]
+    [[ "$output" != *"application/vnd.dev.cosign.artifact.sig.v1+json"* ]]
+
+    run helm template cosign-bundle ./charts/ratify \
+        --set featureFlags.RATIFY_CERT_ROTATION=true \
+        --set cosignKeys[0]="test-key" \
+        --show-only templates/verifier.yaml
+    assert_success
+    [[ "$output" == *"artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json"* ]]
+    [[ "$output" != *"application/vnd.dev.sigstore.bundle.v0.3+json"* ]]
+
+    # bundle format is not supported by the legacy cosign configuration
+    run helm template cosign-bundle ./charts/ratify \
+        --set featureFlags.RATIFY_CERT_ROTATION=true \
+        --set cosign.key="test-key" \
+        --set cosign.bundleFormat=true \
+        --show-only templates/verifier.yaml
+    assert_failure
+    [[ "$output" == *"cosign.bundleFormat requires trust policy configuration"* ]]
+}
+
 @test "crd version test" {
     run kubectl delete verifiers.config.ratify.deislabs.io/verifier-notation
     assert_success
@@ -342,7 +370,14 @@ EOF
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-bundle --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-key --namespace default --force --ignore-not-found=true'
         wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod cosign-demo-unsigned --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/verifier/config_v1beta1_verifier_cosign.yaml'
     }
+
+    # use imperative command to guarantee verifier config is updated
+    run kubectl replace -f ./config/samples/clustered/verifier/config_v1beta1_verifier_cosign_bundle.yaml
+    assert_success
+    sleep 5
+
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
     assert_success
     sleep 5
@@ -354,9 +389,9 @@ EOF
     run kubectl run cosign-demo-bundle --namespace default --image=registry:5000/cosign:signed-bundle
     assert_success
 
-    # legacy cosign signature is still verified by the same verifier
+    # legacy cosign signatures are not verified in bundle format mode
     run kubectl run cosign-demo-key --namespace default --image=registry:5000/cosign:signed-key
-    assert_success
+    assert_failure
 
     run kubectl run cosign-demo-unsigned --namespace default --image=registry:5000/cosign:unsigned
     assert_failure

@@ -118,8 +118,11 @@ metadata:
     helm.sh/hook-weight: "5"
 spec:
   name: cosign
-  {{- if (eq (include "ratify.cosignLegacy" .) "false") }}
-  artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json,application/vnd.dev.sigstore.bundle.v0.3+json
+  {{- if .Values.cosign.bundleFormat }}
+  {{- if (ne (include "ratify.cosignLegacy" .) "false") }}
+  {{- fail "cosign.bundleFormat requires trust policy configuration: set cosignKeys, azurekeyvault.keys or cosign.keyless identity values" }}
+  {{- end }}
+  artifactTypes: application/vnd.dev.sigstore.bundle.v0.3+json
   {{- else }}
   artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json
   {{- end }}
