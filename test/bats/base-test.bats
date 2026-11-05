@@ -153,6 +153,45 @@ EOF
     assert_success
 }
 
+@test "test rendering azure workload identity pod label" {
+    expected_label='azure.workload.identity/use: "true"'
+
+    # The label is not rendered when nothing authenticates to Azure.
+    run helm template workload-identity ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/deployment.yaml \
+        --set executor.scopes[0]="registry1.azurecr.io" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake cert" \
+        --set stores[0].credential.provider=static
+    assert_success
+    [[ "$output" != *"$expected_label"* ]]
+
+    # A store other than the first one uses the azure credential provider.
+    run helm template workload-identity ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/deployment.yaml \
+        --set executor.scopes[0]="registry1.azurecr.io" \
+        --set executor.scopes[1]="registry2.azurecr.io" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake cert" \
+        --set stores[0].scopes[0]="registry1.azurecr.io" \
+        --set stores[0].credential.provider=static \
+        --set stores[1].scopes[0]="registry2.azurecr.io" \
+        --set stores[1].credential.provider=azure
+    assert_success
+    [[ "$output" == *"$expected_label"* ]]
+
+    # Cosign keys are fetched from Azure Key Vault.
+    run helm template workload-identity ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/deployment.yaml \
+        --set executor.scopes[0]="registry1.azurecr.io" \
+        --set cosign.keys.provider=azurekeyvault \
+        --set cosign.keys.vaultURL="https://example.vault.azure.net/" \
+        --set cosign.keys.keys[0].name=cosign-key \
+        --set stores[0].credential.provider=static
+    assert_success
+    [[ "$output" == *"$expected_label"* ]]
+}
+
 @test "notation test" {
     teardown() {
         echo "cleaning up"
