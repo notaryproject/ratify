@@ -287,29 +287,70 @@ RATIFY_NAMESPACE=gatekeeper-system
 }
 
 @test "validate crd add, replace and delete" {
-    skip "v2 configures verifiers via the Executor CRD; runtime verifier CRD add/replace/delete is covered by the kind base-test.bats migration"
     teardown() {
         echo "cleaning up"
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod crdtest --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod crdtest-replace --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod crdtest-restore --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod crdtest-deleted --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod crdtest-readded --namespace default --force --ignore-not-found=true'
+
+        # restore the original executor (AKV notation cert) for the other tests,
+        # best-effort: only if it was actually saved
+        if [ -s original-executor-crd.yaml ]; then
+            wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-crd.yaml'
+            rm -f original-executor-crd.yaml
+        fi
     }
 
-    echo "adding license checker, delete notation verifier and validate deployment fails due to missing notation verifier"
-    run kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_complete_licensechecker.yaml
+    run kubectl apply -f ./library/default/template.yaml
     assert_success
-    run kubectl delete verifiers.config.ratify.deislabs.io/verifier-notation
+    sleep 5
+    run kubectl apply -f ./library/default/samples/constraint.yaml
     assert_success
-    # wait for the httpserver cache to be invalidated
-    sleep 15
-    run kubectl run crdtest --namespace default --image=${TEST_REGISTRY}/notation:signed
+    sleep 5
+
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-crd.yaml"
+    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+
+    echo "Replace: keep only the notation verifier but swap its AKV trust anchor for an unrelated inline CA"
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run bash -c 'UNRELATED_CA=$(cat ~/.config/notation/truststore/x509/ca/leaf-test/root.crt) && \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg ca "$UNRELATED_CA" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [.spec.verifiers[] | select(.name == "notation-1") | .parameters.certificates = [{type: "ca", inline: {certs: $ca}}]] | .spec.policyEnforcer.parameters.policy.rules = [{verifierName: "notation-1"}]'"'"' | kubectl apply --server-side --force-conflicts -f -'
+    assert_success
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    sleep 10
+    run kubectl run crdtest-replace --namespace default --image=${TEST_REGISTRY}/notation:signed
     assert_failure
 
-    echo "Add notation verifier and validate deployment succeeds"
-    run kubectl apply -f ./config/samples/clustered/verifier/config_v1beta1_verifier_notation_kmprovider.yaml
+    echo "Restore the original executor with the AKV trust anchor and validate deployment succeeds"
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run restore_executor original-executor-crd.yaml
+    assert_success
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    sleep 10
+    run wait_for_process 20 10 'kubectl run crdtest-restore --namespace default --image=${TEST_REGISTRY}/notation:signed'
     assert_success
 
-    # wait for the httpserver cache to be invalidated
-    sleep 15
-    wait_for_process 20 10 'kubectl run crdtest --namespace default --image=${TEST_REGISTRY}/notation:signed'
+    echo "Delete the executor and validate no executor serves the scope"
+    run kubectl delete executors.config.ratify.sh/${EXECUTOR_NAME}
+    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} 2>&1 | grep -q 'NotFound\|not found'"
+    sleep 10
+    run kubectl run crdtest-deleted --namespace default --image=${TEST_REGISTRY}/notation:signed
+    assert_failure
+
+    echo "Add the executor back and validate deployment succeeds again"
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run restore_executor original-executor-crd.yaml
+    assert_success
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    sleep 10
+    run wait_for_process 20 10 'kubectl run crdtest-readded --namespace default --image=${TEST_REGISTRY}/notation:signed'
     assert_success
 }
 
