@@ -374,6 +374,48 @@ func TestStartServer_TLSAddressInUse(t *testing.T) {
 	}
 }
 
+func TestServerWriteTimeout(t *testing.T) {
+	tests := []struct {
+		name          string
+		verifyTimeout time.Duration
+		mutateTimeout time.Duration
+		expected      time.Duration
+	}{
+		{
+			name:          "default timeouts",
+			verifyTimeout: defaultVerifyTimeout,
+			mutateTimeout: defaultMutateTimeout,
+			expected:      defaultVerifyTimeout + writeTimeout,
+		},
+		{
+			name:          "verify timeout longer than the write timeout",
+			verifyTimeout: 30 * time.Second,
+			mutateTimeout: defaultMutateTimeout,
+			expected:      30*time.Second + writeTimeout,
+		},
+		{
+			name:          "mutate timeout longer than the verify timeout",
+			verifyTimeout: 2 * time.Second,
+			mutateTimeout: 10 * time.Second,
+			expected:      10*time.Second + writeTimeout,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := &server{
+				ServerOptions: ServerOptions{
+					VerifyTimeout: test.verifyTimeout,
+					MutateTimeout: test.mutateTimeout,
+				},
+			}
+			if got := s.serverWriteTimeout(); got != test.expected {
+				t.Errorf("expected write timeout %v, got %v", test.expected, got)
+			}
+		})
+	}
+}
+
 // runServerUntilSignaled runs StartServer, sends SIGTERM to the process once
 // the server is running, and fails the test if StartServer does not shut down
 // gracefully.
