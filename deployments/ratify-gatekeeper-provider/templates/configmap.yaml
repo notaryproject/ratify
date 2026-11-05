@@ -1,86 +1,13 @@
-{{- if .Values.provider.disableCRDManager}}
+{{- if .Values.provider.disableCRDManager }}
+{{- $executorSpec := include "ratify.executorSpec" . | fromYaml }}
+{{- if hasKey $executorSpec "Error" }}
+{{- fail (printf "failed to render the executor configuration: %s" $executorSpec.Error) }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "ratify.fullname" . }}-configmap
 data:
   config.json: |
-    {
-        "executors": [
-            {
-                {{- if not (gt (len .Values.executor.scopes) 0) }}
-                {{- fail "executor.scopes must not be empty" }}
-                {{- end }}
-                "scopes": [
-                {{- range $i, $scope := .Values.executor.scopes }}
-                    {{- if $i }}, {{ end }}"{{ $scope }}"
-                {{- end -}}
-                ],
-                "concurrency": {{ .Values.executor.concurrency | default 3 }},
-                "verifiers": [
-                    {
-                        "name": "notation-1",
-                        "type": "notation",
-                        "parameters": {
-                            "scopes": [
-                            {{- range $i, $scope := .Values.notation.scopes }}
-                                {{- if $i }}, {{ end }}"{{ $scope }}"
-                            {{- end -}}
-                            ],
-                            "trustedIdentities": [
-                            {{- range $i, $identity := .Values.notation.trustedIdentities }}
-                                {{- if $i }}, {{ end }}"{{ $identity }}"
-                            {{- end -}}
-                            ],
-                            "certificates": [
-                                {
-                                    "type": "ca",
-                                    {{- if eq (index .Values.notation.certs).provider "files" }}
-                                    "files": [
-                                        "/usr/local/notation/certs"
-                                    ]
-                                    {{- else }}
-                                    {{- fail "Unsupported notation certificate provider for ConfigMap" }}
-                                    {{- end  }}
-                                }
-                            ]
-                        }
-                    }
-                ],
-                "stores": [
-                {{- $storeNum := len .Values.stores -}}
-                {{- range $index, $store := .Values.stores }}
-                    {
-                        "scope": [
-                        {{- range $i, $scope := $store.scopes }}
-                            {{- if $i }}, {{ end }}"{{ $scope }}"
-                        {{- end -}}
-                        ],
-                        "type": "registry-store",
-                        "parameters": {
-                            "credential": {
-                                "provider": "static",
-                                "username": "{{ $store.username }}",
-                                "password": "{{ $store.password }}"
-                            }
-                        }
-                    }{{- if lt (add1 $index) $storeNum }},{{ end }}
-                {{- end }}
-                ],
-                "policyEnforcer": {
-                    "type": "threshold-policy",
-                    "parameters": {
-                        "policy": {
-                            "rules": [
-                                {
-                                    "verifierName": "notation-1"
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        ]
-        
-    }
+    {{- dict "executors" (list $executorSpec) | toPrettyJson | nindent 4 }}
 {{- end }}
