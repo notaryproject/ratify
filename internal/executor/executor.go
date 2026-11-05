@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify/v2/internal/imageref"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
@@ -152,10 +153,11 @@ func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 }
 
 // ValidateArtifact routes the artifact validation request to the appropriate
-// executor based on the artifact's reference. It returns the validation result
-// or an error wrapping [ErrNoExecutorMatched] if no matching executor is found.
+// executor based on the artifact's reference, normalized by
+// [imageref.Normalize]. It returns the validation result or an error wrapping
+// [ErrNoExecutorMatched] if no matching executor is found.
 func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) (*ratify.ValidationResult, error) {
-	reference := stripNamespacePrefix(artifact)
+	reference := imageref.Normalize(stripNamespacePrefix(artifact))
 	executor, err := s.matchExecutor(reference)
 	if err != nil {
 		return nil, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
@@ -167,11 +169,11 @@ func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) 
 }
 
 // Resolve retrieves the descriptor for the specified artifact by routing the
-// request to the appropriate executor based on the artifact's reference.
-// It returns the descriptor or an error wrapping [ErrNoExecutorMatched] if no
-// matching executor is found.
+// request to the appropriate executor based on the artifact's reference,
+// normalized by [imageref.Normalize]. It returns the descriptor or an error
+// wrapping [ErrNoExecutorMatched] if no matching executor is found.
 func (s *ScopedExecutor) Resolve(ctx context.Context, artifact string) (ocispec.Descriptor, error) {
-	reference := stripNamespacePrefix(artifact)
+	reference := imageref.Normalize(stripNamespacePrefix(artifact))
 	executor, err := s.matchExecutor(reference)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
