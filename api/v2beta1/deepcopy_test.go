@@ -49,6 +49,7 @@ func TestExecutorDeepCopy(t *testing.T) {
 			Stores: []*StoreOptions{
 				{
 					Type:       "oras",
+					Scopes:     []string{"registry.example.com"},
 					Parameters: runtime.RawExtension{Raw: []byte(`{"cacheEnabled":true}`)},
 				},
 				nil,
@@ -92,6 +93,7 @@ func TestExecutorDeepCopy(t *testing.T) {
 	executor.Labels["app"] = "mutated"
 	executor.Spec.Scopes[0] = "mutated"
 	executor.Spec.Verifiers[0].Parameters.Raw[0] = '['
+	executor.Spec.Stores[0].Scopes[0] = "mutated"
 	executor.Spec.Stores[0].Parameters.Raw[0] = '['
 	executor.Spec.PolicyEnforcer.Parameters.Raw[0] = '['
 
@@ -103,6 +105,9 @@ func TestExecutorDeepCopy(t *testing.T) {
 	}
 	if string(copied.Spec.Verifiers[0].Parameters.Raw) != `{"trustPolicyDoc":"policy"}` {
 		t.Errorf("expected verifier parameters to be isolated, got %s", copied.Spec.Verifiers[0].Parameters.Raw)
+	}
+	if copied.Spec.Stores[0].Scopes[0] != "registry.example.com" {
+		t.Errorf("expected store scopes to be isolated, got %q", copied.Spec.Stores[0].Scopes[0])
 	}
 	if string(copied.Spec.Stores[0].Parameters.Raw) != `{"cacheEnabled":true}` {
 		t.Errorf("expected store parameters to be isolated, got %s", copied.Spec.Stores[0].Parameters.Raw)

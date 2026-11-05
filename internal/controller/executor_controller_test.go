@@ -156,6 +156,60 @@ var _ = Describe("Executor Controller", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeFalse())
 		})
+		It("should keep store scopes and build an executor with a store per scope", func() {
+			By("replacing the resource with one that has a store per scope")
+			resource := &configv2beta1.Executor{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+
+			resource = &configv2beta1.Executor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: "",
+				},
+				Spec: configv2beta1.ExecutorSpec{
+					Scopes: []string{"example.com", "example2.com"},
+					Verifiers: []*configv2beta1.VerifierOptions{
+						{
+							Name: mockVerifierName,
+							Type: mockVerifierType,
+						},
+					},
+					Stores: []*configv2beta1.StoreOptions{
+						{
+							Type:   mockStoreType,
+							Scopes: []string{"example.com"},
+						},
+						{
+							Type:   mockStoreType,
+							Scopes: []string{"example2.com"},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+
+			By("verifying the API server kept the store scopes")
+			created := &configv2beta1.Executor{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, created)).To(Succeed())
+			Expect(created.Spec.Stores).To(HaveLen(2))
+			Expect(created.Spec.Stores[0].Scopes).To(Equal([]string{"example.com"}))
+			Expect(created.Spec.Stores[1].Scopes).To(Equal([]string{"example2.com"}))
+
+			controllerReconciler := &ExecutorReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedExecutor := &configv2beta1.Executor{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updatedExecutor)).To(Succeed())
+			Expect(updatedExecutor.Status.Error).To(BeEmpty())
+			Expect(updatedExecutor.Status.Succeeded).To(BeTrue())
+		})
 		It("should set Status.Succeeded to false when GlobalExecutorManager.UpsertExecutor fails", func() {
 			By("reconciling an invalid resource that fails to upsert")
 
