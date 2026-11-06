@@ -405,9 +405,35 @@ func TestVerifier_Verifiable(t *testing.T) {
 			name: "cosign signature artifact",
 			artifact: ocispec.Descriptor{
 				MediaType:    ocispec.MediaTypeImageManifest,
-				ArtifactType: artifactTypeCosign,
+				ArtifactType: cosign.ArtifactTypeCosignSignature,
 			},
 			want: true,
+		},
+		{
+			name: "cosign v3 bundle signature artifact",
+			artifact: ocispec.Descriptor{
+				MediaType:    ocispec.MediaTypeImageManifest,
+				ArtifactType: cosign.ArtifactTypeSigstoreBundle,
+				Annotations:  map[string]string{cosign.AnnotationKeyBundlePredicateType: cosign.PredicateTypeCosignSign},
+			},
+			want: true,
+		},
+		{
+			name: "cosign v3 bundle without predicate type annotation",
+			artifact: ocispec.Descriptor{
+				MediaType:    ocispec.MediaTypeImageManifest,
+				ArtifactType: cosign.ArtifactTypeSigstoreBundle,
+			},
+			want: true,
+		},
+		{
+			name: "cosign v3 bundle attestation artifact",
+			artifact: ocispec.Descriptor{
+				MediaType:    ocispec.MediaTypeImageManifest,
+				ArtifactType: cosign.ArtifactTypeSigstoreBundle,
+				Annotations:  map[string]string{cosign.AnnotationKeyBundlePredicateType: "https://slsa.dev/provenance/v1"},
+			},
+			want: false,
 		},
 		{
 			name: "wrong artifact type",
@@ -421,7 +447,7 @@ func TestVerifier_Verifiable(t *testing.T) {
 			name: "wrong media type",
 			artifact: ocispec.Descriptor{
 				MediaType:    "application/vnd.oci.image.config.v1+json",
-				ArtifactType: artifactTypeCosign,
+				ArtifactType: cosign.ArtifactTypeCosignSignature,
 			},
 			want: false,
 		},
