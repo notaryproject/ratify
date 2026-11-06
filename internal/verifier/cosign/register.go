@@ -33,7 +33,6 @@ import (
 
 const (
 	verifierTypeCosign = "cosign"
-	artifactTypeCosign = "application/vnd.dev.cosign.artifact.sig.v1+json"
 )
 
 // Verifier implements the [ratify.Verifier] interface for Cosign signatures
@@ -194,10 +193,12 @@ func (v *Verifier) Type() string {
 }
 
 // Verifiable checks if the artifact is verifiable by the Cosign verifier.
+// Legacy cosign signatures and cosign v3 Sigstore bundle signatures are
+// supported. Sigstore bundles annotated as attestations are not verifiable.
 func (v *Verifier) Verifiable(artifact ocispec.Descriptor) bool {
 	// All scoped verifiers are Cosign verifiers, so we can check the general
 	// Cosign signature criteria
-	return artifact.ArtifactType == artifactTypeCosign && artifact.MediaType == ocispec.MediaTypeImageManifest
+	return cosign.IsVerifiable(artifact)
 }
 
 // Verify routes the verification request to the appropriate scoped verifier
