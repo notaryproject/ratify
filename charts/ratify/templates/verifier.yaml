@@ -118,20 +118,7 @@ metadata:
     helm.sh/hook-weight: "5"
 spec:
   name: cosign
-  {{- $cosignSignatureFormat := .Values.cosign.signatureFormat | default "legacy" }}
-  {{- if not (has $cosignSignatureFormat (list "legacy" "bundle" "both")) }}
-  {{- fail (printf "cosign.signatureFormat must be one of legacy, bundle or both, got %q" $cosignSignatureFormat) }}
-  {{- end }}
-  {{- if and (ne $cosignSignatureFormat "legacy") (ne (include "ratify.cosignLegacy" .) "false") }}
-  {{- fail "cosign.signatureFormat bundle and both require trust policy configuration: set cosignKeys, azurekeyvault.keys or cosign.keyless identity values" }}
-  {{- end }}
-  {{- if eq $cosignSignatureFormat "bundle" }}
-  artifactTypes: application/vnd.dev.sigstore.bundle.v0.3+json
-  {{- else if eq $cosignSignatureFormat "both" }}
-  artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json,application/vnd.dev.sigstore.bundle.v0.3+json
-  {{- else }}
   artifactTypes: application/vnd.dev.cosign.artifact.sig.v1+json
-  {{- end }}
   parameters:
     {{- if  (eq (include "ratify.cosignLegacy" .) "false") }}
     trustPolicies:
