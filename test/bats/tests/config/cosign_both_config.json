@@ -1,0 +1,42 @@
+{
+    "store": {
+        "version": "1.0.0",
+        "plugins": [
+            {
+                "name": "oras",
+                "cosignEnabled": true,
+                "useHttp": true
+            }
+        ]
+    },
+    "policy": {
+        "version": "1.0.0",
+        "plugin": {
+            "name": "configPolicy"
+        }
+    },
+    "verifier": {
+        "version": "1.0.0",
+        "plugins": [
+            {
+                "name": "cosign",
+                "artifactTypes": "application/vnd.dev.cosign.artifact.sig.v1+json,application/vnd.dev.sigstore.bundle.v0.3+json",
+                "trustPolicies": [
+                    {
+                        "name": "default",
+                        "version": "1.0.0",
+                        "scopes": [
+                            "*"
+                        ],
+                        "keys": [
+                            {
+                                "file": ".staging/cosign/cosign.pub"
+                            }
+                        ],
+                        "tLogVerify": false
+                    }
+                ]
+            }
+        ]
+    }
+}

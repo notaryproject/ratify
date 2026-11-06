@@ -1,0 +1,44 @@
+{
+    "store": {
+        "version": "1.0.0",
+        "plugins": [
+            {
+                "name": "oras",
+                "cosignEnabled": true,
+                "useHttp": true
+            }
+        ]
+    },
+    "policy": {
+        "version": "1.0.0",
+        "plugin": {
+            "name": "regoPolicy",
+            "policyPath": "",
+            "policy": "package ratify.policy\n\ndefault valid := false\n\ncosign_artifact_types := {\n  \"application/vnd.dev.cosign.artifact.sig.v1+json\",\n  \"application/vnd.dev.sigstore.bundle.v0.3+json\",\n}\n\nvalid {\n  cosign_verified\n  not other_artifact_failed\n}\n\n# at least one cosign signature, legacy or bundle, MUST pass the verification\ncosign_verified {\n  report := input.verifierReports[_]\n  cosign_artifact_types[report.artifactType]\n  not failed_verify(report)\n}\n\n# every other artifact MUST pass the verification\nother_artifact_failed {\n  report := input.verifierReports[_]\n  not cosign_artifact_types[report.artifactType]\n  failed_verify(report)\n}\n\n# a report fails if any verifier report, including nested ones, fails\nfailed_verify(report) {\n  [path, value] := walk(report)\n  value == false\n  path[count(path) - 1] == \"isSuccess\"\n}\n\n# a report fails if an artifact has no verifier report\nfailed_verify(report) {\n  [path, value] := walk(report)\n  path[count(path) - 1] == \"verifierReports\"\n  count(value) == 0\n}\n"
+        }
+    },
+    "verifier": {
+        "version": "1.0.0",
+        "plugins": [
+            {
+                "name": "cosign",
+                "artifactTypes": "application/vnd.dev.cosign.artifact.sig.v1+json,application/vnd.dev.sigstore.bundle.v0.3+json",
+                "trustPolicies": [
+                    {
+                        "name": "default",
+                        "version": "1.0.0",
+                        "scopes": [
+                            "*"
+                        ],
+                        "keys": [
+                            {
+                                "file": ".staging/cosign/cosign.pub"
+                            }
+                        ],
+                        "tLogVerify": false
+                    }
+                ]
+            }
+        ]
+    }
+}

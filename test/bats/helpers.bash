@@ -75,12 +75,44 @@ assert_cmd_cosign_keyless_verify_bundle_success() {
   fi
 }
 
+assert_cmd_cosign_bundle_verify_success() {
+  if [[ "$status" != 0 ]]; then
+    return 1
+  fi
+  if [[ "$output" != *'"artifactType": "application/vnd.dev.sigstore.bundle.v0.3+json"'* ]]; then
+    echo $output
+    return 1
+  fi
+}
+
 assert_cmd_verify_failure() {
   if [[ "$status" != 0 ]]; then
     return 1
   fi
   if [[ "$output" == *'"isSuccess": true,'* ]]; then
     echo $output
+    return 1
+  fi
+}
+
+# checks the top-level isSuccess of the verify result, which is only printed when true.
+# Use when individual verifier reports are expected to disagree with the overall result.
+assert_cmd_verify_overall_success() {
+  if [[ "$status" != 0 ]]; then
+    return 1
+  fi
+  if [[ "$output" != *$'\n  "isSuccess": true,'* ]]; then
+    echo "$output"
+    return 1
+  fi
+}
+
+assert_cmd_verify_overall_failure() {
+  if [[ "$status" != 0 ]]; then
+    return 1
+  fi
+  if [[ "$output" == *$'\n  "isSuccess": true,'* ]]; then
+    echo "$output"
     return 1
   fi
 }
