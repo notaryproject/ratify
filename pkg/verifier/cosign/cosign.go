@@ -58,6 +58,7 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/cosign/v3/pkg/oci/static"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
+	protodsse "github.com/sigstore/protobuf-specs/gen/pb-go/dsse"
 	sgbundle "github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
@@ -150,6 +151,12 @@ const (
 	bundleTlogMessage    string = "The transparency log entry in the Sigstore bundle was verified."
 	// sigstoreBundleMediaTypePrefix is the media type prefix of Sigstore bundles produced by cosign v3 (e.g. application/vnd.dev.sigstore.bundle.v0.3+json)
 	sigstoreBundleMediaTypePrefix string = "application/vnd.dev.sigstore.bundle"
+	// bundlePredicateTypeAnnotation is the referrer manifest annotation set by cosign v3 with the in-toto predicate type of the bundle
+	bundlePredicateTypeAnnotation string = "dev.sigstore.bundle.predicateType"
+	// cosignSignPredicateType is the in-toto predicate type of cosign v3 image signatures. Other predicate types are attestations.
+	cosignSignPredicateType string = "https://sigstore.dev/cosign/sign/v1"
+	// inTotoPayloadType is the DSSE payload type of in-toto statements
+	inTotoPayloadType string = "application/vnd.in-toto+json"
 )
 
 // init() registers the cosign verifier with the factory
@@ -209,8 +216,15 @@ func (v *cosignVerifier) Type() string {
 	return verifierType
 }
 
-// CanVerify returns true if the referenceDescriptor's artifact type is in the list of artifact types supported by the verifier
+// CanVerify returns true if the referenceDescriptor's artifact type is in the list of artifact types supported by the verifier.
+// Sigstore bundles annotated with a predicate type other than the cosign signature predicate are attestations and are not
+// verified, so they produce no verifier report. The signed predicate type is still checked during verification.
 func (v *cosignVerifier) CanVerify(_ context.Context, referenceDescriptor ocispecs.ReferenceDescriptor) bool {
+	if strings.HasPrefix(referenceDescriptor.ArtifactType, sigstoreBundleMediaTypePrefix) {
+		if predicateType, ok := referenceDescriptor.Annotations[bundlePredicateTypeAnnotation]; ok && predicateType != cosignSignPredicateType {
+			return false
+		}
+	}
 	for _, at := range v.artifactTypes {
 		if at == "*" || at == referenceDescriptor.ArtifactType {
 			return true
@@ -747,7 +761,8 @@ func hasOnlyRekorV2Entries(b *sgbundle.Bundle) (bool, error) {
 func verifyBundleWith(ctx context.Context, co *cosign.CheckOpts, artifactPolicy verify.ArtifactPolicyOption, b *sgbundle.Bundle) cosignExtension {
 	extension := cosignExtension{}
 	// cosign image signatures are DSSE in-toto statements, reject other bundle content such as blob signatures
-	if _, ok := b.Content.(*protobundle.Bundle_DsseEnvelope); !ok {
+	envelope, ok := b.Content.(*protobundle.Bundle_DsseEnvelope)
+	if !ok {
 		extension.Err = "bundle does not contain a DSSE envelope"
 		return extension
 	}
@@ -755,10 +770,36 @@ func verifyBundleWith(ctx context.Context, co *cosign.CheckOpts, artifactPolicy 
 		extension.Err = err.Error()
 		return extension
 	}
+	// the referrer annotation is not signed, so check the signed predicate type to reject attestations
+	if err := checkSignaturePredicateType(envelope.DsseEnvelope); err != nil {
+		extension.Err = err.Error()
+		return extension
+	}
 	extension.IsSuccess = true
 	extension.BundleVerified = !co.IgnoreTlog
 	extension.Summary = bundleVerificationMessage(co)
 	return extension
+}
+
+// checkSignaturePredicateType returns an error if the DSSE envelope is not an in-toto statement
+// with the cosign signature predicate type, e.g. an attestation such as SLSA provenance.
+func checkSignaturePredicateType(envelope *protodsse.Envelope) error {
+	if envelope == nil {
+		return fmt.Errorf("bundle does not contain a DSSE envelope")
+	}
+	if envelope.PayloadType != inTotoPayloadType {
+		return fmt.Errorf("unsupported DSSE payload type %q, expected %q", envelope.PayloadType, inTotoPayloadType)
+	}
+	var statement struct {
+		PredicateType string `json:"predicateType"`
+	}
+	if err := json.Unmarshal(envelope.Payload, &statement); err != nil {
+		return fmt.Errorf("failed to parse the in-toto statement of the bundle: %w", err)
+	}
+	if statement.PredicateType != cosignSignPredicateType {
+		return fmt.Errorf("bundle is not a cosign signature: predicate type %q, expected %q", statement.PredicateType, cosignSignPredicateType)
+	}
+	return nil
 }
 
 // bundleVerificationMessage returns a string list of all verifications performed for a Sigstore bundle

@@ -69,8 +69,14 @@ func createTestBundle(t *testing.T, signer crypto.Signer, cert *x509.Certificate
 // createTestBundleWithAlgorithms creates a v0.3 Sigstore bundle with the given subject digest algorithm and signing hash.
 func createTestBundleWithAlgorithms(t *testing.T, signer crypto.Signer, cert *x509.Certificate, subject v1.Hash, signHash crypto.Hash) []byte {
 	t.Helper()
-	statement := fmt.Sprintf(`{"_type":"https://in-toto.io/Statement/v1","subject":[{"name":"test","digest":{"%s":"%s"}}],"predicateType":"%s","predicate":{}}`, subject.Algorithm, subject.Hex, testSignPredicate)
-	pae := fmt.Sprintf("DSSEv1 %d %s %d %s", len(testInTotoType), testInTotoType, len(statement), statement)
+	return createTestBundleWithPredicate(t, signer, cert, subject, signHash, testInTotoType, testSignPredicate)
+}
+
+// createTestBundleWithPredicate creates a v0.3 Sigstore bundle with the given DSSE payload type and in-toto predicate type.
+func createTestBundleWithPredicate(t *testing.T, signer crypto.Signer, cert *x509.Certificate, subject v1.Hash, signHash crypto.Hash, payloadType, predicateType string) []byte {
+	t.Helper()
+	statement := fmt.Sprintf(`{"_type":"https://in-toto.io/Statement/v1","subject":[{"name":"test","digest":{"%s":"%s"}}],"predicateType":"%s","predicate":{}}`, subject.Algorithm, subject.Hex, predicateType)
+	pae := fmt.Sprintf("DSSEv1 %d %s %d %s", len(payloadType), payloadType, len(statement), statement)
 	hasher := signHash.New()
 	hasher.Write([]byte(pae))
 	sig, err := signer.Sign(rand.Reader, hasher.Sum(nil), signHash)
@@ -89,7 +95,7 @@ func createTestBundleWithAlgorithms(t *testing.T, signer crypto.Signer, cert *x5
 		VerificationMaterial: vm,
 		Content: &protobundle.Bundle_DsseEnvelope{DsseEnvelope: &protodsse.Envelope{
 			Payload:     []byte(statement),
-			PayloadType: testInTotoType,
+			PayloadType: payloadType,
 			Signatures:  []*protodsse.Signature{{Sig: sig}},
 		}},
 	}
@@ -346,6 +352,91 @@ func TestVerifyInternal_Bundle(t *testing.T) {
 			ext, ok := result.Extensions.(Extension)
 			if !ok || len(ext.SignatureExtension) != 1 || ext.SignatureExtension[0].Signature != bundleDigest.String() {
 				t.Fatalf("unexpected extensions: %+v", result.Extensions)
+			}
+		})
+	}
+}
+
+func TestCanVerify_BundlePredicateType(t *testing.T) {
+	v := &cosignVerifier{artifactTypes: []string{testBundleMediaType, "application/vnd.dev.cosign.artifact.sig.v1+json"}}
+	tc := []struct {
+		name         string
+		artifactType string
+		annotations  map[string]string
+		expected     bool
+	}{
+		{name: "signature bundle", artifactType: testBundleMediaType, annotations: map[string]string{bundlePredicateTypeAnnotation: cosignSignPredicateType}, expected: true},
+		{name: "bundle without predicate type annotation", artifactType: testBundleMediaType, expected: true},
+		{name: "attestation bundle", artifactType: testBundleMediaType, annotations: map[string]string{bundlePredicateTypeAnnotation: "https://slsa.dev/provenance/v1"}},
+		{name: "legacy signature ignores bundle annotation", artifactType: "application/vnd.dev.cosign.artifact.sig.v1+json", annotations: map[string]string{bundlePredicateTypeAnnotation: "https://slsa.dev/provenance/v1"}, expected: true},
+		{name: "unsupported artifact type", artifactType: "application/vnd.cncf.notary.signature"},
+	}
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			desc := ocispecs.ReferenceDescriptor{ArtifactType: tt.artifactType, Descriptor: imgspec.Descriptor{Annotations: tt.annotations}}
+			if got := v.CanVerify(context.Background(), desc); got != tt.expected {
+				t.Errorf("CanVerify() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+
+	wildcard := &cosignVerifier{artifactTypes: []string{"*"}}
+	desc := ocispecs.ReferenceDescriptor{ArtifactType: testBundleMediaType, Descriptor: imgspec.Descriptor{Annotations: map[string]string{bundlePredicateTypeAnnotation: "https://spdx.dev/Document"}}}
+	if wildcard.CanVerify(context.Background(), desc) {
+		t.Errorf("expected wildcard verifier to skip attestation bundles")
+	}
+}
+
+func TestVerifyBundle_PredicateType(t *testing.T) {
+	subjectHash := newTestSubjectHash(t)
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	keys := map[PKKey]keymanagementprovider.PublicKey{{Provider: "test"}: {Key: key.Public(), ProviderType: "inline"}}
+	keyOpts := cosign.CheckOpts{IgnoreTlog: true}
+
+	tc := []struct {
+		name          string
+		payloadType   string
+		predicateType string
+		expectValid   bool
+		expectErrMsg  string
+	}{
+		{name: "cosign signature", payloadType: testInTotoType, predicateType: testSignPredicate, expectValid: true},
+		{name: "attestation signed by a trusted key", payloadType: testInTotoType, predicateType: "https://slsa.dev/provenance/v1", expectErrMsg: "bundle is not a cosign signature"},
+		{name: "empty predicate type", payloadType: testInTotoType, predicateType: "", expectErrMsg: "bundle is not a cosign signature"},
+	}
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			b := createTestBundleWithPredicate(t, key, nil, subjectHash, crypto.SHA256, tt.payloadType, tt.predicateType)
+			verifications, valid, err := verifyBundle(context.Background(), keys, b, keyOpts, subjectHash)
+			if err != nil {
+				t.Fatalf("verifyBundle() unexpected error: %v", err)
+			}
+			if valid != tt.expectValid {
+				t.Fatalf("verifyBundle() valid = %v, want %v, verifications: %+v", valid, tt.expectValid, verifications)
+			}
+			if tt.expectErrMsg != "" && (len(verifications) != 1 || !strings.Contains(verifications[0].Err, tt.expectErrMsg)) {
+				t.Fatalf("expected error containing %q, got %+v", tt.expectErrMsg, verifications)
+			}
+		})
+	}
+}
+
+func TestCheckSignaturePredicateType(t *testing.T) {
+	tc := []struct {
+		name      string
+		envelope  *protodsse.Envelope
+		expectErr bool
+	}{
+		{name: "nil envelope", envelope: nil, expectErr: true},
+		{name: "unexpected payload type", envelope: &protodsse.Envelope{PayloadType: "application/json", Payload: []byte(`{"predicateType":"` + testSignPredicate + `"}`)}, expectErr: true},
+		{name: "invalid statement", envelope: &protodsse.Envelope{PayloadType: testInTotoType, Payload: []byte("not json")}, expectErr: true},
+		{name: "attestation", envelope: &protodsse.Envelope{PayloadType: testInTotoType, Payload: []byte(`{"predicateType":"https://slsa.dev/provenance/v1"}`)}, expectErr: true},
+		{name: "cosign signature", envelope: &protodsse.Envelope{PayloadType: testInTotoType, Payload: []byte(`{"predicateType":"` + testSignPredicate + `"}`)}},
+	}
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := checkSignaturePredicateType(tt.envelope); (err != nil) != tt.expectErr {
+				t.Errorf("checkSignaturePredicateType() error = %v, expectErr %v", err, tt.expectErr)
 			}
 		})
 	}
