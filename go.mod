@@ -28,9 +28,9 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dapr/go-sdk v1.8.0
 	github.com/dgraph-io/ristretto v0.2.0
+	github.com/distribution/distribution/v3 v3.1.2
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v29.5.3+incompatible
-	github.com/docker/distribution v2.8.3+incompatible
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/golang/protobuf v1.5.4
@@ -48,7 +48,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sigstore/cosign/v2 v2.6.4
 	github.com/sigstore/sigstore v1.10.8
-	github.com/sirupsen/logrus v1.9.4
+	github.com/sirupsen/logrus v1.10.2
 	github.com/spdx/tools-golang v0.5.5
 	github.com/spf13/cobra v1.10.2
 	github.com/xlab/treeprint v1.1.0
@@ -165,8 +165,8 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gotest.tools/v3 v3.1.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
@@ -196,7 +196,7 @@ require (
 	github.com/bshuster-repo/logrus-logstash-hook v1.1.0
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/docker/docker-credential-helpers v0.9.3 // indirect
+	github.com/docker/docker-credential-helpers v0.9.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-logr/logr v1.4.4
