@@ -25,7 +25,7 @@ spec:
       {{- end }}
       labels:
         {{- include "ratify.selectorLabels" . | nindent 8 }}
-        {{- if or (eq (index .Values.stores 0).credential.provider "azure") (eq (include "ratify.akvCertsProvided" .) "true") }}
+        {{- if eq (include "ratify.azureWorkloadIdentityEnabled" .) "true" }}
         azure.workload.identity/use: "true"
         {{- end }}
     spec:
