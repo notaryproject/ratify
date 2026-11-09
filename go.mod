@@ -32,7 +32,7 @@ require (
 	github.com/docker/cli v29.5.3+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/go-jose/go-jose/v3 v3.0.5
+	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-containerregistry v0.21.7
 	github.com/gorilla/mux v1.8.1
@@ -105,7 +105,6 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.7 // indirect
 	github.com/go-chi/chi/v5 v5.5.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.10 // indirect
 	github.com/go-openapi/runtime/server-middleware v0.30.0 // indirect
 	github.com/go-openapi/swag/cmdutils v0.26.1 // indirect
