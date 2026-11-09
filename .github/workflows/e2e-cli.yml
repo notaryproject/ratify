@@ -43,7 +43,7 @@ jobs:
       - name: setup go environment
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.26"
+          go-version: "1.27"
       - name: Run tidy
         run: go mod tidy
       - name: Build CLI
@@ -72,7 +72,7 @@ jobs:
       - name: setup go environment
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.26"
+          go-version: "1.27"
       - name: Run tidy
         run: go mod tidy
       - name: Restore Trivy cache

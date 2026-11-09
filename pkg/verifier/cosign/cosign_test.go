@@ -987,7 +987,7 @@ mmBwUAwwW0Uc+Nt3bDOCiB1nUsICv1ry
 				},
 			},
 			expectedResultMessagePrefix: "Failed to validate the Cosign signature:",
-			expectedErrorReason:         "failed to unmarshal bundle from blob payload: illegal base64 data at input byte 91",
+			expectedErrorReason:         "failed to unmarshal bundle from blob payload: json: cannot unmarshal string into Go struct field RekorBundle.SignedEntryTimestamp of type []uint8: illegal base64 data at input byte 91",
 		},
 	}
 
