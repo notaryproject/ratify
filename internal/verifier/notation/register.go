@@ -24,6 +24,7 @@ import (
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify-verifier-go/notation"
+	"github.com/notaryproject/ratify/v2/internal/imageref"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 )
@@ -152,6 +153,10 @@ func initTrustPolicyDocument(scopes, trustedIdentities []string, storeTypes []tr
 	if len(scopes) == 0 {
 		scopes = []string{"*"}
 	}
+	// Normalize repository scopes so that they match the normalized
+	// references of the artifacts being verified, e.g. "docker.io/nginx"
+	// becomes "docker.io/library/nginx".
+	scopes = imageref.NormalizeScopes(scopes)
 	if len(trustedIdentities) == 0 {
 		trustedIdentities = []string{"*"}
 	}

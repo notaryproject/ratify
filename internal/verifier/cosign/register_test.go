@@ -1497,3 +1497,31 @@ func TestConvertProviderKeysToCosignKeys_NilInput(t *testing.T) {
 		t.Errorf("expected empty slice for nil input, got length %d", len(result))
 	}
 }
+
+// Repository scopes are normalized so that they match the normalized
+// repository of the artifacts being verified.
+func TestRegisterVerifier_NormalizesRepositoryScope(t *testing.T) {
+	cosignVerifier, err := cosign.NewVerifier(&cosign.VerifierOptions{Name: "mock-verifier"})
+	if err != nil {
+		t.Fatalf("Failed to create mock cosign verifier: %v", err)
+	}
+	verifier := &Verifier{
+		name:       testVerifierName,
+		wildcard:   make(map[string]*cosign.Verifier),
+		registry:   make(map[string]*cosign.Verifier),
+		repository: make(map[string]*cosign.Verifier),
+	}
+	for _, scope := range []string{"docker.io/nginx", "org/app"} {
+		if err := verifier.registerVerifier(scope, cosignVerifier); err != nil {
+			t.Fatalf("failed to register scope %q: %v", scope, err)
+		}
+	}
+	for _, repository := range []string{"docker.io/library/nginx", "docker.io/org/app"} {
+		if _, err := verifier.matchVerifier(repository); err != nil {
+			t.Errorf("expected %q to match a normalized repository scope, got: %v", repository, err)
+		}
+	}
+	if err := verifier.registerVerifier("docker.io/library/nginx", cosignVerifier); err == nil {
+		t.Error("expected an error for a scope that normalizes to an already registered scope, got nil")
+	}
+}

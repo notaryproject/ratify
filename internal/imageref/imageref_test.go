@@ -107,3 +107,73 @@ func TestNormalize(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeScope(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "Empty scope", input: "", expected: ""},
+		{name: "Global wildcard", input: "*", expected: "*"},
+		{name: "Wildcard registry", input: "*.example.com", expected: "*.example.com"},
+		{name: "Registry", input: "registry.example.com", expected: "registry.example.com"},
+		{name: "Docker Hub registry", input: "docker.io", expected: "docker.io"},
+		{name: "Registry without a dot is not rewritten", input: "org", expected: "org"},
+		{name: "Docker Hub official repository", input: "docker.io/nginx", expected: "docker.io/library/nginx"},
+		{name: "Fully qualified Docker Hub repository", input: "docker.io/library/nginx", expected: "docker.io/library/nginx"},
+		{name: "Docker Hub user repository without registry", input: "org/app", expected: "docker.io/org/app"},
+		{name: "Repository with registry", input: "registry.example.com/app", expected: "registry.example.com/app"},
+		{name: "Localhost repository", input: "localhost/app", expected: "localhost/app"},
+		{name: "Repository with port", input: "registry:5000/app", expected: "registry:5000/app"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if result := NormalizeScope(test.input); result != test.expected {
+				t.Errorf("expected %q, got %q", test.expected, result)
+			}
+		})
+	}
+}
+
+func TestNormalizeScopes(t *testing.T) {
+	if result := NormalizeScopes(nil); result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
+
+	input := []string{"docker.io/nginx", "registry.example.com", "docker.io/library/nginx", "org/app"}
+	expected := []string{"docker.io/library/nginx", "registry.example.com", "docker.io/org/app"}
+	result := NormalizeScopes(input)
+	if len(result) != len(expected) {
+		t.Fatalf("expected %v, got %v", expected, result)
+	}
+	for i := range expected {
+		if result[i] != expected[i] {
+			t.Fatalf("expected %v, got %v", expected, result)
+		}
+	}
+}
+
+func TestIsRegistryHost(t *testing.T) {
+	tests := []struct {
+		domain   string
+		expected bool
+	}{
+		{domain: "docker.io", expected: true},
+		{domain: "registry:5000", expected: true},
+		{domain: "localhost", expected: true},
+		{domain: "Registry", expected: true},
+		{domain: "[2001:db8::1]:5000", expected: true},
+		{domain: "org", expected: false},
+		{domain: "registry", expected: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.domain, func(t *testing.T) {
+			if result := IsRegistryHost(test.domain); result != test.expected {
+				t.Errorf("expected %v, got %v", test.expected, result)
+			}
+		})
+	}
+}
