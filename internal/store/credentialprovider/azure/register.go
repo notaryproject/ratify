@@ -25,12 +25,12 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	azcontainerregistry "github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry"
-	dcontext "github.com/docker/distribution/context"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify/v2/internal/cloudprovider/azure"
 	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
+	"github.com/sirupsen/logrus"
 )
 
 var logOpt = logger.Option{ComponentType: logger.AuthProvider}
@@ -43,7 +43,7 @@ var errTokenExpired = errors.New("JWT token has already expired")
 // DefaultACRTokenTTL, but an already-expired one gets a zero TTL: CachedProvider
 // only caches a positive TTL, so the token is discarded instead of being replayed
 // for hours and returning 401 on every request.
-func resolveTokenTTL(log dcontext.Logger, serverAddress, token string) time.Duration {
+func resolveTokenTTL(log *logrus.Entry, serverAddress, token string) time.Duration {
 	ttl, err := parseJWTTokenTTL(token)
 	switch {
 	case errors.Is(err, errTokenExpired):

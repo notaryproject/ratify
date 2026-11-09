@@ -19,7 +19,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.28.6
 	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/dgraph-io/ristretto/v2 v2.2.0
-	github.com/docker/distribution v2.8.3+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gorilla/mux v1.8.1

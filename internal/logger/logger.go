@@ -19,10 +19,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime"
 	"time"
 
 	logstash "github.com/bshuster-repo/logrus-logstash-hook"
-	dcontext "github.com/docker/distribution/context"
 	"github.com/google/uuid"
 	re "github.com/notaryproject/ratify/v2/errors"
 	icontext "github.com/notaryproject/ratify/v2/internal/context"
@@ -95,10 +95,10 @@ func InitContext(ctx context.Context, r *http.Request) context.Context {
 }
 
 // GetLogger returns a logger with provided values.
-func GetLogger(ctx context.Context, opt Option) dcontext.Logger {
-	ctx = dcontext.WithLogger(ctx, dcontext.GetLogger(ctx, icontext.ContextKeyNamespace))
+func GetLogger(ctx context.Context, opt Option) *logrus.Entry {
+	ctx = withLogger(ctx, getLogger(ctx, icontext.ContextKeyNamespace))
 	ctx = context.WithValue(ctx, ContextKeyComponentType, opt.ComponentType)
-	return dcontext.GetLogger(ctx, ContextKeyComponentType)
+	return getLogger(ctx, ContextKeyComponentType)
 }
 
 // GetTraceID returns the trace ID from the context.
@@ -122,7 +122,7 @@ func setTraceID(ctx context.Context, r *http.Request) context.Context {
 		traceID = uuid.New().String()
 	}
 	ctx = context.WithValue(ctx, ContextKeyTraceID, traceID)
-	return dcontext.WithLogger(ctx, dcontext.GetLogger(ctx, ContextKeyTraceID))
+	return withLogger(ctx, getLogger(ctx, ContextKeyTraceID))
 }
 
 // SetTraceIDHeader sets the trace ID in the http header.
@@ -170,4 +170,26 @@ func setFormatter(formatter string) error {
 		return re.ErrorCodeConfigInvalid.WithDetail(fmt.Sprintf("unsupported logging formatter: %s", formatter))
 	}
 	return nil
+}
+
+type loggerKey struct{}
+
+func withLogger(ctx context.Context, l *logrus.Entry) context.Context {
+	return context.WithValue(ctx, loggerKey{}, l)
+}
+
+// getLogger returns the logger stored in ctx (or a default one) with each key
+// that is present in ctx added as a field.
+func getLogger(ctx context.Context, keys ...interface{}) *logrus.Entry {
+	entry, ok := ctx.Value(loggerKey{}).(*logrus.Entry)
+	if !ok {
+		entry = logrus.WithField("go.version", runtime.Version())
+	}
+	fields := logrus.Fields{}
+	for _, k := range keys {
+		if v := ctx.Value(k); v != nil {
+			fields[fmt.Sprint(k)] = v
+		}
+	}
+	return entry.WithFields(fields)
 }
