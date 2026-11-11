@@ -629,3 +629,26 @@ func registerMocks() {
 		policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
 	})
 }
+
+// Repository scopes are normalized in the same way as the references routed
+// to them, so that "docker.io/nginx" and "org/app" cover "nginx:latest" and
+// "org/app:v1".
+func TestRegisterExecutor_NormalizesRepositoryScope(t *testing.T) {
+	scopedExecutor := &ScopedExecutor{}
+	executor := &ratify.Executor{Store: &mockStore{}}
+	for _, scope := range []string{"docker.io/nginx", "org/app"} {
+		if err := scopedExecutor.registerExecutor(scope, executor); err != nil {
+			t.Fatalf("failed to register scope %q: %v", scope, err)
+		}
+	}
+
+	for _, artifact := range []string{"nginx:latest", "docker.io/library/nginx:1.27", "org/app:v1", "[default]org/app:v1"} {
+		if _, err := scopedExecutor.Resolve(context.Background(), artifact); err != nil {
+			t.Errorf("expected %q to match a normalized repository scope, got: %v", artifact, err)
+		}
+	}
+
+	if err := scopedExecutor.registerExecutor("docker.io/library/nginx", executor); err == nil {
+		t.Error("expected an error for a scope that normalizes to an already registered scope, got nil")
+	}
+}

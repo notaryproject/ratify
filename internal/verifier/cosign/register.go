@@ -27,6 +27,7 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/verify"
 	"oras.land/oras-go/v2/registry"
 
+	"github.com/notaryproject/ratify/v2/internal/imageref"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 )
@@ -264,10 +265,13 @@ func (v *Verifier) registerVerifier(scope string, verifier *cosign.Verifier) err
 
 // registerRepository registers a verifier for a specific repository scope.
 // The scope must be a valid repository path without wildcards, tags, or digests.
+// It is normalized by [imageref.NormalizeScope] so that it matches the
+// normalized repository of the artifacts being verified.
 func (v *Verifier) registerRepository(scope string, verifier *cosign.Verifier) error {
 	if strings.Contains(scope, "*") {
 		return fmt.Errorf("invalid scope %q: scope cannot contain wildcard for repository", scope)
 	}
+	scope = imageref.NormalizeScope(scope)
 	ref, err := registry.ParseReference(scope)
 	if err != nil {
 		return fmt.Errorf("invalid scope %q: %w", scope, err)

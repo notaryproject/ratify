@@ -322,3 +322,24 @@ func TestGetTrustStoreType(t *testing.T) {
 		})
 	}
 }
+
+// Repository scopes are normalized, and duplicates removed, so that they match
+// the normalized repository of the artifacts being verified.
+func TestInitTrustPolicyDocument_NormalizesScopes(t *testing.T) {
+	doc := initTrustPolicyDocument([]string{"docker.io/nginx", "docker.io/library/nginx", "org/app", "registry.example.com/app"}, nil, nil)
+	expected := []string{"docker.io/library/nginx", "docker.io/org/app", "registry.example.com/app"}
+	scopes := doc.TrustPolicies[0].RegistryScopes
+	if len(scopes) != len(expected) {
+		t.Fatalf("expected registry scopes %v, got %v", expected, scopes)
+	}
+	for i := range expected {
+		if scopes[i] != expected[i] {
+			t.Fatalf("expected registry scopes %v, got %v", expected, scopes)
+		}
+	}
+
+	doc = initTrustPolicyDocument(nil, nil, nil)
+	if scopes := doc.TrustPolicies[0].RegistryScopes; len(scopes) != 1 || scopes[0] != "*" {
+		t.Errorf("expected the wildcard registry scope, got %v", scopes)
+	}
+}
