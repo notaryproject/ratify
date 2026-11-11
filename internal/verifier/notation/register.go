@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
@@ -55,6 +56,46 @@ type options struct {
 	// verifier. Certificates would be loaded into trust store for Notation
 	// verifier to access. Required.
 	Certificates []trustStoreOptions `json:"certificates"`
+
+	// CRL configures the CRL fetcher used for revocation checks. Optional.
+	// Revocation is checked regardless: OCSP is tried first with CRL as the
+	// fallback. If not provided, an uncached CRL fetcher is used.
+	CRL *crlOptions `json:"crl,omitempty"`
+}
+
+type crlOptions struct {
+	// CacheEnabled enables the file-backed CRL cache. Optional.
+	CacheEnabled bool `json:"cacheEnabled"`
+
+	// CacheDir is the CRL cache directory used when CacheEnabled is true.
+	// Optional. Defaults to Notation's CRL cache directory under
+	// $XDG_CACHE_HOME or $HOME.
+	CacheDir string `json:"cacheDir"`
+
+	// HTTPTimeout is the timeout of each CRL download, e.g. "3s". Optional.
+	// Defaults to 3s.
+	HTTPTimeout string `json:"httpTimeout"`
+}
+
+func (o *crlOptions) toNotationCRLOptions() (*notation.CRLOptions, error) {
+	if o == nil {
+		return nil, nil
+	}
+	var timeout time.Duration
+	if o.HTTPTimeout != "" {
+		var err error
+		if timeout, err = time.ParseDuration(o.HTTPTimeout); err != nil {
+			return nil, fmt.Errorf("invalid crl.httpTimeout %q: %w", o.HTTPTimeout, err)
+		}
+		if timeout <= 0 {
+			return nil, fmt.Errorf("invalid crl.httpTimeout %q: must be positive", o.HTTPTimeout)
+		}
+	}
+	return &notation.CRLOptions{
+		CacheEnabled: o.CacheEnabled,
+		CacheDir:     o.CacheDir,
+		HTTPTimeout:  timeout,
+	}, nil
 }
 
 func init() {
@@ -74,10 +115,16 @@ func init() {
 			return nil, fmt.Errorf("failed to initialize trust store: %w", err)
 		}
 
+		crlOpts, err := params.CRL.toNotationCRLOptions()
+		if err != nil {
+			return nil, err
+		}
+
 		notationOpts := &notation.VerifierOptions{
 			Name:           opts.Name,
 			TrustPolicyDoc: initTrustPolicyDocument(params.Scopes, params.TrustedIdentities, types),
 			TrustStore:     trustStore,
+			CRL:            crlOpts,
 		}
 
 		return notation.NewVerifier(notationOpts)

@@ -27,7 +27,7 @@ require (
 	github.com/notaryproject/notation-go v1.3.2
 	github.com/notaryproject/ratify-go v0.1.0
 	github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20260803043348-802d39e8a95e
-	github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a
+	github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20261109073002-d5601fee5dbf
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/open-policy-agent/cert-controller v0.13.0

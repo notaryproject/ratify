@@ -245,26 +245,57 @@ EOF
 }
 
 @test "notation verification pass on CRL check with audit trust policy" {
-    skip "v2 notation verifier does not support configurable verification level (audit); hardcoded to strict"
     teardown() {
         echo "cleaning up"
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-crl --namespace default --force --ignore-not-found=true'
 
-        # restore the original notation verifier for other tests
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/verifier/config_v1beta1_verifier_notation.yaml'
+        # restore the original executor for other tests
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-crl.yaml'
+        rm -f original-executor-crl.yaml
     }
-    TARGET_IP=$(ip -4 addr show "eth0" | awk '/inet/ {print $2}' | cut -d'/' -f1)
-    # RATIFY_POD=$(kubectl get pods -n ${RATIFY_NAMESPACE} --no-headers -o custom-columns=":metadata.name" | grep ratify)
-    run kubectl patch deployment ${RATIFY_NAME} -n ${RATIFY_NAMESPACE} --type='merge' -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"'"${TARGET_IP}"'","hostnames":["yourhost"]}]}}}}'
 
-    # add the tsaroot certificate as an inline key management provider
-    cat ./test/bats/tests/config/config_v1beta1_keymanagementprovider_inline.yaml >> crlkmprovider.yaml
-    cat .staging/notation/crl-test/root.crt | sed 's/^/      /g' >> crlkmprovider.yaml
-    run kubectl apply -f crlkmprovider.yaml --namespace ${RATIFY_NAMESPACE}
+    run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
     assert_success
-    run kubectl replace -f ./test/bats/tests/config/config_v1beta1_verifier_notation_audit_crl.yaml
+    sleep 5
+    run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
+    assert_success
+    sleep 5
 
-    run kubectl run demo --namespace default --image=registry:5000/notation:crl
+    # make sure the CRL server serves the non-revoked leaf CRL
+    unrevoke_crl
+
+    # the crl-test certificate chain points its CRL distribution points at
+    # http://yourhost:10086, so resolve yourhost to the runner hosting crl_server.py
+    TARGET_IP=$(ip -4 addr show "eth0" | awk '/inet/ {print $2}' | cut -d'/' -f1)
+    run kubectl get deploy --namespace ${RATIFY_NAMESPACE} -l app.kubernetes.io/name=ratify-gatekeeper-provider -o jsonpath='{.items[0].metadata.name}'
+    assert_success
+    ratify_deploy="$output"
+    run kubectl patch deployment ${ratify_deploy} -n ${RATIFY_NAMESPACE} --type='merge' -p '{"spec":{"template":{"spec":{"hostAliases":[{"ip":"'"${TARGET_IP}"'","hostnames":["yourhost"]}]}}}}'
+    assert_success
+    run kubectl rollout status deployment/${ratify_deploy} --namespace ${RATIFY_NAMESPACE} --timeout=180s
+    assert_success
+
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-crl.yaml"
+    assert_success
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+
+    # trust the crl-test root certificate inline on the notation verifier and
+    # configure the CRL fetcher used for revocation checks
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run bash -c 'CRL_ROOT=$(cat .staging/notation/crl-test/root.crt) && \
+        kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
+        jq --arg ca "$CRL_ROOT" '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.verifiers = [(.spec.verifiers[] | if .name == "notation-1" then .parameters.certificates = [{type: "ca", inline: {certs: $ca}}] | .parameters.crl = {httpTimeout: "3s"} else . end)]'"'"' | kubectl apply --server-side --force-conflicts -f -'
+    assert_success
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+
+    # TODO: switch the notation trust policy to the audit verification level once
+    # the v2 notation verifier supports a configurable verification level; it is
+    # hardcoded to strict today, so the CRL check below runs under strict.
+    # run kubectl replace -f ./test/bats/tests/config/config_v1beta1_verifier_notation_audit_crl.yaml
+
+    sleep 10
+    run kubectl run demo-crl --namespace default --image=registry:5000/notation:crl
     assert_success
 }
 
