@@ -669,13 +669,19 @@ EOF
     assert_success
 }
 
-@test "validate K8s secrets ORAS auth provider" {
-    skip "v2 e2e uses static credential provider; k8s secret auth provider not configured in current executor"
+@test "validate registry store credential auth" {
+    # v2 has no K8s secret auth provider; the registry store authenticates via the
+    # executor's credential provider (static in the kind e2e). This validates that
+    # the configured credential is actually used against the auth-enabled registry.
     teardown() {
         echo "cleaning up"
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo --namespace default --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo1 --namespace default --ignore-not-found=true'
-        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl replace -f ./config/samples/clustered/store/config_v1beta1_store_oras_http.yaml'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-auth-bad --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-auth --namespace default --force --ignore-not-found=true'
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'kubectl delete pod demo-auth-unsigned --namespace default --force --ignore-not-found=true'
+
+        # restore the original executor for other tests
+        wait_for_process ${WAIT_TIME} ${SLEEP_TIME} 'restore_executor original-executor-auth.yaml'
+        rm -f original-executor-auth.yaml
     }
 
     run kubectl apply -f ./library/multi-tenancy-validation/template.yaml
@@ -684,13 +690,32 @@ EOF
     run kubectl apply -f ./library/multi-tenancy-validation/samples/constraint.yaml
     assert_success
     sleep 5
-    # apply store CRD with K8s secret auth provier enabled
-    run kubectl apply -f ./config/samples/clustered/store/config_v1beta1_store_oras_k8secretAuth.yaml
+
+    run bash -c "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o yaml > original-executor-auth.yaml"
     assert_success
-    sleep 5
-    run kubectl run demo --namespace default --image=registry:5000/notation:signed
+    wait_for_process ${WAIT_TIME} ${SLEEP_TIME} "kubectl get executors.config.ratify.sh/${EXECUTOR_NAME} -o jsonpath='{.status.succeeded}' | grep true"
+
+    echo "Swap the registry store password for a wrong one and validate admission fails closed"
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run bash -c 'kubectl get executors.config.ratify.sh/'"${EXECUTOR_NAME}"' -o json | \
+        jq '"'"'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .status) | .spec.stores = [.spec.stores[] | .parameters.credential.password = "wrong_pw"]'"'"' | kubectl apply --server-side --force-conflicts -f -'
     assert_success
-    run kubectl run demo1 --namespace default --image=registry:5000/notation:unsigned
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    sleep 10
+    run kubectl run demo-auth-bad --namespace default --image=registry:5000/notation:signed
+    assert_failure
+
+    echo "Restore the original credential and validate signed/unsigned images"
+    baseline=$(executor_reconcile_count ${RATIFY_NAMESPACE})
+    run restore_executor original-executor-auth.yaml
+    assert_success
+    run wait_for_executor_reconcile ${EXECUTOR_NAME} ${baseline} ${RATIFY_NAMESPACE}
+    assert_success
+    sleep 10
+    run kubectl run demo-auth --namespace default --image=registry:5000/notation:signed
+    assert_success
+    run kubectl run demo-auth-unsigned --namespace default --image=registry:5000/notation:unsigned
     assert_failure
 }
 
