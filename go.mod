@@ -30,9 +30,9 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dapr/go-sdk v1.8.0
 	github.com/dgraph-io/ristretto v0.2.0
+	github.com/distribution/distribution/v3 v3.1.2
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v29.7.2+incompatible
-	github.com/docker/distribution v2.8.3+incompatible
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/go-logr/logr v1.4.4
