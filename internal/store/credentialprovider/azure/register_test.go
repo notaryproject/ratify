@@ -25,7 +25,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	dcontext "github.com/docker/distribution/context"
 	"github.com/notaryproject/ratify/v2/internal/cloudprovider/azure"
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
 	"github.com/sirupsen/logrus"
@@ -1043,7 +1042,7 @@ func TestResolveTokenTTL_ExpiredAndUnparseableDiffer(t *testing.T) {
 	}
 }
 
-func newTestLogger() (dcontext.Logger, *test.Hook) {
+func newTestLogger() (*logrus.Entry, *test.Hook) {
 	base := logrus.New()
 	base.SetLevel(logrus.DebugLevel)
 	hook := test.NewLocal(base)
