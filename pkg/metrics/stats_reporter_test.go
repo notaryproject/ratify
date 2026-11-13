@@ -99,18 +99,21 @@ func TestReportVerifierDuration(t *testing.T) {
 	mockDuration := &MockInt64Histogram{Attributes: make(map[string]string)}
 	verifierDuration = mockDuration
 	ctx := ctxUtils.SetContextWithNamespace(context.Background(), testNamespace)
-	ReportVerifierDuration(ctx, 5, "test_verifier", "test_subject", true, true)
+	ReportVerifierDuration(ctx, 5, "test_verifier", false, true)
 	if mockDuration.Value != 5 {
 		t.Fatalf("ReportVerifierDuration() mockDuration.Value = %v, expected %v", mockDuration.Value, 5)
 	}
-	if len(mockDuration.Attributes) != 5 {
-		t.Fatalf("ReportVerifierDuration() len(mockDuration.Attributes) = %v, expected %v", len(mockDuration.Attributes), 2)
+	if len(mockDuration.Attributes) != 4 {
+		t.Fatalf("ReportVerifierDuration() len(mockDuration.Attributes) = %v, expected %v", len(mockDuration.Attributes), 4)
 	}
 	if mockDuration.Attributes["verifier"] != "test_verifier" {
 		t.Fatalf("expected verifer attribute to be test_verifier but got %s", mockDuration.Attributes["verifier"])
 	}
-	if mockDuration.Attributes["subject"] != "test_subject" {
-		t.Fatalf("expected subject attribute to be test_subject but got %s", mockDuration.Attributes["subject"])
+	if _, ok := mockDuration.Attributes["subject"]; ok {
+		t.Fatalf("expected no subject attribute but got %s", mockDuration.Attributes["subject"])
+	}
+	if mockDuration.Attributes["success"] != "false" {
+		t.Fatalf("expected success attribute to be false but got %s", mockDuration.Attributes["success"])
 	}
 	if mockDuration.Attributes["error"] != "true" {
 		t.Fatalf("expected error attribute to be true but got %s", mockDuration.Attributes["error"])

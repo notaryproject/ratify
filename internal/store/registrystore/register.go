@@ -122,7 +122,7 @@ func init() {
 		}
 
 		registryStoreOpts := ratify.RegistryStoreOptions{
-			HTTPClient:         httpClient,
+			HTTPClient:         withRequestMetrics(httpClient),
 			PlainHTTP:          params.PlainHTTP,
 			UserAgent:          params.UserAgent,
 			MaxBlobBytes:       params.MaxBlobBytes,

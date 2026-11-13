@@ -56,6 +56,8 @@ func Register(verifierType string, create func(NewOptions, []string) (ratify.Ver
 }
 
 // New creates a [ratify.Verifier] instance if it belongs to a registered type.
+// The returned verifier reports the ratify_verifier_duration metric for every
+// verification.
 func New(opts NewOptions, globalScopes []string) (ratify.Verifier, error) {
 	if opts.Name == "" || opts.Type == "" {
 		return nil, fmt.Errorf("name or type is not provided in the verifier options")
@@ -64,7 +66,11 @@ func New(opts NewOptions, globalScopes []string) (ratify.Verifier, error) {
 	if !ok {
 		return nil, fmt.Errorf("verifier factory of type %s is not registered", opts.Type)
 	}
-	return create(opts, globalScopes)
+	verifier, err := create(opts, globalScopes)
+	if err != nil || verifier == nil {
+		return verifier, err
+	}
+	return &instrumentedVerifier{Verifier: verifier}, nil
 }
 
 // NewVerifiers creates a slice of [ratify.Verifier] instances based on the

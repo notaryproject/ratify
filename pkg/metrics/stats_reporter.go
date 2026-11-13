@@ -217,20 +217,18 @@ func ReportMutationRequest(ctx context.Context, duration int64) {
 // ReportVerifierDuration reports the duration of a single verifier's execution
 // Attributes:
 // verifierName: the name of the verifier
-// subjectReference: the subject reference of the verification
 // success: whether the verification succeeded
 // isError: whether the verification failed due to an error
 // workload_namespace: the namespace where workload is deployed
-func ReportVerifierDuration(ctx context.Context, duration int64, veriferName string, subjectReference string, success bool, isError bool) {
+//
+// The subject is deliberately not an attribute: every image digest would
+// create a new histogram series, so the label cardinality would be unbounded.
+func ReportVerifierDuration(ctx context.Context, duration int64, verifierName string, success bool, isError bool) {
 	if verifierDuration != nil {
 		verifierDuration.Record(ctx, duration, instrument.WithAttributes(
 			attribute.KeyValue{
 				Key:   "verifier",
-				Value: attribute.StringValue(veriferName),
-			},
-			attribute.KeyValue{
-				Key:   "subject",
-				Value: attribute.StringValue(subjectReference),
+				Value: attribute.StringValue(verifierName),
 			},
 			attribute.KeyValue{
 				Key:   "success",
