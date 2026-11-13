@@ -118,26 +118,54 @@ spec:
           {{- toYaml .Values.notation.trustedIdentities | nindent 10 }}
         {{- end }}
         certificates:
-          - type: "ca"
-            {{- if eq (index .Values.notation.certs 0).provider "inline" }}
+          {{- range $index, $cert := .Values.notation.certs }}
+          {{- if not $cert.provider }}
+          {{- fail (printf "notation.certs[%d].provider must be set to inline, files or azurekeyvault" $index) }}
+          {{- else if not (has $cert.provider (list "inline" "files" "azurekeyvault")) }}
+          {{- fail (printf "Unsupported notation certificate provider: %s" $cert.provider) }}
+          {{- end }}
+          {{- end }}
+          {{- range $certType := splitList " " (include "ratify.notationTrustStoreTypes" .) }}
+          {{- $inlineCerts := list }}
+          {{- $files := false }}
+          {{- $akvCerts := list }}
+          {{- range $.Values.notation.certs }}
+          {{- if eq (include "ratify.notationCertType" .) $certType }}
+          {{- if eq .provider "inline" }}
+          {{- $inlineCerts = append $inlineCerts .cert }}
+          {{- else if eq .provider "files" }}
+          {{- $files = true }}
+          {{- else if eq .provider "azurekeyvault" }}
+          {{- $akvCerts = append $akvCerts . }}
+          {{- end }}
+          {{- end }}
+          {{- end }}
+          {{- if gt (len $akvCerts) 1 }}
+          {{- fail (printf "Only one azurekeyvault provider is supported for notation certificates of type %s" $certType) }}
+          {{- end }}
+          {{- if or $inlineCerts $files $akvCerts }}
+          - type: {{ $certType | quote }}
+            {{- if $inlineCerts }}
             inline:
-              certs: {{ (index .Values.notation.certs 0).cert | quote }}
-            {{- else if eq (index .Values.notation.certs 0).provider "files" }}
+              certs: {{ join "\n" $inlineCerts | quote }}
+            {{- end }}
+            {{- if $files }}
             files:
-              - "/usr/local/notation/certs"
-            {{- else if eq (index .Values.notation.certs 0).provider "azurekeyvault" }}
+              - {{ include "ratify.notationCertsDir" $certType | quote }}
+            {{- end }}
+            {{- with first $akvCerts }}
             azurekeyvault:
-              vaultURL: "{{ (index .Values.notation.certs 0).vaultURL }}"
-              clientID: "{{ (index .Values.notation.certs 0).clientID }}"
-              tenantID: "{{ (index .Values.notation.certs 0).tenantID }}"
+              vaultURL: "{{ .vaultURL }}"
+              clientID: "{{ .clientID }}"
+              tenantID: "{{ .tenantID }}"
               certificates:
-                {{- range $cert := (index .Values.notation.certs 0).certificates }}
+                {{- range $cert := .certificates }}
                 - name: "{{ $cert.name }}"
                   version: "{{ $cert.version | default "" }}"
                 {{- end }}
-            {{- else }}
-            {{- fail (printf "Unsupported notation certificate provider: %s" (index .Values.notation.certs 0).provider) }}
             {{- end }}
+          {{- end }}
+          {{- end }}
     {{- end }}
   policyEnforcer:
     type: "threshold-policy"

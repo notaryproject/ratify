@@ -28,9 +28,19 @@ executor:
 notation:
   scopes: []
   trustedIdentities: []
+  # Each entry is loaded into the trust store selected by its optional "type":
+  # "ca" (default), "tsa" or "signingAuthority". Entries of the same type and
+  # provider are combined, except that only one "azurekeyvault" entry is
+  # allowed per type.
   certs:
   # - provider: "inline"
+  #   type: "ca" # optional, one of "ca" (default), "tsa" or "signingAuthority"
   #   cert: "" # PEM encoded certificate, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+  # - provider: "inline"
+  #   type: "tsa" # root certificate of a timestamping authority (TSA), used to verify RFC 3161 timestamps of signatures
+  #   cert: "" # PEM encoded certificate
+  # - provider: "files" # the certificate is stored in a Secret and mounted into the provider pod
+  #   cert: "" # PEM encoded certificate
   # - provider: "azurekeyvault" # use "azurekeyvault" to use Azure Key Vault
   #   vaultURL: "" # e.g. "https://my-key-vault.vault.azure.net/"
   #   clientID: "" # optional

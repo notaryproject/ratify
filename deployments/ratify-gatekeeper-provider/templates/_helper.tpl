@@ -57,25 +57,93 @@ false
 {{- end -}}
 
 {{/*
-Check if notation certificates are provided by files
+Returns "true" when any notation certificate is provided by files.
 */}}
 {{- define "ratify.notationCertsProvidedByFiles" -}}
-{{- if and (eq (include "ratify.notationConfigured" .) "true") (eq (index .Values.notation.certs 0).provider "files") -}}
-true
+{{- $enabled := false -}}
+{{- range .Values.notation.certs -}}
+{{- if eq (default "" .provider) "files" -}}
+{{- $enabled = true -}}
+{{- end -}}
+{{- end -}}
+{{- $enabled -}}
+{{- end -}}
+
+{{/*
+Returns "true" when any notation certificate is fetched from Azure Key Vault.
+*/}}
+{{- define "ratify.akvCertsProvided" -}}
+{{- $enabled := false -}}
+{{- range .Values.notation.certs -}}
+{{- if eq (default "" .provider) "azurekeyvault" -}}
+{{- $enabled = true -}}
+{{- end -}}
+{{- end -}}
+{{- $enabled -}}
+{{- end -}}
+
+{{/*
+Notation trust store types, in the order they are rendered. Each
+notation.certs entry is loaded into the trust store of its type, which
+defaults to "ca".
+*/}}
+{{- define "ratify.notationTrustStoreTypes" -}}
+ca tsa signingAuthority
+{{- end -}}
+
+{{/*
+Returns the trust store type of a notation.certs entry. It fails on a type
+that notation does not support.
+*/}}
+{{- define "ratify.notationCertType" -}}
+{{- $type := default "ca" .type -}}
+{{- if not (has $type (splitList " " (include "ratify.notationTrustStoreTypes" .))) -}}
+{{- fail (printf "Unsupported notation certificate type: %s. Supported types are ca, tsa and signingAuthority" $type) -}}
+{{- end -}}
+{{- $type -}}
+{{- end -}}
+
+{{/*
+Returns the name of the volume that holds the notation certificates provided
+by files for the given trust store type. The "ca" name is kept unchanged from
+earlier chart versions.
+*/}}
+{{- define "ratify.notationCertsVolumeName" -}}
+{{- if eq . "ca" -}}
+notation-certs
 {{- else -}}
-false
+{{- printf "notation-%s-certs" (lower .) -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Check if AKV certificate are provided
+Returns the directory that the notation certificates provided by files for the
+given trust store type are mounted to. The "ca" directory is kept unchanged from
+earlier chart versions.
 */}}
-{{- define "ratify.akvCertsProvided" -}}
-{{- if and (eq (include "ratify.notationConfigured" .) "true") (eq (index .Values.notation.certs 0).provider "azurekeyvault") -}}
-true
+{{- define "ratify.notationCertsDir" -}}
+{{- if eq . "ca" -}}
+/usr/local/notation/certs
 {{- else -}}
-false
+{{- printf "/usr/local/notation/%s-certs" (lower .) -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Returns the space-separated keys of the notation certificates Secret that hold
+the certificates provided by files for the given trust store type. It takes a
+list of the root context and the trust store type.
+*/}}
+{{- define "ratify.notationCertFileKeys" -}}
+{{- $root := index . 0 -}}
+{{- $certType := index . 1 -}}
+{{- $keys := list -}}
+{{- range $index, $cert := $root.Values.notation.certs -}}
+{{- if and (eq (default "" $cert.provider) "files") (eq (include "ratify.notationCertType" $cert) $certType) -}}
+{{- $keys = append $keys (printf "ratify%d.crt" $index) -}}
+{{- end -}}
+{{- end -}}
+{{- join " " $keys -}}
 {{- end -}}
 
 {{/*
