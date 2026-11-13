@@ -765,6 +765,7 @@ const (
 	testPolicyEnforcerType = "httpserver-test-policy-enforcer"
 	testExecutorScope      = "test.io"
 	testDockerHubStoreType = "httpserver-test-docker-hub-store"
+	testNamespaceStoreType = "httpserver-test-namespace-store"
 	testDockerHubDigest    = "sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88"
 )
 
@@ -802,6 +803,21 @@ func (s *dockerHubStore) Resolve(_ context.Context, ref string) (ocispec.Descrip
 	return ocispec.Descriptor{Digest: testDockerHubDigest}, nil
 }
 
+// namespaceStore resolves a reference only when the context carries the
+// expected workload namespace, so that a test fails if the executor is not
+// given the namespace of the Gatekeeper key.
+type namespaceStore struct {
+	testStore
+	namespace string
+}
+
+func (s *namespaceStore) Resolve(ctx context.Context, _ string) (ocispec.Descriptor, error) {
+	if got := ctxUtils.GetNamespace(ctx); got != s.namespace {
+		return ocispec.Descriptor{}, fmt.Errorf("unexpected namespace %q in context, want %q", got, s.namespace)
+	}
+	return ocispec.Descriptor{}, nil
+}
+
 type testVerifier struct{}
 
 func (v *testVerifier) Name() string                         { return testVerifierType }
@@ -837,6 +853,10 @@ func registerTestPlugins() {
 	registerTestPluginsOnce.Do(func() {
 		store.Register(testStoreType, func(store.NewOptions) (ratify.Store, error) { return &testStore{}, nil })
 		store.Register(testDockerHubStoreType, func(store.NewOptions) (ratify.Store, error) { return &dockerHubStore{}, nil })
+		store.Register(testNamespaceStoreType, func(opts store.NewOptions) (ratify.Store, error) {
+			namespace, _ := opts.Parameters.(string)
+			return &namespaceStore{namespace: namespace}, nil
+		})
 		verifier.Register(testVerifierType, func(verifier.NewOptions, []string) (ratify.Verifier, error) { return &testVerifier{}, nil })
 		policyenforcer.Register(testPolicyEnforcerType, func(policyenforcer.NewOptions) (ratify.PolicyEnforcer, error) {
 			return &testPolicyEnforcer{}, nil
@@ -949,6 +969,44 @@ func TestVerify_ReportsResultMetric(t *testing.T) {
 				t.Errorf("reported %+v, want %+v", (*got)[0], tt.want)
 			}
 		})
+	}
+}
+
+// TestVerify_ValidatesWithNamespaceContext ensures the executor receives the
+// namespace of the Gatekeeper key, so that the registry and verifier metrics
+// reported during validation carry the workload namespace.
+func TestVerify_ValidatesWithNamespaceContext(t *testing.T) {
+	registerTestPlugins()
+	scoped, err := executor.NewScopedExecutor(executor.Options{Executors: []executor.ScopedOptions{{
+		Scopes:    []string{testExecutorScope},
+		Verifiers: []verifier.NewOptions{{Name: testVerifierType, Type: testVerifierType}},
+		Stores:    []store.NewOptions{{Type: testNamespaceStoreType, Parameters: "team-e"}},
+	}}})
+	if err != nil {
+		t.Fatalf("failed to create scoped executor: %v", err)
+	}
+	srv := &server{
+		getExecutor: func(_ string) *executor.ScopedExecutor { return scoped },
+		verifyCache: &mockResultCache{entries: make(map[string]*result)},
+		sfGroup:     new(singleflight.Group),
+	}
+
+	body := `{"request":{"keys":["[team-e]` + testExecutorScope + `/org/image:v1"]}}`
+	req := httptest.NewRequest(http.MethodPost, "/verify", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	if err := srv.verify(context.Background(), w, req); err != nil {
+		t.Fatalf("verify() error = %v", err)
+	}
+
+	var resp externaldata.ProviderResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Response.Items) != 1 {
+		t.Fatalf("expected 1 response item, got %d", len(resp.Response.Items))
+	}
+	if itemErr := resp.Response.Items[0].Error; itemErr != "" {
+		t.Errorf("expected the executor to receive the workload namespace, got error: %s", itemErr)
 	}
 }
 
