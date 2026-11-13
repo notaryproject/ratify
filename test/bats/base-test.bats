@@ -79,7 +79,9 @@ EXECUTOR_NAME=ratify-gatekeeper-provider-executor-1
         --set executor.scopes[0]="registry1.azurecr.io/" \
         --set notation.certs[0].provider=inline \
         --set-file notation.certs[0].cert="notation-file1.crt" \
+        --set notation.certs[1].provider=inline \
         --set-file notation.certs[1].cert="notation-file2.crt" \
+        --set notation.certs[2].provider=inline \
         --set-file notation.certs[2].cert="notation-file3.crt" \
         --set notation.scopes[0]="registry1.azurecr.io/" \
         --set notation.trustedIdentities[0]="x509.subject: cert identity 1" \
@@ -151,6 +153,108 @@ EOF
     assert_success
     run bash -c "kubectl get executors.v2alpha1.config.ratify.sh/executor-sample -o yaml | grep 'apiVersion: config.ratify.sh/v2alpha1'"
     assert_success
+}
+
+@test "test rendering notation trust store types" {
+    # Entries are grouped into one trust store per type. Inline certificates of
+    # the same type are combined, and certificates provided by files are mounted
+    # into a directory per type.
+    run helm template trust-store-types ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/executor.yaml \
+        --show-only templates/deployment.yaml \
+        --set executor.scopes[0]="registry1.azurecr.io" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake root cert 1" \
+        --set notation.certs[1].provider=inline \
+        --set notation.certs[1].type=tsa \
+        --set notation.certs[1].cert="fake tsa cert" \
+        --set notation.certs[2].provider=inline \
+        --set notation.certs[2].type=ca \
+        --set notation.certs[2].cert="fake root cert 2" \
+        --set notation.certs[3].provider=files \
+        --set notation.certs[3].type=signingAuthority \
+        --set notation.certs[3].cert="fake signing authority cert" \
+        --set stores[0].credential.provider=static
+    assert_success
+    rendered="$output"
+
+    expected_certificates=$(cat <<'EOF'
+        certificates:
+          - type: "ca"
+            inline:
+              certs: "fake root cert 1\nfake root cert 2"
+          - type: "tsa"
+            inline:
+              certs: "fake tsa cert"
+          - type: "signingAuthority"
+            files:
+              - "/usr/local/notation/signingauthority-certs"
+EOF
+    )
+    [[ "$rendered" == *"$expected_certificates"* ]] || {
+        echo "Rendered output does not contain the expected notation certificates."
+        echo "Rendered output:"
+        echo "$rendered"
+        echo "Expected section:"
+        echo "$expected_certificates"
+        return 1
+    }
+
+    expected_mount=$(cat <<'EOF'
+            - mountPath: "/usr/local/notation/signingauthority-certs"
+              name: notation-signingauthority-certs
+              readOnly: true
+EOF
+    )
+    [[ "$rendered" == *"$expected_mount"* ]]
+
+    expected_volume=$(cat <<'EOF'
+        - name: notation-signingauthority-certs
+          secret:
+            secretName: trust-store-types-ratify-gatekeeper-provider-notation-certs
+            items:
+              - key: ratify3.crt
+                path: ratify3.crt
+EOF
+    )
+    [[ "$rendered" == *"$expected_volume"* ]]
+
+    # The ca directory is not mounted when no ca certificate is provided by
+    # files.
+    [[ "$rendered" != *"name: notation-certs"* ]]
+
+    # An unsupported trust store type fails rendering.
+    run helm template trust-store-types ./deployments/ratify-gatekeeper-provider \
+        --set executor.scopes[0]="registry1.azurecr.io" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].type=unknownType \
+        --set notation.certs[0].cert="fake cert" \
+        --set stores[0].credential.provider=static
+    assert_failure
+    [[ "$output" == *"Unsupported notation certificate type: unknownType"* ]]
+
+    # Every entry must set its provider.
+    run helm template trust-store-types ./deployments/ratify-gatekeeper-provider \
+        --set executor.scopes[0]="registry1.azurecr.io" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake cert 1" \
+        --set notation.certs[1].cert="fake cert 2" \
+        --set stores[0].credential.provider=static
+    assert_failure
+    [[ "$output" == *"notation.certs[1].provider must be set"* ]]
+
+    # A trust store type supports a single Azure Key Vault.
+    run helm template trust-store-types ./deployments/ratify-gatekeeper-provider \
+        --set executor.scopes[0]="registry1.azurecr.io" \
+        --set notation.certs[0].provider=azurekeyvault \
+        --set notation.certs[0].vaultURL="https://vault1.vault.azure.net/" \
+        --set notation.certs[0].certificates[0].name=cert1 \
+        --set notation.certs[1].provider=azurekeyvault \
+        --set notation.certs[1].vaultURL="https://vault2.vault.azure.net/" \
+        --set notation.certs[1].certificates[0].name=cert2 \
+        --set stores[0].credential.provider=static
+    assert_failure
+    [[ "$output" == *"Only one azurekeyvault provider is supported for notation certificates of type ca"* ]]
 }
 
 @test "test rendering azure workload identity pod label" {
