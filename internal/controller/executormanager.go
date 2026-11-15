@@ -81,6 +81,9 @@ func (m *executorManager) upsertExecutor(namespace, name string, opts *configv2b
 	if opts == nil {
 		return fmt.Errorf("executor options cannot be nil")
 	}
+	if namespace == clusterScopeNamespace && len(opts.Stores) == 0 {
+		return fmt.Errorf("stores must be provided for a cluster-scoped Executor")
+	}
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -138,6 +141,10 @@ func (m *executorManager) refreshExecutor(namespace string) error {
 	for _, scopedOpts := range nsOpts {
 		opts.Executors = append(opts.Executors, scopedOpts)
 	}
+	if namespace != clusterScopeNamespace {
+		// Namespaced executors without stores inherit the cluster-wide stores.
+		opts.DefaultStore = &clusterStore{manager: m}
+	}
 
 	executor, err := e.NewScopedExecutor(opts)
 	if err != nil {
@@ -162,11 +169,7 @@ func convertOptions(opts *configv2beta1.ExecutorSpec) (e.ScopedOptions, error) {
 	}
 	scopedOpts.Verifiers = verifierOpts
 
-	storeOpts, err := convertStoreOptions(opts.Stores)
-	if err != nil {
-		return e.ScopedOptions{}, fmt.Errorf("failed to convert store options: %w", err)
-	}
-	scopedOpts.Stores = storeOpts
+	scopedOpts.Stores = convertStoreOptions(opts.Stores)
 
 	scopedOpts.Policy = convertPolicyOptions(opts.PolicyEnforcer)
 	scopedOpts.Concurrency = opts.Concurrency
@@ -189,9 +192,12 @@ func convertVerifierOptions(verifiers []*configv2beta1.VerifierOptions) ([]verif
 	return verifierOpts, nil
 }
 
-func convertStoreOptions(stores []*configv2beta1.StoreOptions) ([]store.NewOptions, error) {
-	if stores == nil {
-		return nil, fmt.Errorf("stores cannot be nil")
+// convertStoreOptions converts the store options of an executor. It returns
+// nil if no store options are provided, in which case the executor inherits
+// the cluster-wide stores.
+func convertStoreOptions(stores []*configv2beta1.StoreOptions) []store.NewOptions {
+	if len(stores) == 0 {
+		return nil
 	}
 
 	storeOpts := make([]store.NewOptions, len(stores))
@@ -203,7 +209,7 @@ func convertStoreOptions(stores []*configv2beta1.StoreOptions) ([]store.NewOptio
 		}
 		storeOpts[i] = opts
 	}
-	return storeOpts, nil
+	return storeOpts
 }
 
 func convertPolicyOptions(policy *configv2beta1.PolicyEnforcerOptions) *policyenforcer.NewOptions {

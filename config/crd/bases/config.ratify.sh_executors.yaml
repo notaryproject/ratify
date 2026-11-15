@@ -236,7 +236,9 @@ spec:
               stores:
                 description: |-
                   Stores contains the configuration options for the stores. At least one
-                  store must be provided. Required.
+                  store must be provided for a cluster-scoped Executor. Optional for a
+                  NamespacedExecutor: if no stores are provided, it uses the stores of the
+                  cluster-scoped Executor that matches the artifact.
                 items:
                   properties:
                     parameters:
@@ -295,7 +297,6 @@ spec:
                 type: array
             required:
             - scopes
-            - stores
             - verifiers
             type: object
           status:

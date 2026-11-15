@@ -210,6 +210,43 @@ var _ = Describe("Executor Controller", func() {
 			Expect(updatedExecutor.Status.Error).To(BeEmpty())
 			Expect(updatedExecutor.Status.Succeeded).To(BeTrue())
 		})
+		It("should set Status.Succeeded to false when the resource has no stores", func() {
+			By("replacing the resource with one without stores")
+			resource := &configv2beta1.Executor{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+
+			resource = &configv2beta1.Executor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: "",
+				},
+				Spec: configv2beta1.ExecutorSpec{
+					Scopes: []string{"example.com"},
+					Verifiers: []*configv2beta1.VerifierOptions{
+						{
+							Name: mockVerifierName,
+							Type: mockVerifierType,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+
+			controllerReconciler := &ExecutorReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedExecutor := &configv2beta1.Executor{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updatedExecutor)).To(Succeed())
+			Expect(updatedExecutor.Status.Succeeded).To(BeFalse())
+			Expect(updatedExecutor.Status.Error).To(ContainSubstring("stores must be provided for a cluster-scoped Executor"))
+		})
 		It("should set Status.Succeeded to false when GlobalExecutorManager.UpsertExecutor fails", func() {
 			By("reconciling an invalid resource that fails to upsert")
 

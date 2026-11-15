@@ -80,9 +80,12 @@ type ExecutorSpec struct {
 	Verifiers []*VerifierOptions `json:"verifiers"`
 
 	// Stores contains the configuration options for the stores. At least one
-	// store must be provided. Required.
+	// store must be provided for a cluster-scoped Executor. Optional for a
+	// NamespacedExecutor: if no stores are provided, it uses the stores of the
+	// cluster-scoped Executor that matches the artifact.
+	// +optional
 	// +kubebuilder:validation:MinItems=1
-	Stores []*StoreOptions `json:"stores"`
+	Stores []*StoreOptions `json:"stores,omitempty"`
 
 	// PolicyEnforcer contains the configuration options for the policy
 	// enforcer. Optional.
