@@ -18,7 +18,7 @@ require (
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.8.0
 	github.com/alibabacloud-go/cr-20181201/v2 v2.5.0
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.12
-	github.com/alibabacloud-go/tea v1.3.12
+	github.com/alibabacloud-go/tea v1.3.14
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.9
 	github.com/aliyun/credentials-go v1.4.13
 	github.com/aws/aws-sdk-go-v2 v1.47.3
