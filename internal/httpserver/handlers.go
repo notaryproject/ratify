@@ -81,7 +81,9 @@ func (s *server) verify(ctx context.Context, w http.ResponseWriter, r *http.Requ
 			if executor == nil {
 				return nil, errors.New("no valid executor configured")
 			}
-			result, err := executor.ValidateArtifact(ctx, artifact)
+			// The namespace context lets the registry and verifier metrics
+			// reported during validation carry the workload namespace.
+			result, err := executor.ValidateArtifact(metricsCtx, artifact)
 			if err != nil {
 				return nil, err
 			}
