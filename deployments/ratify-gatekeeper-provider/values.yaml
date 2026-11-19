@@ -75,6 +75,16 @@ stores:
     # identityBinding: # optional, use AKS identity binding instead of workload identity federation
     #   enabled: true # annotates the pod with azure.workload.identity/use-identity-binding
     #                 # so the AKS webhook injects the identity binding token endpoint config
+    # provider: "aws" # use "aws" to pull from Amazon ECR with IAM Roles for Service Accounts (IRSA),
+    #                 # add eks.amazonaws.com/role-arn to serviceAccount.annotations
+    # region: "" # optional, derived from the ECR registry host if not provided
+    # provider: "alibabacloud" # use "alibabacloud" to pull from Alibaba Cloud ACR with RAM Roles for Service Accounts (RRSA),
+    #                          # add pod-identity.alibabacloud.com/role-name to serviceAccount.annotations
+    #                          # and label the release namespace with pod-identity.alibabacloud.com/injection=on
+    # defaultInstanceId: "" # ACR Enterprise Edition instance ID, used for registries not listed in acrInstancesConfig
+    # acrInstancesConfig: # ACR Enterprise Edition instances, either this or defaultInstanceId is required
+    #   - instanceName: "" # e.g. "myinstance" for myinstance-registry.cn-hangzhou.cr.aliyuncs.com
+    #     instanceId: "" # e.g. "cri-xxxxxxxxxxxxxxxx"
 provider:
   tls:
     crt: "" # crt used by ratify (httpserver), please provide your own crt
@@ -98,3 +108,5 @@ serviceAccount:
   # annotations to add to the service account
   annotations: {}
     # add azure.workload.identity/client-id if using Azure Workload Identity
+    # add eks.amazonaws.com/role-arn if using the aws store credential provider
+    # add pod-identity.alibabacloud.com/role-name if using the alibabacloud store credential provider

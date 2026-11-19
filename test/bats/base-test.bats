@@ -192,6 +192,64 @@ EOF
     [[ "$output" == *"$expected_label"* ]]
 }
 
+@test "test rendering aws and alibabacloud store credential providers" {
+    run helm template cloud-credentials ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/executor.yaml \
+        --set executor.scopes[0]="123456789012.dkr.ecr.us-east-1.amazonaws.com" \
+        --set executor.scopes[1]="myinstance-registry.cn-hangzhou.cr.aliyuncs.com" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake cert" \
+        --set stores[0].scopes[0]="123456789012.dkr.ecr.us-east-1.amazonaws.com" \
+        --set stores[0].credential.provider=aws \
+        --set stores[0].credential.region=us-east-1 \
+        --set stores[1].scopes[0]="myinstance-registry.cn-hangzhou.cr.aliyuncs.com" \
+        --set stores[1].credential.provider=alibabacloud \
+        --set stores[1].credential.defaultInstanceId=cri-default \
+        --set stores[1].credential.acrInstancesConfig[0].instanceName=myinstance \
+        --set stores[1].credential.acrInstancesConfig[0].instanceId=cri-myinstance
+    assert_success
+
+    expected_aws_credential=$(cat <<EOF
+        credential:
+          provider: "aws"
+          region: "us-east-1"
+EOF
+    )
+    [[ "$output" == *"$expected_aws_credential"* ]]
+
+    expected_alibabacloud_credential=$(cat <<EOF
+        credential:
+          provider: "alibabacloud"
+          defaultInstanceId: "cri-default"
+          acrInstancesConfig:
+            - instanceName: "myinstance"
+              instanceId: "cri-myinstance"
+EOF
+    )
+    [[ "$output" == *"$expected_alibabacloud_credential"* ]]
+
+    # The region is optional for the aws credential provider.
+    run helm template cloud-credentials ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/executor.yaml \
+        --set executor.scopes[0]="123456789012.dkr.ecr.us-east-1.amazonaws.com" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake cert" \
+        --set stores[0].credential.provider=aws
+    assert_success
+    [[ "$output" == *'provider: "aws"'* ]]
+    [[ "$output" != *"region:"* ]]
+
+    # The alibabacloud credential provider requires an ACR instance ID.
+    run helm template cloud-credentials ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/executor.yaml \
+        --set executor.scopes[0]="myinstance-registry.cn-hangzhou.cr.aliyuncs.com" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake cert" \
+        --set stores[0].credential.provider=alibabacloud
+    assert_failure
+    [[ "$output" == *"the alibabacloud credential provider requires defaultInstanceId or acrInstancesConfig"* ]]
+}
+
 @test "notation test" {
     teardown() {
         echo "cleaning up"
