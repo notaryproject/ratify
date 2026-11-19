@@ -612,6 +612,111 @@ func TestResolve(t *testing.T) {
 	}
 }
 
+// TestNewExecutor_DefaultStore ensures that an executor without store options
+// uses the default store, while an executor with store options keeps its own
+// stores.
+func TestNewExecutor_DefaultStore(t *testing.T) {
+	registerMocks()
+	// mockStore has zero size, so distinct instances may share an address.
+	// Use a StoreMux so that the default store can be told apart.
+	defaultStore := ratify.NewStoreMux()
+	opts := Options{
+		Executors: []ScopedOptions{
+			{
+				Scopes:    []string{"inherited.example.com"},
+				Verifiers: []verifier.NewOptions{{Name: mockVerifierName, Type: mockVerifierType}},
+			},
+			{
+				Scopes:    []string{"own.example.com"},
+				Verifiers: []verifier.NewOptions{{Name: mockVerifierName, Type: mockVerifierType}},
+				Stores:    []store.NewOptions{{Type: mockStoreType}},
+			},
+		},
+		DefaultStore: defaultStore,
+	}
+
+	scopedExecutor, err := NewScopedExecutor(opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := scopedExecutor.registry["inherited.example.com"].Store; got != defaultStore {
+		t.Errorf("expected the executor without stores to use the default store, got %v", got)
+	}
+	if got := scopedExecutor.registry["own.example.com"].Store; got == defaultStore {
+		t.Error("expected the executor with stores to use its own stores, got the default store")
+	}
+
+	// Without a default store, an executor must provide its own stores.
+	opts.DefaultStore = nil
+	if _, err := NewScopedExecutor(opts); err == nil {
+		t.Error("expected error for an executor without stores and without a default store, got nil")
+	}
+}
+
+func TestStore(t *testing.T) {
+	// mockStore has zero size, so distinct instances may share an address.
+	// Use StoreMux instances so that the matched store can be told apart.
+	registryStore := ratify.NewStoreMux()
+	dockerHubStore := ratify.NewStoreMux()
+	scopedExecutor := &ScopedExecutor{
+		registry: map[string]*ratify.Executor{
+			"registry.example.com": {
+				Store: registryStore,
+			},
+		},
+		repository: map[string]*ratify.Executor{
+			"docker.io/library/nginx": {
+				Store: dockerHubStore,
+			},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		ref       string
+		wantStore ratify.Store
+		wantErr   error
+	}{
+		{
+			name:      "artifact reference",
+			ref:       "registry.example.com/foo:v1",
+			wantStore: registryStore,
+		},
+		{
+			name:      "repository",
+			ref:       "registry.example.com/foo",
+			wantStore: registryStore,
+		},
+		{
+			name:      "short name normalized to Docker Hub",
+			ref:       "nginx",
+			wantStore: dockerHubStore,
+		},
+		{
+			name:    "no matching executor",
+			ref:     "unknown.com/foo:v1",
+			wantErr: ErrNoExecutorMatched,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := scopedExecutor.Store(tt.ref)
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("expected error %v, got %v", tt.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.wantStore {
+				t.Errorf("expected store %p, got %p", tt.wantStore, got)
+			}
+		})
+	}
+}
+
 // registerMocksOnce guards the one-time registration of the in-package mocks.
 // The underlying factory Register functions panic on duplicate registration,
 // so all callers (tests and benchmarks) funnel through registerMocks to ensure

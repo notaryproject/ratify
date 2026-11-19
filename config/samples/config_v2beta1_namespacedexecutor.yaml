@@ -18,6 +18,9 @@ spec:
         rules:
           - verifierName: notation-1
     type: threshold-policy
+  # Stores are optional for a NamespacedExecutor. If omitted, the
+  # NamespacedExecutor uses the stores of the cluster-scoped Executor that
+  # matches each artifact.
   stores:
     - parameters:
         credential:
