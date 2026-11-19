@@ -20,9 +20,11 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"runtime"
 	"testing"
 
 	logstash "github.com/bshuster-repo/logrus-logstash-hook"
+	icontext "github.com/ratify-project/ratify/internal/context"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
@@ -200,4 +202,43 @@ func TestInitLogConfig(t *testing.T) {
 	if err := InitLogConfig(config); err != nil {
 		t.Fatalf("expected no error, but got %v", err)
 	}
+}
+
+func TestGetLogger_PreservesContextFields(t *testing.T) {
+	defer cleanup()
+	traceIDHeaderNames = []string{traceIDName}
+
+	ctx := InitContext(context.Background(), &http.Request{Header: testHeader})
+	ctx = icontext.SetContextWithNamespace(ctx, "test-namespace")
+
+	// Repeated calls must keep returning the same request-scoped fields.
+	for i := 0; i < 3; i++ {
+		entry := GetLogger(ctx, Option{ComponentType: testComponentType})
+		assert.Equal(t, testTraceID, entry.Data[ContextKeyTraceID.String()])
+		assert.Equal(t, "test-namespace", entry.Data["namespace"])
+		assert.Equal(t, testComponentType, entry.Data[ContextKeyComponentType.String()])
+		assert.Equal(t, runtime.Version(), entry.Data["go.version"])
+	}
+}
+
+func TestWithLoggerGetLogger(t *testing.T) {
+	t.Run("returns stored entry with its fields", func(t *testing.T) {
+		base := logrus.New()
+		stored := logrus.NewEntry(base).WithField("stored", "value")
+		ctx := withLogger(context.Background(), stored)
+		ctx = context.WithValue(ctx, ContextKeyTraceID, testTraceID)
+
+		entry := getLogger(ctx, ContextKeyTraceID)
+		assert.Same(t, base, entry.Logger)
+		assert.Equal(t, "value", entry.Data["stored"])
+		assert.Equal(t, testTraceID, entry.Data[ContextKeyTraceID.String()])
+		assert.NotContains(t, entry.Data, "go.version")
+	})
+
+	t.Run("falls back to standard logger", func(t *testing.T) {
+		entry := getLogger(context.Background(), ContextKeyTraceID)
+		assert.Same(t, logrus.StandardLogger(), entry.Logger)
+		assert.Equal(t, runtime.Version(), entry.Data["go.version"])
+		assert.NotContains(t, entry.Data, ContextKeyTraceID.String())
+	})
 }
