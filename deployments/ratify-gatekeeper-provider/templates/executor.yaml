@@ -137,6 +137,13 @@ spec:
         trustedIdentities:
           {{- toYaml .Values.notation.trustedIdentities | nindent 10 }}
         {{- end }}
+        {{- if .Values.notation.pluginDirectory }}
+        pluginDirectory: {{ .Values.notation.pluginDirectory | quote }}
+        {{- end }}
+        {{- if .Values.notation.pluginConfig }}
+        pluginConfig:
+          {{- toYaml .Values.notation.pluginConfig | nindent 10 }}
+        {{- end }}
         certificates:
           - type: "ca"
             {{- if eq (index .Values.notation.certs 0).provider "inline" }}
