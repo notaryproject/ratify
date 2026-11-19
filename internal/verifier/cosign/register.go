@@ -24,6 +24,7 @@ import (
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify-verifier-go/cosign"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 	"oras.land/oras-go/v2/registry"
 
@@ -106,6 +107,17 @@ type ScopedOptions struct {
 	// with IgnoreTLog=true, otherwise the transparency-log check still requires a
 	// log entry. Optional.
 	IgnoreObserverTimestamps bool `json:"ignoreObserverTimestamps,omitempty"`
+
+	// TrustedRoot is the JSON content of a Sigstore trusted root, in the
+	// trusted_root.json format defined by the Sigstore protobuf specs, that
+	// lists the Fulcio certificate authorities, Rekor transparency logs,
+	// certificate transparency logs and timestamping authorities to trust. Use
+	// it to verify signatures issued by a private Sigstore deployment, or to
+	// verify without fetching the public-good Sigstore trusted root over TUF,
+	// e.g. in air-gapped environments. Applies to both keyless and key-based
+	// verification. Optional. If not provided, the public-good Sigstore trusted
+	// root is fetched over TUF.
+	TrustedRoot string `json:"trustedRoot,omitempty"`
 
 	// Keys provides public keys to be used for signature verification.
 	// Optional. If not provided, keyless verification is used. If both keys and
@@ -336,6 +348,13 @@ func toVerifierOptions(s *ScopedOptions, name string) (*cosign.VerifierOptions, 
 	// keys, so IgnoreCTLog only takes effect for keyless verification.
 	opts.IgnoreCTLog = s.IgnoreCTLog
 	opts.IgnoreTLog = s.IgnoreTLog
+	if s.TrustedRoot != "" {
+		trustedRoot, err := root.NewTrustedRootFromJSON([]byte(s.TrustedRoot))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse trusted root: %w", err)
+		}
+		opts.TrustedRoot = trustedRoot
+	}
 	if len(s.Keys) == 0 {
 		if s.CertificateIdentity != "" || s.CertificateIdentityRegex != "" ||
 			s.CertificateOIDCIssuer != "" || s.CertificateOIDCIssuerRegex != "" {

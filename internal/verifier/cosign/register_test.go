@@ -18,15 +18,30 @@ package cosign
 import (
 	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"encoding/pem"
+	"errors"
+	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/notaryproject/ratify-go"
 	"github.com/notaryproject/ratify-verifier-go/cosign"
+	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/sigstore/sigstore-go/pkg/root"
 
 	"github.com/notaryproject/ratify/v2/internal/verifier"
 	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
@@ -787,6 +802,56 @@ func TestToVerifierOptions(t *testing.T) {
 			errContains: "failed to create key provider",
 		},
 		{
+			name:         "with trusted root",
+			verifierName: "test-policy",
+			input: &ScopedOptions{
+				CertificateIdentity:   testIdentity,
+				CertificateOIDCIssuer: testOIDCIssuer,
+				TrustedRoot:           newPrivateSigstore(t).trustedRoot,
+			},
+			wantErr: false,
+			validate: func(t *testing.T, opts *cosign.VerifierOptions) {
+				if opts.TrustedRoot == nil {
+					t.Fatal("TrustedRoot = nil, want the configured trusted root")
+				}
+				if got := len(opts.TrustedRoot.FulcioCertificateAuthorities()); got != 1 {
+					t.Errorf("FulcioCertificateAuthorities length = %v, want 1", got)
+				}
+				if got := len(opts.TrustedRoot.RekorLogs()); got != 1 {
+					t.Errorf("RekorLogs length = %v, want 1", got)
+				}
+			},
+		},
+		{
+			name:         "without trusted root",
+			verifierName: "test-policy",
+			input:        &ScopedOptions{},
+			wantErr:      false,
+			validate: func(t *testing.T, opts *cosign.VerifierOptions) {
+				if opts.TrustedRoot != nil {
+					t.Error("TrustedRoot is set, want nil so the public-good trusted root is used")
+				}
+			},
+		},
+		{
+			name:         "invalid trusted root json",
+			verifierName: "test-policy",
+			input: &ScopedOptions{
+				TrustedRoot: "not-json",
+			},
+			wantErr:     true,
+			errContains: "failed to parse trusted root",
+		},
+		{
+			name:         "unsupported trusted root media type",
+			verifierName: "test-policy",
+			input: &ScopedOptions{
+				TrustedRoot: `{"mediaType": "application/json"}`,
+			},
+			wantErr:     true,
+			errContains: "unsupported TrustedRoot media type",
+		},
+		{
 			name:         "invalid key provider",
 			verifierName: "test-policy",
 			input: &ScopedOptions{
@@ -892,6 +957,306 @@ func TestToVerifierOptions_KeyBasedTimestampOptions(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestVerifier_Verify_TrustedRoot verifies a keyless Cosign signature issued
+// by a private Sigstore deployment end to end: it only succeeds when the trust
+// policy carries the trusted root of that deployment.
+func TestVerifier_Verify_TrustedRoot(t *testing.T) {
+	signer := newPrivateSigstore(t)
+	other := newPrivateSigstore(t)
+	store := signer.newSignedStore(t, []byte(`{"critical":{"type":"cosign container image signature"}}`))
+
+	tests := []struct {
+		name        string
+		trustedRoot string
+		wantErr     bool
+	}{
+		{
+			name:        "trusted root of the signing deployment",
+			trustedRoot: signer.trustedRoot,
+		},
+		{
+			name:        "untrusted Fulcio certificate authority",
+			trustedRoot: newTrustedRoot(t, other.caCert, signer.rekorKey),
+			wantErr:     true,
+		},
+		{
+			name:        "untrusted Rekor transparency log",
+			trustedRoot: newTrustedRoot(t, signer.caCert, other.rekorKey),
+			wantErr:     true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v, err := NewVerifier(verifier.NewOptions{
+				Name: testVerifierName,
+				Type: verifierTypeCosign,
+				Parameters: map[string]any{
+					"trustPolicies": []map[string]any{
+						{
+							"scopes":                []string{"registry.example.com"},
+							"certificateIdentity":   testIdentity,
+							"certificateOIDCIssuer": testOIDCIssuer,
+							// The private deployment runs no certificate
+							// transparency log.
+							"ignoreCTLog": true,
+							"trustedRoot": tt.trustedRoot,
+						},
+					},
+				},
+			}, nil)
+			if err != nil {
+				t.Fatalf("NewVerifier() unexpected error = %v", err)
+			}
+
+			result, err := v.Verify(context.Background(), &ratify.VerifyOptions{
+				Store:              store,
+				Repository:         "registry.example.com/test/repo",
+				ArtifactDescriptor: store.signatureDesc,
+			})
+			if err != nil {
+				t.Fatalf("Verify() unexpected error = %v", err)
+			}
+			if gotErr := result.Err != nil; gotErr != tt.wantErr {
+				t.Errorf("Verify() result error = %v, wantErr %v", result.Err, tt.wantErr)
+			}
+		})
+	}
+}
+
+const (
+	testIdentity   = "signer@example.com"
+	testOIDCIssuer = "https://issuer.example.com"
+)
+
+// privateSigstore is a minimal private Sigstore deployment made of a Fulcio
+// certificate authority and a Rekor transparency log.
+type privateSigstore struct {
+	caCert      *x509.Certificate
+	caKey       *ecdsa.PrivateKey
+	rekorKey    *ecdsa.PrivateKey
+	rekorLogID  string
+	trustedRoot string
+}
+
+func newPrivateSigstore(t *testing.T) *privateSigstore {
+	t.Helper()
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate CA key: %v", err)
+	}
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Test Fulcio Root", Organization: []string{"Ratify Test"}},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("failed to create CA certificate: %v", err)
+	}
+	caCert, err := x509.ParseCertificate(caDER)
+	if err != nil {
+		t.Fatalf("failed to parse CA certificate: %v", err)
+	}
+
+	rekorKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate Rekor key: %v", err)
+	}
+
+	return &privateSigstore{
+		caCert:      caCert,
+		caKey:       caKey,
+		rekorKey:    rekorKey,
+		rekorLogID:  hex.EncodeToString(rekorLogID(t, rekorKey)),
+		trustedRoot: newTrustedRoot(t, caCert, rekorKey),
+	}
+}
+
+// newTrustedRoot returns the JSON trusted root trusting the given Fulcio
+// certificate authority and Rekor transparency log.
+func newTrustedRoot(t *testing.T, caCert *x509.Certificate, rekorKey *ecdsa.PrivateKey) string {
+	t.Helper()
+	logID := rekorLogID(t, rekorKey)
+	trustedRoot, err := root.NewTrustedRoot(root.TrustedRootMediaType01,
+		[]root.CertificateAuthority{&root.FulcioCertificateAuthority{
+			Root:                caCert,
+			ValidityPeriodStart: caCert.NotBefore,
+			URI:                 "https://fulcio.example.com",
+		}},
+		nil,
+		nil,
+		map[string]*root.TransparencyLog{hex.EncodeToString(logID): {
+			BaseURL:             "https://rekor.example.com",
+			ID:                  logID,
+			ValidityPeriodStart: caCert.NotBefore,
+			HashFunc:            crypto.SHA256,
+			PublicKey:           &rekorKey.PublicKey,
+			SignatureHashFunc:   crypto.SHA256,
+		}},
+	)
+	if err != nil {
+		t.Fatalf("failed to create trusted root: %v", err)
+	}
+	trustedRootJSON, err := trustedRoot.MarshalJSON()
+	if err != nil {
+		t.Fatalf("failed to marshal trusted root: %v", err)
+	}
+	return string(trustedRootJSON)
+}
+
+// rekorLogID returns the log ID of a Rekor transparency log, which is the
+// SHA-256 digest of its DER encoded public key.
+func rekorLogID(t *testing.T, rekorKey *ecdsa.PrivateKey) []byte {
+	t.Helper()
+	der, err := x509.MarshalPKIXPublicKey(&rekorKey.PublicKey)
+	if err != nil {
+		t.Fatalf("failed to marshal Rekor public key: %v", err)
+	}
+	logID := sha256.Sum256(der)
+	return logID[:]
+}
+
+// newSignedStore signs payload the way `cosign sign` does for keyless
+// signatures: with a short-lived Fulcio certificate and a Rekor entry carrying
+// a signed entry timestamp. It returns a store serving the signature manifest.
+func (p *privateSigstore) newSignedStore(t *testing.T, payload []byte) *signatureStore {
+	t.Helper()
+	now := time.Now()
+
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate leaf key: %v", err)
+	}
+	leafTemplate := &x509.Certificate{
+		SerialNumber:   big.NewInt(2),
+		NotBefore:      now.Add(-time.Minute),
+		NotAfter:       now.Add(10 * time.Minute),
+		KeyUsage:       x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		EmailAddresses: []string{testIdentity},
+		ExtraExtensions: []pkix.Extension{{
+			// Fulcio OIDC issuer (v1) extension.
+			Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
+			Value: []byte(testOIDCIssuer),
+		}},
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, leafTemplate, p.caCert, &leafKey.PublicKey, p.caKey)
+	if err != nil {
+		t.Fatalf("failed to create leaf certificate: %v", err)
+	}
+	leafPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafDER})
+
+	payloadDigest := sha256.Sum256(payload)
+	sig, err := ecdsa.SignASN1(rand.Reader, leafKey, payloadDigest[:])
+	if err != nil {
+		t.Fatalf("failed to sign payload: %v", err)
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"apiVersion": "0.0.1",
+		"kind":       "hashedrekord",
+		"spec": map[string]any{
+			"data": map[string]any{
+				"hash": map[string]any{
+					"algorithm": "sha256",
+					"value":     hex.EncodeToString(payloadDigest[:]),
+				},
+			},
+			"signature": map[string]any{
+				"content": base64.StdEncoding.EncodeToString(sig),
+				"publicKey": map[string]any{
+					"content": base64.StdEncoding.EncodeToString(leafPEM),
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal Rekor entry body: %v", err)
+	}
+	// json.Marshal sorts map keys, which yields the canonical JSON form the
+	// signed entry timestamp is computed over.
+	rekorPayload := map[string]any{
+		"body":           base64.StdEncoding.EncodeToString(body),
+		"integratedTime": now.Unix(),
+		"logIndex":       0,
+		"logID":          p.rekorLogID,
+	}
+	canonicalPayload, err := json.Marshal(rekorPayload)
+	if err != nil {
+		t.Fatalf("failed to marshal Rekor payload: %v", err)
+	}
+	canonicalDigest := sha256.Sum256(canonicalPayload)
+	set, err := ecdsa.SignASN1(rand.Reader, p.rekorKey, canonicalDigest[:])
+	if err != nil {
+		t.Fatalf("failed to sign Rekor payload: %v", err)
+	}
+	bundleAnnotation, err := json.Marshal(map[string]any{
+		"SignedEntryTimestamp": base64.StdEncoding.EncodeToString(set),
+		"Payload":              rekorPayload,
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal bundle annotation: %v", err)
+	}
+
+	manifest, err := json.Marshal(ocispec.Manifest{
+		Versioned: specs.Versioned{SchemaVersion: 2},
+		MediaType: ocispec.MediaTypeImageManifest,
+		Config:    ocispec.DescriptorEmptyJSON,
+		Layers: []ocispec.Descriptor{{
+			MediaType: "application/vnd.dev.cosign.simplesigning.v1+json",
+			Digest:    digest.FromBytes(payload),
+			Size:      int64(len(payload)),
+			Annotations: map[string]string{
+				"dev.cosignproject.cosign/signature": base64.StdEncoding.EncodeToString(sig),
+				"dev.sigstore.cosign/certificate":    string(leafPEM),
+				"dev.sigstore.cosign/bundle":         string(bundleAnnotation),
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal signature manifest: %v", err)
+	}
+	return &signatureStore{
+		manifest: manifest,
+		signatureDesc: ocispec.Descriptor{
+			MediaType:    ocispec.MediaTypeImageManifest,
+			ArtifactType: artifactTypeCosign,
+			Digest:       digest.FromBytes(manifest),
+			Size:         int64(len(manifest)),
+		},
+	}
+}
+
+// signatureStore is a [ratify.Store] serving a single Cosign signature
+// manifest.
+type signatureStore struct {
+	manifest      []byte
+	signatureDesc ocispec.Descriptor
+}
+
+func (s *signatureStore) Resolve(context.Context, string) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errors.New("not implemented")
+}
+
+func (s *signatureStore) ListReferrers(context.Context, string, []string, func([]ocispec.Descriptor) error) error {
+	return errors.New("not implemented")
+}
+
+func (s *signatureStore) FetchBlob(context.Context, string, ocispec.Descriptor) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *signatureStore) FetchManifest(_ context.Context, _ string, desc ocispec.Descriptor) ([]byte, error) {
+	if desc.Digest != s.signatureDesc.Digest {
+		return nil, fmt.Errorf("manifest %s not found", desc.Digest)
+	}
+	return s.manifest, nil
 }
 
 func TestMatchVerifier_EdgeCases(t *testing.T) {
