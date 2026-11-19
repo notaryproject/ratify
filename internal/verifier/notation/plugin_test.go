@@ -49,19 +49,27 @@ const (
 	// com.amazonaws.signer.signingProfileVersion.
 	testPluginAttribute = "test.ratify.signingProfile"
 	testRepository      = "registry.example.test/app"
+	testPluginRegion    = "us-east-1"
 )
 
 // testPluginScript is a Notation verification plugin. It follows
 // https://github.com/notaryproject/specifications/blob/v1.0.0/specs/plugin-extensibility.md
+// Success requires both a trusted identity and pluginConfig aws-region, the
+// way the AWS Signer plugin needs the signing-profile region.
 const testPluginScript = `#!/bin/sh
 case "$1" in
 get-plugin-metadata)
   echo '{"name":"` + testPluginName + `","description":"test plugin","version":"1.0.0","url":"https://example.test","supportedContractVersions":["1.0"],"capabilities":["SIGNATURE_VERIFIER.TRUSTED_IDENTITY"]}'
   ;;
 verify-signature)
-  case "$(cat)" in
-  *'"trustedIdentities":["` + testPluginIdentity + `"]'*) success=true ;;
-  *) success=false ;;
+  req="$(cat)"
+  success=false
+  case "$req" in
+  *'"trustedIdentities":["` + testPluginIdentity + `"]'*)
+    case "$req" in
+    *'"aws-region":"` + testPluginRegion + `"'*) success=true ;;
+    esac
+    ;;
   esac
   echo '{"verificationResults":{"SIGNATURE_VERIFIER.TRUSTED_IDENTITY":{"success":'"$success"',"reason":"decided by the test plugin"}},"processedAttributes":["` + testPluginAttribute + `"]}'
   ;;
@@ -193,7 +201,7 @@ func signWithPluginAttributes(t *testing.T, pluginName string) *ratify.VerifyOpt
 
 // newTestVerifier creates the verifier through the registered factory, with
 // the parameters in the form they have in the Executor configuration.
-func newTestVerifier(pluginDirectory string, trustedIdentities ...string) (ratify.Verifier, error) {
+func newTestVerifier(pluginDirectory string, pluginConfig map[string]string, trustedIdentities ...string) (ratify.Verifier, error) {
 	root := testhelper.GetRSARootCertificate().Cert
 	parameters := map[string]any{
 		"trustedIdentities": trustedIdentities,
@@ -209,6 +217,9 @@ func newTestVerifier(pluginDirectory string, trustedIdentities ...string) (ratif
 	if pluginDirectory != "" {
 		parameters["pluginDirectory"] = pluginDirectory
 	}
+	if pluginConfig != nil {
+		parameters["pluginConfig"] = pluginConfig
+	}
 	return verifier.New(verifier.NewOptions{
 		Name:       testName,
 		Type:       verifierTypeNotation,
@@ -216,39 +227,64 @@ func newTestVerifier(pluginDirectory string, trustedIdentities ...string) (ratif
 	}, nil)
 }
 
+func testPluginConfig(region string) map[string]string {
+	return map[string]string{"aws-region": region}
+}
+
 func TestVerifySignatureThatNeedsPlugin(t *testing.T) {
 	withPlugin := installTestPlugin(t)
 	withoutPlugin := t.TempDir()
+	region := testPluginConfig(testPluginRegion)
 
 	tests := []struct {
 		name            string
 		pluginDirectory string
+		pluginConfig    map[string]string
 		signedFor       string
 		identity        string
 		expectedErr     string // empty when the signature must verify
 	}{
 		{
-			name:            "plugin installed and identity trusted",
+			name:            "plugin installed, identity trusted, region set",
 			pluginDirectory: withPlugin,
+			pluginConfig:    region,
 			signedFor:       testPluginName,
 			identity:        testPluginIdentity,
 		},
 		{
 			name:            "plugin installed and identity not trusted",
 			pluginDirectory: withPlugin,
+			pluginConfig:    region,
 			signedFor:       testPluginName,
 			identity:        testOtherIdentity,
 			expectedErr:     "trusted identify verification by plugin",
 		},
 		{
-			name:        "no plugin directory configured",
-			signedFor:   testPluginName,
-			identity:    testPluginIdentity,
-			expectedErr: "plugin unsupported",
+			name:            "pluginConfig aws-region missing",
+			pluginDirectory: withPlugin,
+			signedFor:       testPluginName,
+			identity:        testPluginIdentity,
+			expectedErr:     "trusted identify verification by plugin",
+		},
+		{
+			name:            "pluginConfig aws-region different",
+			pluginDirectory: withPlugin,
+			pluginConfig:    testPluginConfig("eu-central-1"),
+			signedFor:       testPluginName,
+			identity:        testPluginIdentity,
+			expectedErr:     "trusted identify verification by plugin",
+		},
+		{
+			name:         "no plugin directory configured",
+			pluginConfig: region,
+			signedFor:    testPluginName,
+			identity:     testPluginIdentity,
+			expectedErr:  "plugin unsupported",
 		},
 		{
 			name:            "plugin not installed in the directory",
 			pluginDirectory: withoutPlugin,
+			pluginConfig:    region,
 			signedFor:       testPluginName,
 			identity:        testPluginIdentity,
 			expectedErr:     "error while locating the verification plugin",
@@ -256,6 +292,7 @@ func TestVerifySignatureThatNeedsPlugin(t *testing.T) {
 		{
 			name:            "signature needs another plugin",
 			pluginDirectory: withPlugin,
+			pluginConfig:    region,
 			signedFor:       "another-plugin",
 			identity:        testPluginIdentity,
 			expectedErr:     "error while locating the verification plugin",
@@ -264,7 +301,7 @@ func TestVerifySignatureThatNeedsPlugin(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			v, err := newTestVerifier(test.pluginDirectory, test.identity)
+			v, err := newTestVerifier(test.pluginDirectory, test.pluginConfig, test.identity)
 			if err != nil {
 				t.Fatalf("failed to create verifier: %v", err)
 			}
@@ -317,7 +354,7 @@ func TestNewVerifierPluginDirectory(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := newTestVerifier(test.pluginDirectory, "*")
+			_, err := newTestVerifier(test.pluginDirectory, nil, "*")
 			if test.expectedErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
@@ -328,40 +365,5 @@ func TestNewVerifierPluginDirectory(t *testing.T) {
 				t.Fatalf("expected error containing %q, got: %v", test.expectedErr, err)
 			}
 		})
-	}
-}
-
-func TestNewVerifierPluginConfig(t *testing.T) {
-	directory := t.TempDir()
-	raw, err := json.Marshal(map[string]any{
-		"trustedIdentities": []string{"*"},
-		"pluginDirectory":   directory,
-		"pluginConfig":      map[string]string{"aws-region": "us-east-1"},
-		"certificates": []any{
-			map[string]any{
-				"type": "ca",
-				"inline": map[string]any{
-					"certs": string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: testhelper.GetRSARootCertificate().Cert.Raw})),
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var params map[string]any
-	if err := json.Unmarshal(raw, &params); err != nil {
-		t.Fatal(err)
-	}
-	v, err := verifier.New(verifier.NewOptions{
-		Name:       testName,
-		Type:       verifierTypeNotation,
-		Parameters: params,
-	}, nil)
-	if err != nil {
-		t.Fatalf("failed to create verifier with pluginConfig: %v", err)
-	}
-	if v == nil {
-		t.Fatal("expected verifier")
 	}
 }
