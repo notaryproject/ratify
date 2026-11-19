@@ -22,10 +22,12 @@ import (
 	"strings"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify/v2/internal/imageref"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/sirupsen/logrus"
 
 	"oras.land/oras-go/v2/registry"
 )
@@ -152,10 +154,11 @@ func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 }
 
 // ValidateArtifact routes the artifact validation request to the appropriate
-// executor based on the artifact's reference. It returns the validation result
-// or an error wrapping [ErrNoExecutorMatched] if no matching executor is found.
+// executor based on the artifact's reference, normalized by
+// [imageref.Normalize]. It returns the validation result or an error wrapping
+// [ErrNoExecutorMatched] if no matching executor is found.
 func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) (*ratify.ValidationResult, error) {
-	reference := stripNamespacePrefix(artifact)
+	reference := imageref.Normalize(stripNamespacePrefix(artifact))
 	executor, err := s.matchExecutor(reference)
 	if err != nil {
 		return nil, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
@@ -167,11 +170,11 @@ func (s *ScopedExecutor) ValidateArtifact(ctx context.Context, artifact string) 
 }
 
 // Resolve retrieves the descriptor for the specified artifact by routing the
-// request to the appropriate executor based on the artifact's reference.
-// It returns the descriptor or an error wrapping [ErrNoExecutorMatched] if no
-// matching executor is found.
+// request to the appropriate executor based on the artifact's reference,
+// normalized by [imageref.Normalize]. It returns the descriptor or an error
+// wrapping [ErrNoExecutorMatched] if no matching executor is found.
 func (s *ScopedExecutor) Resolve(ctx context.Context, artifact string) (ocispec.Descriptor, error) {
-	reference := stripNamespacePrefix(artifact)
+	reference := imageref.Normalize(stripNamespacePrefix(artifact))
 	executor, err := s.matchExecutor(reference)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
@@ -243,11 +246,14 @@ func (s *ScopedExecutor) registerExecutor(scope string, executor *ratify.Executo
 
 // registerRepository registers an executor for a specific repository scope.
 // The scope must be a valid repository path without wildcards, tags, or digests.
+// It is normalized by [imageref.NormalizeScope] so that it matches the
+// normalized references routed by [ScopedExecutor.matchExecutor].
 // It returns an error if the scope is invalid or if the executor is nil.
 func (s *ScopedExecutor) registerRepository(scope string, executor *ratify.Executor) error {
 	if strings.Contains(scope, "*") {
 		return fmt.Errorf("invalid scope %q: scope cannot contain wildcard for repository", scope)
 	}
+	scope = imageref.NormalizeScope(scope)
 	ref, err := registry.ParseReference(scope)
 	if err != nil {
 		return fmt.Errorf("invalid scope %q: %w", scope, err)
@@ -280,6 +286,11 @@ func (s *ScopedExecutor) registerRegistry(scope string, executor *ratify.Executo
 
 	switch strings.Count(scope, "*") {
 	case 0:
+		if !imageref.IsRegistryHost(scope) {
+			// Container runtimes resolve "org/app" on Docker Hub rather than on
+			// a registry named "org", so this scope never matches an image.
+			logrus.Warnf("registry scope %q is not a registry host and will not match any image; image references whose first path component has no '.' or ':' and is not 'localhost' are resolved on %q", scope, "docker.io")
+		}
 		if s.registry == nil {
 			s.registry = map[string]*ratify.Executor{}
 		}

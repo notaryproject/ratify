@@ -224,6 +224,14 @@ func middlewareWithTimeout(next http.Handler, timeout time.Duration) http.Handle
 	})
 }
 
+// serverWriteTimeout returns the WriteTimeout of the HTTP server. The write
+// deadline covers the whole request handling, so it must outlast the verify
+// and mutate handler timeouts. Otherwise a handler that runs until its timeout
+// cannot write its response, and the connection is closed without a reply.
+func (s *server) serverWriteTimeout() time.Duration {
+	return max(s.VerifyTimeout, s.MutateTimeout) + writeTimeout
+}
+
 // Run starts the HTTP server and listens for incoming requests.
 // It also handles graceful shutdown on receiving an interrupt signal. It
 // returns an error if the server fails to start or stops serving, so that the
@@ -232,7 +240,7 @@ func (s *server) Run(certRotatorReady chan struct{}, configWatcher *config.Watch
 	srv := &http.Server{
 		Addr:         s.HTTPServerAddress,
 		Handler:      s.router,
-		WriteTimeout: writeTimeout,
+		WriteTimeout: s.serverWriteTimeout(),
 		ReadTimeout:  readTimeout,
 		IdleTimeout:  idleTimeout,
 	}

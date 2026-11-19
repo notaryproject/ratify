@@ -79,6 +79,26 @@ false
 {{- end -}}
 
 {{/*
+Returns "true" when the provider authenticates to Azure: a store uses the azure
+credential provider, or the notation certificates or cosign keys are fetched
+from Azure Key Vault. When enabled, the pod is labeled with
+azure.workload.identity/use so the Azure workload identity webhook injects the
+federated token configuration.
+*/}}
+{{- define "ratify.azureWorkloadIdentityEnabled" -}}
+{{- $enabled := eq (include "ratify.akvCertsProvided" .) "true" -}}
+{{- if and .Values.cosign.keys (eq (default "" .Values.cosign.keys.provider) "azurekeyvault") -}}
+{{- $enabled = true -}}
+{{- end -}}
+{{- range .Values.stores -}}
+{{- if and .credential (eq (default "" .credential.provider) "azure") -}}
+{{- $enabled = true -}}
+{{- end -}}
+{{- end -}}
+{{- $enabled -}}
+{{- end -}}
+
+{{/*
 Returns "true" when any store uses the azure credential provider with Kubernetes
 identity binding enabled. When enabled, the pod is annotated with
 azure.workload.identity/use-identity-binding so the AKS workload-identity webhook
@@ -220,6 +240,26 @@ stores:
         {{- if and .credential.identityBinding .credential.identityBinding.enabled }}
         identityBinding:
           enabled: true
+        {{- end }}
+        {{- end }}
+        {{- if eq .credential.provider "aws" }}
+        {{- if .credential.region }}
+        region: "{{ .credential.region }}"
+        {{- end }}
+        {{- end }}
+        {{- if eq .credential.provider "alibabacloud" }}
+        {{- if not (or .credential.defaultInstanceId .credential.acrInstancesConfig) }}
+        {{- fail (printf "store with scopes %v: the alibabacloud credential provider requires defaultInstanceId or acrInstancesConfig" .scopes) }}
+        {{- end }}
+        {{- if .credential.defaultInstanceId }}
+        defaultInstanceId: "{{ .credential.defaultInstanceId }}"
+        {{- end }}
+        {{- if .credential.acrInstancesConfig }}
+        acrInstancesConfig:
+          {{- range .credential.acrInstancesConfig }}
+          - instanceName: "{{ .instanceName }}"
+            instanceId: "{{ .instanceId }}"
+          {{- end }}
         {{- end }}
         {{- end }}
       {{- if .plainHttp }}

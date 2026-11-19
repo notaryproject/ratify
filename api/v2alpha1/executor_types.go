@@ -44,6 +44,13 @@ type StoreOptions struct {
 	// +kubebuilder:validation:MinLength=1
 	Type string `json:"type"`
 
+	// Scopes defines the registries or repositories this store is used for.
+	// Optional. If not provided and the executor has a single store, the store
+	// inherits the executor scopes. Each store must have scopes when the
+	// executor has more than one store. The scope "*" registers the store as
+	// the fallback for artifacts that match no other store scope.
+	Scopes []string `json:"scopes,omitempty"`
+
 	// Parameters is additional parameters for the store. Optional.
 	Parameters runtime.RawExtension `json:"parameters,omitempty"`
 }

@@ -169,6 +169,41 @@ func TestUpsertExecutor_UpdateExistingEntry(t *testing.T) {
 	}
 }
 
+// TestUpsertExecutor_ScopedStores ensures that store scopes are passed to the
+// executor, so an executor can route each registry to its own store.
+func TestUpsertExecutor_ScopedStores(t *testing.T) {
+	mgr := newTestManager()
+	executorOpts := newValidExecutor()
+	executorOpts.Scopes = []string{"example.com", "example2.com"}
+	executorOpts.Stores = []*configv2beta1.StoreOptions{
+		{
+			Type:   mockStoreType,
+			Scopes: []string{"example.com"},
+		},
+		{
+			Type:   mockStoreType,
+			Scopes: []string{"example2.com"},
+		},
+	}
+
+	if err := mgr.upsertExecutor("default", "exec1", executorOpts); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	stores := mgr.opts["default"][createOptsKey("default", "exec1")].Stores
+	if len(stores) != 2 {
+		t.Fatalf("expected 2 store options, got %d", len(stores))
+	}
+	for i, want := range []string{"example.com", "example2.com"} {
+		if got := stores[i].Scopes; len(got) != 1 || got[0] != want {
+			t.Errorf("expected store %d scopes to be [%s], got %v", i, want, got)
+		}
+	}
+	if mgr.GetExecutor("default") == nil {
+		t.Fatalf("expected non-nil executor after upsert")
+	}
+}
+
 func TestDeleteExecutor_NotFound(t *testing.T) {
 	mgr := newTestManager()
 

@@ -112,7 +112,7 @@ func TestVerify(t *testing.T) {
 				{
 					Key:   "artifact1",
 					Value: nil,
-					Error: "failed to match executor for artifact \"artifact1\": failed to parse artifact reference \"artifact1\": invalid reference: missing registry or repository",
+					Error: "failed to match executor for artifact \"docker.io/library/artifact1\": no executor configured for the artifact \"docker.io/library/artifact1\"",
 				},
 			},
 		},
@@ -205,6 +205,21 @@ func TestMutate(t *testing.T) {
 			name: "Valid mutate request",
 			requestBody: `{
 				"request": {
+					"keys": ["test.registry.io/testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88"]
+				}
+			}`,
+			expectedError: false,
+			expectedItems: []externaldata.Item{
+				{
+					Key:   "test.registry.io/testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88",
+					Value: "test.registry.io/testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88",
+				},
+			},
+		},
+		{
+			name: "Docker Hub user image with digest",
+			requestBody: `{
+				"request": {
 					"keys": ["testrepo/testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88"]
 				}
 			}`,
@@ -212,7 +227,22 @@ func TestMutate(t *testing.T) {
 			expectedItems: []externaldata.Item{
 				{
 					Key:   "testrepo/testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88",
-					Value: "testrepo/testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88",
+					Value: "docker.io/testrepo/testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88",
+				},
+			},
+		},
+		{
+			name: "Short name with digest",
+			requestBody: `{
+				"request": {
+					"keys": ["testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88"]
+				}
+			}`,
+			expectedError: false,
+			expectedItems: []externaldata.Item{
+				{
+					Key:   "testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88",
+					Value: "docker.io/library/testimage@sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88",
 				},
 			},
 		},
@@ -225,15 +255,15 @@ func TestMutate(t *testing.T) {
 			name: "Invalid reference",
 			requestBody: `{
 				"request": {
-					"keys": ["testrepo"]
+					"keys": ["test.registry.io/TestImage:v1"]
 				}
 			}`,
 			expectedError: false,
 			expectedItems: []externaldata.Item{
 				{
-					Key:   "testrepo",
-					Value: "testrepo",
-					Error: "failed to parse reference: invalid reference: missing registry or repository",
+					Key:   "test.registry.io/TestImage:v1",
+					Value: "test.registry.io/TestImage:v1",
+					Error: "failed to parse reference: invalid reference: invalid repository \"TestImage\"",
 				},
 			},
 		},
@@ -267,6 +297,21 @@ func TestMutate(t *testing.T) {
 				{
 					Key:   "testrepo/testimage:v1",
 					Value: "testrepo/testimage:v1",
+				},
+			},
+		},
+		{
+			name: "No executor matched for short name",
+			requestBody: `{
+				"request": {
+					"keys": ["testimage:v1"]
+				}
+			}`,
+			expectedError: false,
+			expectedItems: []externaldata.Item{
+				{
+					Key:   "testimage:v1",
+					Value: "testimage:v1",
 				},
 			},
 		},
@@ -565,6 +610,26 @@ func TestResolveReference_NoExecutorMatched(t *testing.T) {
 	}
 }
 
+// A short name such as "nginx:latest" does not name a registry. It must be
+// resolved as the Docker Hub image that the kubelet pulls rather than rejected
+// as an invalid reference, which would make the mutation webhook deny it.
+func TestResolveReference_ShortName(t *testing.T) {
+	scopedExecutor := newDockerHubScopedExecutor(t)
+	srv := &server{
+		getExecutor: func(_ string) *executor.ScopedExecutor { return scopedExecutor },
+		mutateCache: &mockCache{entries: make(map[string]string)},
+		sfGroup:     new(singleflight.Group),
+	}
+
+	item := srv.resolveReference(context.Background(), "nginx:latest")
+	if item.Error != "" {
+		t.Fatalf("expected no error for a short name, got: %q", item.Error)
+	}
+	if want := "docker.io/library/nginx@" + testDockerHubDigest; item.Value != want {
+		t.Errorf("expected the short name to resolve to %q, got: %v", want, item.Value)
+	}
+}
+
 // Failures other than an unmatched scope must still be reported so that the
 // mutation webhook does not silently skip images it is expected to resolve.
 func TestResolveReference_NoExecutorLoaded(t *testing.T) {
@@ -699,6 +764,8 @@ const (
 	testVerifierType       = "httpserver-test-verifier"
 	testPolicyEnforcerType = "httpserver-test-policy-enforcer"
 	testExecutorScope      = "test.io"
+	testDockerHubStoreType = "httpserver-test-docker-hub-store"
+	testDockerHubDigest    = "sha256:498138d40d54f0fc20cd271e215366d3d8803f814b8f565b47c101480bbaaa88"
 )
 
 var registerTestPluginsOnce sync.Once
@@ -719,6 +786,20 @@ func (s *testStore) FetchBlob(_ context.Context, _ string, _ ocispec.Descriptor)
 
 func (s *testStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descriptor) ([]byte, error) {
 	return nil, nil
+}
+
+// dockerHubStore resolves only the normalized Docker Hub reference of the
+// "nginx:latest" short name, so that a test fails if the short name reaches
+// the store unnormalized.
+type dockerHubStore struct {
+	testStore
+}
+
+func (s *dockerHubStore) Resolve(_ context.Context, ref string) (ocispec.Descriptor, error) {
+	if ref != "docker.io/library/nginx:latest" {
+		return ocispec.Descriptor{}, fmt.Errorf("unexpected reference %q", ref)
+	}
+	return ocispec.Descriptor{Digest: testDockerHubDigest}, nil
 }
 
 type testVerifier struct{}
@@ -750,18 +831,25 @@ func (e *testEvaluator) Commit(_ context.Context, _ string) error { return nil }
 
 func (e *testEvaluator) Evaluate(_ context.Context) (bool, error) { return true, nil }
 
-// newTestScopedExecutor returns an executor for testExecutorScope that verifies
-// any artifact without contacting a registry. Without a policy enforcer the
-// executor reports the artifact as failed; with one it reports success.
-func newTestScopedExecutor(t *testing.T, withPolicy bool) *executor.ScopedExecutor {
-	t.Helper()
+// registerTestPlugins registers the in-package test store, verifier and
+// policy enforcer factories once.
+func registerTestPlugins() {
 	registerTestPluginsOnce.Do(func() {
 		store.Register(testStoreType, func(store.NewOptions) (ratify.Store, error) { return &testStore{}, nil })
+		store.Register(testDockerHubStoreType, func(store.NewOptions) (ratify.Store, error) { return &dockerHubStore{}, nil })
 		verifier.Register(testVerifierType, func(verifier.NewOptions, []string) (ratify.Verifier, error) { return &testVerifier{}, nil })
 		policyenforcer.Register(testPolicyEnforcerType, func(policyenforcer.NewOptions) (ratify.PolicyEnforcer, error) {
 			return &testPolicyEnforcer{}, nil
 		})
 	})
+}
+
+// newTestScopedExecutor returns an executor for testExecutorScope that verifies
+// any artifact without contacting a registry. Without a policy enforcer the
+// executor reports the artifact as failed; with one it reports success.
+func newTestScopedExecutor(t *testing.T, withPolicy bool) *executor.ScopedExecutor {
+	t.Helper()
+	registerTestPlugins()
 	opts := executor.ScopedOptions{
 		Scopes:    []string{testExecutorScope},
 		Verifiers: []verifier.NewOptions{{Name: testVerifierType, Type: testVerifierType}},
@@ -771,6 +859,22 @@ func newTestScopedExecutor(t *testing.T, withPolicy bool) *executor.ScopedExecut
 		opts.Policy = &policyenforcer.NewOptions{Type: testPolicyEnforcerType}
 	}
 	e, err := executor.NewScopedExecutor(executor.Options{Executors: []executor.ScopedOptions{opts}})
+	if err != nil {
+		t.Fatalf("failed to create scoped executor: %v", err)
+	}
+	return e
+}
+
+// newDockerHubScopedExecutor returns an executor scoped to Docker Hub whose
+// store resolves the "nginx:latest" short name without contacting a registry.
+func newDockerHubScopedExecutor(t *testing.T) *executor.ScopedExecutor {
+	t.Helper()
+	registerTestPlugins()
+	e, err := executor.NewScopedExecutor(executor.Options{Executors: []executor.ScopedOptions{{
+		Scopes:    []string{"docker.io"},
+		Verifiers: []verifier.NewOptions{{Name: testVerifierType, Type: testVerifierType}},
+		Stores:    []store.NewOptions{{Type: testDockerHubStoreType}},
+	}}})
 	if err != nil {
 		t.Fatalf("failed to create scoped executor: %v", err)
 	}

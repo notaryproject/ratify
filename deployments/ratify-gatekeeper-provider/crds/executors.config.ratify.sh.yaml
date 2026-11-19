@@ -92,6 +92,16 @@ spec:
                         Optional.
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
+                    scopes:
+                      description: |-
+                        Scopes defines the registries or repositories this store is used for.
+                        Optional. If not provided and the executor has a single store, the store
+                        inherits the executor scopes. Each store must have scopes when the
+                        executor has more than one store. The scope "*" registers the store as
+                        the fallback for artifacts that match no other store scope.
+                      items:
+                        type: string
+                      type: array
                     type:
                       description: Type represents a specific implementation of a
                         store. Required.
@@ -234,6 +244,16 @@ spec:
                         Optional.
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
+                    scopes:
+                      description: |-
+                        Scopes defines the registries or repositories this store is used for.
+                        Optional. If not provided and the executor has a single store, the store
+                        inherits the executor scopes. Each store must have scopes when the
+                        executor has more than one store. The scope "*" registers the store as
+                        the fallback for artifacts that match no other store scope.
+                      items:
+                        type: string
+                      type: array
                     type:
                       description: Type represents a specific implementation of a
                         store. Required.

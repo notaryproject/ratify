@@ -300,3 +300,21 @@ func TestNew(t *testing.T) {
 		})
 	}
 }
+
+// Repository scopes are normalized so that the store receives the normalized
+// references that the executor routes to it.
+func TestNew_NormalizesRepositoryScopes(t *testing.T) {
+	Register("mock-store-normalized-scope", newMockStore)
+	storeMux, err := New([]NewOptions{{Type: "mock-store-normalized-scope"}}, []string{"docker.io/nginx", "org/app"})
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+	for _, reference := range []string{"docker.io/library/nginx:latest", "docker.io/org/app:v1"} {
+		if _, err := storeMux.Resolve(context.Background(), reference); err != nil {
+			t.Errorf("expected %q to match a normalized repository scope, got: %v", reference, err)
+		}
+	}
+	if _, err := storeMux.Resolve(context.Background(), "docker.io/library/busybox:latest"); err == nil {
+		t.Error("expected no store to match an unscoped repository, got nil")
+	}
+}
