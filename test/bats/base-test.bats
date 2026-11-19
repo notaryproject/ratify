@@ -133,6 +133,52 @@ EOF
     [[ "$output" == *"$expected_verifier_notation"* ]]
 }
 
+@test "test rendering notation plugin directory" {
+    # The plugin directory is not rendered unless it is set.
+    run helm template notation-plugins ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/executor.yaml \
+        --set executor.scopes[0]="registry1.azurecr.io/" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake cert" \
+        --set stores[0].credential.provider=static
+    assert_success
+    [[ "$output" != *"pluginDirectory"* ]]
+
+    run helm template notation-plugins ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/executor.yaml \
+        --set executor.scopes[0]="registry1.azurecr.io/" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake cert" \
+        --set notation.trustedIdentities[0]="arn:aws:signer:us-east-1:123456789012:/signing-profiles/my_profile" \
+        --set notation.pluginDirectory=/plugins \
+        --set stores[0].credential.provider=static
+    assert_success
+
+    expected_verifier_notation=$(cat <<EOF
+    - name: notation-1
+      type: notation
+      parameters:
+        trustedIdentities:
+          - arn:aws:signer:us-east-1:123456789012:/signing-profiles/my_profile
+        pluginDirectory: "/plugins"
+        certificates:
+EOF
+    )
+    [[ "$output" == *"$expected_verifier_notation"* ]]
+
+    run helm template notation-plugins ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/executor.yaml \
+        --set executor.scopes[0]="registry1.azurecr.io/" \
+        --set notation.certs[0].provider=inline \
+        --set notation.certs[0].cert="fake cert" \
+        --set notation.pluginDirectory=/plugins \
+        --set notation.pluginConfig.aws-region=us-east-1 \
+        --set stores[0].credential.provider=static
+    assert_success
+    [[ "$output" == *"pluginConfig:"* ]]
+    [[ "$output" == *"aws-region: us-east-1"* ]]
+}
+
 @test "crd version test" {
     teardown() {
         echo "cleaning up"
