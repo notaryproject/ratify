@@ -54,7 +54,7 @@ require (
 	github.com/prometheus/client_golang v1.25.0
 	github.com/sigstore/cosign/v3 v3.1.4
 	github.com/sigstore/rekor v1.5.4
-	github.com/sigstore/sigstore v1.11.1
+	github.com/sigstore/sigstore v1.11.3
 	github.com/sigstore/sigstore-go v1.3.0
 	github.com/sirupsen/logrus v1.10.2
 	github.com/spdx/tools-golang v0.5.5
