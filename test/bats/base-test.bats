@@ -250,6 +250,32 @@ EOF
     [[ "$output" == *"the alibabacloud credential provider requires defaultInstanceId or acrInstancesConfig"* ]]
 }
 
+@test "test rendering cosign trusted root" {
+    trusted_root_file="${BATS_TEST_TMPDIR}/trusted_root.json"
+    printf '{\n  "mediaType": "application/vnd.dev.sigstore.trustedroot+json;version=0.1"\n}\n' > "${trusted_root_file}"
+
+    run helm template cosign-trusted-root ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/executor.yaml \
+        --set executor.scopes[0]="registry.example.com" \
+        --set stores[0].credential.provider=static \
+        --set cosign.certificateIdentity="signer@example.com" \
+        --set cosign.certificateOIDCIssuer="https://issuer.example.com" \
+        --set-file cosign.trustedRoot="${trusted_root_file}"
+    assert_success
+    [[ "$output" == *'trustedRoot: "{\n  \"mediaType\": \"application/vnd.dev.sigstore.trustedroot+json;version=0.1\"\n}\n"'* ]]
+
+    # The trusted root is left out when not set.
+    run helm template cosign-trusted-root ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/executor.yaml \
+        --set executor.scopes[0]="registry.example.com" \
+        --set stores[0].credential.provider=static \
+        --set cosign.certificateIdentity="signer@example.com" \
+        --set cosign.certificateOIDCIssuer="https://issuer.example.com"
+    assert_success
+    [[ "$output" == *"name: cosign-1"* ]]
+    [[ "$output" != *"trustedRoot:"* ]]
+}
+
 @test "notation test" {
     teardown() {
         echo "cleaning up"
