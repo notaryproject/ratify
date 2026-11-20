@@ -34,7 +34,7 @@ func InitMetricsExporter(metricsBackend string, port int) error {
 		return fmt.Errorf("invalid port %v", port)
 	}
 	mb := strings.ToLower(metricsBackend)
-	logrus.Info("intializing metrics backend: ", mb)
+	logrus.Info("initializing metrics backend: ", mb)
 	switch mb {
 	// Prometheus is the only exporter for now
 	case prometheusExporter:

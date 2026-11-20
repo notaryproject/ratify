@@ -107,7 +107,7 @@ func TestReportVerifierDuration(t *testing.T) {
 		t.Fatalf("ReportVerifierDuration() len(mockDuration.Attributes) = %v, expected %v", len(mockDuration.Attributes), 2)
 	}
 	if mockDuration.Attributes["verifier"] != "test_verifier" {
-		t.Fatalf("expected verifer attribute to be test_verifier but got %s", mockDuration.Attributes["verifier"])
+		t.Fatalf("expected verifier attribute to be test_verifier but got %s", mockDuration.Attributes["verifier"])
 	}
 	if mockDuration.Attributes["subject"] != "test_subject" {
 		t.Fatalf("expected subject attribute to be test_subject but got %s", mockDuration.Attributes["subject"])
