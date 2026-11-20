@@ -21,6 +21,7 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
@@ -208,6 +209,38 @@ func TestNewVerifier(t *testing.T) {
 			},
 			expectErr: false,
 		},
+		{
+			name: "Valid CRL options",
+			opts: verifier.NewOptions{
+				Type: verifierTypeNotation,
+				Name: testName,
+				Parameters: map[string]any{
+					"certificates": []any{
+						map[string]any{"type": "ca", mockKeyProviderName: nil},
+					},
+					"crl": map[string]any{
+						"cacheEnabled": true,
+						"cacheDir":     t.TempDir(),
+						"httpTimeout":  "5s",
+					},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "Invalid CRL httpTimeout",
+			opts: verifier.NewOptions{
+				Type: verifierTypeNotation,
+				Name: testName,
+				Parameters: map[string]any{
+					"certificates": []any{
+						map[string]any{"type": "ca", mockKeyProviderName: nil},
+					},
+					"crl": map[string]any{"httpTimeout": "abc"},
+				},
+			},
+			expectErr: true,
+		},
 	}
 
 	for _, test := range tests {
@@ -215,6 +248,44 @@ func TestNewVerifier(t *testing.T) {
 			_, err := verifier.New(test.opts, nil)
 			if test.expectErr != (err != nil) {
 				t.Fatalf("Expected error: %v, got: %v", test.expectErr, err)
+			}
+		})
+	}
+}
+
+func TestCRLOptionsToNotationCRLOptions(t *testing.T) {
+	tests := []struct {
+		name        string
+		opts        *crlOptions
+		wantNil     bool
+		wantTimeout time.Duration
+		expectErr   bool
+	}{
+		{name: "nil options", opts: nil, wantNil: true},
+		{name: "default timeout", opts: &crlOptions{CacheEnabled: true}, wantTimeout: 0},
+		{name: "custom timeout", opts: &crlOptions{HTTPTimeout: "1500ms"}, wantTimeout: 1500 * time.Millisecond},
+		{name: "malformed timeout", opts: &crlOptions{HTTPTimeout: "abc"}, expectErr: true},
+		{name: "zero timeout", opts: &crlOptions{HTTPTimeout: "0s"}, expectErr: true},
+		{name: "negative timeout", opts: &crlOptions{HTTPTimeout: "-1s"}, expectErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := test.opts.toNotationCRLOptions()
+			if test.expectErr != (err != nil) {
+				t.Fatalf("Expected error: %v, got: %v", test.expectErr, err)
+			}
+			if err != nil {
+				return
+			}
+			if test.wantNil {
+				if got != nil {
+					t.Fatalf("Expected nil, got: %+v", got)
+				}
+				return
+			}
+			if got.CacheEnabled != test.opts.CacheEnabled || got.CacheDir != test.opts.CacheDir || got.HTTPTimeout != test.wantTimeout {
+				t.Fatalf("Unexpected CRL options: %+v", got)
 			}
 		})
 	}
