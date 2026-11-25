@@ -75,7 +75,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.36.6
 	k8s.io/apimachinery v0.36.6
-	k8s.io/client-go v0.36.5
+	k8s.io/client-go v0.36.6
 	oras.land/oras-go/v2 v2.6.4
 	sigs.k8s.io/controller-runtime v0.24.1
 )
