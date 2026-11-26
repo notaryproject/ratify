@@ -133,6 +133,48 @@ EOF
     [[ "$output" == *"$expected_verifier_notation"* ]]
 }
 
+@test "test rendering executor configmap with CRD manager disabled" {
+    run helm template configmap-executor ./deployments/ratify-gatekeeper-provider \
+        --show-only templates/configmap.yaml \
+        --set provider.disableCRDManager=true \
+        --set executor.scopes[0]="registry1.azurecr.io" \
+        --set executor.scopes[1]="registry2.azurecr.io" \
+        --set notation.certs[0].provider=files \
+        --set notation.certs[0].cert="fake cert" \
+        --set cosign.keys.provider=inline \
+        --set cosign.keys.key="fake key" \
+        --set stores[0].scopes[0]="registry1.azurecr.io" \
+        --set stores[0].credential.provider=static \
+        --set stores[0].credential.username=user \
+        --set stores[0].credential.password=pass \
+        --set stores[1].scopes[0]="registry2.azurecr.io" \
+        --set stores[1].plainHttp=true \
+        --set stores[1].credential.provider=static
+    assert_success
+
+    # config.json is rendered as a literal block indented by 4 spaces
+    config=$(echo "$output" | sed -n '/config.json: |/,$p' | tail -n +2 | sed 's/^    //')
+    echo "$config"
+
+    # The executor config must match the Executor spec rendered in CRD mode
+    run jq -e '.executors | length == 1' <<<"$config"
+    assert_success
+    run jq -e '.executors[0].scopes == ["registry1.azurecr.io", "registry2.azurecr.io"] and .executors[0].concurrency == 3' <<<"$config"
+    assert_success
+    run jq -e '[.executors[0].stores[].scopes] == [["registry1.azurecr.io"], ["registry2.azurecr.io"]]' <<<"$config"
+    assert_success
+    run jq -e '.executors[0].stores[0].parameters == {"credential": {"provider": "static", "username": "user", "password": "pass"}, "allowCosignTag": true}' <<<"$config"
+    assert_success
+    run jq -e '.executors[0].stores[1].parameters.plainHttp == true' <<<"$config"
+    assert_success
+    run jq -e '[.executors[0].verifiers[].name] == ["cosign-1", "notation-1"]' <<<"$config"
+    assert_success
+    run jq -e '.executors[0].verifiers[1].parameters.certificates == [{"type": "ca", "files": ["/usr/local/notation/certs"]}]' <<<"$config"
+    assert_success
+    run jq -e '.executors[0].policyEnforcer.parameters.policy.rules == [{"verifierName": "notation-1"}, {"verifierName": "cosign-1"}]' <<<"$config"
+    assert_success
+}
+
 @test "crd version test" {
     teardown() {
         echo "cleaning up"
