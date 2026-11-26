@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -309,5 +310,195 @@ func TestAppendCredential(t *testing.T) {
 	got = appendCredential(got, nil, errors.New("unavailable"), "managed identity", `clientID=""`)
 	if len(got) != 1 {
 		t.Fatalf("expected a failed credential to be skipped, got %d source(s)", len(got))
+	}
+}
+
+// countingCredential records how many times it was asked for a token and
+// returns the configured token or error.
+type countingCredential struct {
+	token string
+	err   error
+	calls int
+}
+
+func (c *countingCredential) GetToken(_ context.Context, _ policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	c.calls++
+	if c.err != nil {
+		return azcore.AccessToken{}, c.err
+	}
+	return azcore.AccessToken{Token: c.token}, nil
+}
+
+func TestFallbackCredential_GetToken(t *testing.T) {
+	primaryErr := errors.New("identity binding failed")
+	fallbackErr := errors.New("workload identity failed")
+
+	tests := []struct {
+		name              string
+		primary           *countingCredential
+		fallback          *countingCredential
+		wantToken         string
+		wantErrs          []error
+		wantFallbackCalls int
+	}{
+		{
+			name:              "primary succeeds",
+			primary:           &countingCredential{token: "ib-token"},
+			fallback:          &countingCredential{token: "wi-token"},
+			wantToken:         "ib-token",
+			wantFallbackCalls: 0,
+		},
+		{
+			name:              "primary fails and fallback succeeds",
+			primary:           &countingCredential{err: primaryErr},
+			fallback:          &countingCredential{token: "wi-token"},
+			wantToken:         "wi-token",
+			wantFallbackCalls: 1,
+		},
+		{
+			name:              "both fail",
+			primary:           &countingCredential{err: primaryErr},
+			fallback:          &countingCredential{err: fallbackErr},
+			wantErrs:          []error{primaryErr, fallbackErr},
+			wantFallbackCalls: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cred := &fallbackCredential{primary: tt.primary, fallback: tt.fallback}
+			token, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{"https://vault.azure.net/.default"}})
+			if len(tt.wantErrs) > 0 {
+				if err == nil {
+					t.Fatal("expected an error, got nil")
+				}
+				for _, want := range tt.wantErrs {
+					if !errors.Is(err, want) {
+						t.Errorf("expected error to wrap %q, got %v", want, err)
+					}
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if token.Token != tt.wantToken {
+				t.Errorf("expected token %q, got %q", tt.wantToken, token.Token)
+			}
+			if tt.primary.calls != 1 {
+				t.Errorf("expected primary to be called once, got %d", tt.primary.calls)
+			}
+			if tt.fallback.calls != tt.wantFallbackCalls {
+				t.Errorf("expected fallback to be called %d time(s), got %d", tt.wantFallbackCalls, tt.fallback.calls)
+			}
+		})
+	}
+}
+
+func TestCreateCredentialChainPreferIdentityBinding(t *testing.T) {
+	validIB := &IdentityBindingConfig{SNIName: "ib.example.com", APIServerHost: "10.0.0.1"}
+
+	tests := []struct {
+		name         string
+		clientID     string
+		ibConfig     *IdentityBindingConfig
+		wantFallback bool
+	}{
+		{
+			name:     "no identity binding config",
+			clientID: "client-id",
+			ibConfig: nil,
+		},
+		{
+			name:     "identity binding config without SNI name",
+			clientID: "client-id",
+			ibConfig: &IdentityBindingConfig{APIServerHost: "10.0.0.1"},
+		},
+		{
+			name:     "identity binding credential cannot be created",
+			clientID: "client-id",
+			ibConfig: &IdentityBindingConfig{SNIName: "ib.example.com"},
+		},
+		{
+			name:         "identity binding is tried first",
+			clientID:     "client-id",
+			ibConfig:     validIB,
+			wantFallback: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cred, err := CreateCredentialChainPreferIdentityBinding(tt.clientID, "tenant-id", tt.ibConfig)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			fc, ok := cred.(*fallbackCredential)
+			if ok != tt.wantFallback {
+				t.Fatalf("expected fallback credential=%t, got %T", tt.wantFallback, cred)
+			}
+			if !tt.wantFallback {
+				return
+			}
+			if _, ok := fc.primary.(*identityBindingCredential); !ok {
+				t.Errorf("expected identity binding credential as primary, got %T", fc.primary)
+			}
+			if fc.primaryTimeout != defaultPrimaryCredentialTimeout {
+				t.Errorf("expected primary timeout %s, got %s", defaultPrimaryCredentialTimeout, fc.primaryTimeout)
+			}
+			if fc.fallback == nil {
+				t.Error("expected a non-nil fallback credential")
+			}
+		})
+	}
+}
+
+// stalledCredential blocks until its context is done, simulating a token proxy
+// that accepts the connection but never responds.
+type stalledCredential struct{}
+
+func (stalledCredential) GetToken(ctx context.Context, _ policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	<-ctx.Done()
+	return azcore.AccessToken{}, ctx.Err()
+}
+
+// ctxCheckingCredential records whether its context was already done when it
+// was asked for a token.
+type ctxCheckingCredential struct {
+	ctxErr error
+	called bool
+}
+
+func (c *ctxCheckingCredential) GetToken(ctx context.Context, _ policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	c.called = true
+	c.ctxErr = ctx.Err()
+	return azcore.AccessToken{Token: "wi-token"}, nil
+}
+
+func TestFallbackCredential_StalledPrimaryFallsBack(t *testing.T) {
+	fallback := &ctxCheckingCredential{}
+	cred := &fallbackCredential{
+		primary:        stalledCredential{},
+		fallback:       fallback,
+		primaryTimeout: 50 * time.Millisecond,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	token, err := cred.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{"https://vault.azure.net/.default"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("expected the stalled primary to be bounded by primaryTimeout, took %s", elapsed)
+	}
+	if token.Token != "wi-token" {
+		t.Errorf("expected fallback token, got %q", token.Token)
+	}
+	if !fallback.called {
+		t.Fatal("expected fallback to be called")
+	}
+	if fallback.ctxErr != nil {
+		t.Errorf("expected fallback to receive the caller's live context, got context error %v", fallback.ctxErr)
 	}
 }
