@@ -25,9 +25,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/notaryproject/ratify-go/imageref"
 	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
 	"github.com/notaryproject/ratify/v2/internal/executor"
-	"github.com/notaryproject/ratify/v2/internal/imageref"
 	"github.com/notaryproject/ratify/v2/internal/logger"
 	"github.com/notaryproject/ratify/v2/pkg/metrics"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/externaldata"

@@ -21,20 +21,20 @@ import (
 	"os"
 
 	"github.com/notaryproject/ratify-go"
-	"github.com/notaryproject/ratify/v2/internal/store"
+	"github.com/notaryproject/ratify-go/plugin"
 )
 
 const filesystemOCIStoreType = "filesystem-oci-store"
 
 func init() {
 	// Register the filesystem OCI store factory
-	store.Register(filesystemOCIStoreType, func(opts store.NewOptions) (ratify.Store, error) {
-		if opts.Parameters == nil {
-			return nil, fmt.Errorf("store parameters are required")
+	plugin.RegisterStore(filesystemOCIStoreType, func(ctx context.Context, opts plugin.StoreOptions) (ratify.Store, error) {
+		var params map[string]any
+		if err := plugin.DecodeParameters(opts.Parameters, &params); err != nil {
+			return nil, fmt.Errorf("store parameters must be a map: %w", err)
 		}
-		params, ok := opts.Parameters.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("store parameters must be a map")
+		if params == nil {
+			return nil, fmt.Errorf("store parameters are required")
 		}
 		pathVal, ok := params["path"]
 		if !ok || pathVal == nil {
@@ -44,6 +44,6 @@ func init() {
 		if !ok || path == "" {
 			return nil, fmt.Errorf("path parameter must be a non-empty string")
 		}
-		return ratify.NewOCIStoreFromFS(context.Background(), os.DirFS(path))
+		return ratify.NewOCIStoreFromFS(ctx, os.DirFS(path))
 	})
 }

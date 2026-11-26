@@ -17,64 +17,35 @@ package store
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify-go/plugin"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-const (
-	testType = "test-type"
-	testName = "test-name"
-)
+const testType = "test-type"
 
-func createStore(_ NewOptions) (ratify.Store, error) {
-	return nil, nil
-}
+// gotParams records the parameters passed to the factory of testType.
+var gotParams json.RawMessage
 
-func TestRegisterStoreFactory(t *testing.T) {
-	t.Run("Registering an empty type", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("Expected panic when registering an empty type, but did not panic")
-			}
-		}()
-		Register("", createStore)
-	})
-
-	t.Run("Registering a nil factory function", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("Expected panic when registering a nil factory function, but did not panic")
-			}
-		}()
-		Register(testType, nil)
-	})
-
-	t.Run("Registering a valid factory function", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Errorf("Did not expect panic when registering a valid factory function, but got: %v", r)
-			}
-			delete(registry, testType)
-		}()
-		Register(testType, createStore)
-	})
-
-	t.Run("Registering a duplicate factory function", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("Expected panic when registering a duplicate factory function, but did not panic")
-			}
-			delete(registry, testType)
-		}()
-		Register(testType, createStore)
-		Register(testType, createStore)
-	})
+// registerTestStore registers factory under typ in plugin.Default. The error
+// is ignored so that the tests can be run multiple times in the same process
+// (e.g. go test -count=2). Factories must therefore not capture per-test state.
+func registerTestStore(typ string, factory plugin.StoreFactory) {
+	_ = plugin.Default.RegisterStore(typ, factory)
 }
 
 func TestNewStore(t *testing.T) {
+	registerTestStore(testType, func(_ context.Context, opts plugin.StoreOptions) (ratify.Store, error) {
+		gotParams = opts.Parameters
+		return &mockStore{}, nil
+	})
+
 	t.Run("Empty store options", func(t *testing.T) {
 		_, err := newStore(NewOptions{})
 		if err == nil {
@@ -87,15 +58,25 @@ func TestNewStore(t *testing.T) {
 		if err == nil {
 			t.Errorf("Expected error when creating a store with unregistered type, but got nil")
 		}
+		if !errors.Is(err, plugin.ErrNotRegistered) {
+			t.Errorf("Expected error to wrap plugin.ErrNotRegistered, but got: %v", err)
+		}
+	})
+
+	t.Run("Unmarshalable store parameters", func(t *testing.T) {
+		_, err := newStore(NewOptions{Type: testType, Parameters: make(chan int)})
+		if err == nil || !strings.Contains(err.Error(), "failed to marshal store parameters") {
+			t.Errorf("Expected marshal error, but got: %v", err)
+		}
 	})
 
 	t.Run("Valid store options", func(t *testing.T) {
-		Register(testType, createStore)
-		defer delete(registry, testType)
-
-		_, err := newStore(NewOptions{Type: testType})
+		_, err := newStore(NewOptions{Type: testType, Parameters: map[string]any{"key": "value"}})
 		if err != nil {
 			t.Errorf("Did not expect error when creating a store with valid options, but got: %v", err)
+		}
+		if string(gotParams) != `{"key":"value"}` {
+			t.Errorf("Expected parameters to be passed through as JSON, but got: %s", gotParams)
 		}
 	})
 }
@@ -118,22 +99,22 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ NewOptions) (ratify.Store, error) {
+func newMockStore(_ context.Context, _ plugin.StoreOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
-func newMockStoreWithErr(_ NewOptions) (ratify.Store, error) {
+func newMockStoreWithErr(_ context.Context, _ plugin.StoreOptions) (ratify.Store, error) {
 	return nil, fmt.Errorf("mock store error")
 }
 
-func newNilMockStore(_ NewOptions) (ratify.Store, error) {
+func newNilMockStore(_ context.Context, _ plugin.StoreOptions) (ratify.Store, error) {
 	return nil, nil
 }
 
 func TestNew(t *testing.T) {
-	Register("mock-store", newMockStore)
-	Register("mock-store-with-error", newMockStoreWithErr)
-	Register("mock-store-nil", newNilMockStore)
+	registerTestStore("mock-store", newMockStore)
+	registerTestStore("mock-store-with-error", newMockStoreWithErr)
+	registerTestStore("mock-store-nil", newNilMockStore)
 	tests := []struct {
 		name          string
 		opts          []NewOptions
@@ -304,7 +285,7 @@ func TestNew(t *testing.T) {
 // Repository scopes are normalized so that the store receives the normalized
 // references that the executor routes to it.
 func TestNew_NormalizesRepositoryScopes(t *testing.T) {
-	Register("mock-store-normalized-scope", newMockStore)
+	registerTestStore("mock-store-normalized-scope", newMockStore)
 	storeMux, err := New([]NewOptions{{Type: "mock-store-normalized-scope"}}, []string{"docker.io/nginx", "org/app"})
 	if err != nil {
 		t.Fatalf("failed to create store: %v", err)

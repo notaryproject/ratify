@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/notaryproject/ratify-go"
-	"github.com/notaryproject/ratify/v2/internal/imageref"
+	"github.com/notaryproject/ratify-go/imageref"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"

@@ -23,6 +23,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -30,7 +31,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
+	"github.com/notaryproject/ratify-go/plugin"
 )
 
 const invalidCert = "-----BEGIN CERTIFICATE-----\nMIID2jCCAsKgAwIBAgIQXy2VqtlhSkiZKAGhsnkjbDANBgkqhkiG9w0BAQsFADBvMRswGQYDVQQD\nExJyYXRpZnkuZXhhbXBsZS5jb20xDzANBgNVBAsTBk15IE9yZzETMBEGA1UEChMKTXkgQ29tcGFu\neTEQMA4GA1UEBxMHUmVkbW9uZDELMAkGA1UECBMCV0ExCzAJBgNVBAYTAlVTMB4XDTIzMDIwMTIy\nNDUwMFoXDTI0MDIwMTIyNTUwMFowbzEbMBkGA1UEAxMScmF0aWZ5LmV4YW1wbGUuY29tMQ8wDQYD\nVQQLEwZNeSBPcmcxEzARBgNVBAoTCk15IENvbXBhbnkxEDAOBgNVBAcTB1JlZG1vbmQxCzAJBgNV\nBAgTAldBMQswCQYDVQQGEwJVUzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAL10bM81\npPAyuraORABsOGS8M76Bi7Guwa3JlM1g2D8CuzSfSTaaT6apy9GsccxUvXd5cmiP1ffna5z+EFmc\nizFQh2aq9kWKWXDvKFXzpQuhyqD1HeVlRlF+V0AfZPvGt3VwUUjNycoUU44ctCWmcUQP/KShZev3\n6SOsJ9q7KLjxxQLsUc4mg55eZUThu8mGB8jugtjsnLUYvIWfHhyjVpGrGVrdkDMoMn+u33scOmrt\nsBljvq9WVo4T/VrTDuiOYlAJFMUae2Ptvo0go8XTN3OjLblKeiK4C+jMn9Dk33oGIT9pmX0vrDJV\nX56w/2SejC1AxCPchHaMuhlwMpftBGkCAwEAAaNyMHAwDgYDVR0PAQH/BAQDAgeAMAkGA1UdEwQC\nMAAwEwYDVR0lBAwwCgYIKwYBBQUHAwMwHwYDVR0jBBgwFoAU0eaKkZj+MS9jCp9Dg1zdv3v/aKww\nHQYDVR0OBBYEFNHmipGY/jEvYwqfQ4Nc3b97/2isMA0GCSqGSIb3DQEBCwUAA4IBAQBNDcmSBizF\nmpJlD8EgNcUCy5tz7W3+AAhEbA3vsHP4D/UyV3UgcESx+L+Nye5uDYtTVm3lQejs3erN2BjW+ds+\nXFnpU/pVimd0aYv6mJfOieRILBF4XFomjhrJOLI55oVwLN/AgX6kuC3CJY2NMyJKlTao9oZgpHhs\nLlxB/r0n9JnUoN0Gq93oc1+OLFjPI7gNuPXYOP1N46oKgEmAEmNkP1etFrEjFRgsdIFHksrmlOlD\nIed9RcQ087VLjmuymLgqMTFX34Q3j7XgN2ENwBSnkHotE9CcuGRW+NuiOeJalL8DBmFXXWwHTKLQ\nPp5g6m1yZXylLJaFLKz7tdMmO355invalid\n-----END CERTIFICATE-----\n"
@@ -172,7 +173,7 @@ func TestInlineProvider_CertificatesSuccess(t *testing.T) {
 
 	// The inline provider is registered in init(). Retrieve it through the
 	// keyprovider registry.
-	provider, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	provider, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": pemStr,
 	})
 	if err != nil {
@@ -204,7 +205,7 @@ func TestInlineProvider_CertificatesSuccess(t *testing.T) {
 func TestInlineProvider_KeysSuccess(t *testing.T) {
 	pemStr, wantKey := generateRSAPublicKeyPEM(t)
 
-	provider, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	provider, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": pemStr,
 	})
 	if err != nil {
@@ -243,7 +244,7 @@ func TestInlineProvider_BothCertsAndKeys(t *testing.T) {
 	certPem, wantCert := generateSelfSignedPEM(t)
 	keyPem, wantKey := generateRSAPublicKeyPEM(t)
 
-	provider, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	provider, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": certPem,
 		"keys":  keyPem,
 	})
@@ -287,7 +288,7 @@ func TestInlineProvider_MultipleCertificates(t *testing.T) {
 	pemStr2, wantCert2 := generateSelfSignedPEM(t)
 	combinedPem := pemStr1 + "\n" + pemStr2
 
-	provider, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	provider, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": combinedPem,
 	})
 	if err != nil {
@@ -309,7 +310,7 @@ func TestInlineProvider_MultipleCertificates(t *testing.T) {
 }
 
 func TestInlineProvider_AllowsLeafCertificate(t *testing.T) {
-	provider, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	provider, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": generateLeafPEM(t),
 	})
 	if err != nil {
@@ -330,7 +331,7 @@ func TestInlineProvider_MultipleKeys(t *testing.T) {
 	ecPem, ecKey := generateECPublicKeyPEM(t)
 	combinedPem := rsaPem + "\n" + rsaPKCS1Pem + "\n" + ecPem
 
-	provider, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	provider, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": combinedPem,
 	})
 	if err != nil {
@@ -375,7 +376,7 @@ func TestInlineProvider_MultipleKeys(t *testing.T) {
 }
 
 func TestInlineProvider_EmptyOptions(t *testing.T) {
-	provider, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{})
+	provider, err := createKeyProvider("inline", map[string]interface{}{})
 	if err != nil {
 		t.Fatalf("unexpected error constructing provider with empty options: %v", err)
 	}
@@ -403,7 +404,7 @@ func TestInlineProvider_OneValidAndOneInvalidCertificate(t *testing.T) {
 	pemStr, _ := generateSelfSignedPEM(t)
 	pemStr += "\n" + invalidCert // Append an invalid certificate
 
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": pemStr,
 	})
 	if err == nil {
@@ -412,7 +413,7 @@ func TestInlineProvider_OneValidAndOneInvalidCertificate(t *testing.T) {
 }
 
 func TestInlineProvider_ParseInvalidCertificate(t *testing.T) {
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": invalidCert,
 	})
 	if err == nil {
@@ -421,7 +422,7 @@ func TestInlineProvider_ParseInvalidCertificate(t *testing.T) {
 }
 
 func TestInlineProvider_ParseEmptyCertificatesString(t *testing.T) {
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": "",
 	})
 	if err != nil {
@@ -430,7 +431,7 @@ func TestInlineProvider_ParseEmptyCertificatesString(t *testing.T) {
 }
 
 func TestInlineProvider_ParseEmptyKeysString(t *testing.T) {
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": "",
 	})
 	if err != nil {
@@ -442,7 +443,7 @@ func TestInlineProvider_NoCertificatesInPEM(t *testing.T) {
 	// PEM block with wrong type
 	pemData := generateInvalidPEMData("PRIVATE KEY")
 
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": pemData,
 	})
 	if err == nil {
@@ -454,7 +455,7 @@ func TestInlineProvider_NoKeysInPEM(t *testing.T) {
 	// PEM block with wrong type
 	pemData := generateInvalidPEMData("CERTIFICATE")
 
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": pemData,
 	})
 	if err == nil {
@@ -466,7 +467,7 @@ func TestInlineProvider_InvalidPEMFormat(t *testing.T) {
 	// Invalid PEM data with remaining content
 	pemData := generateInvalidPEMData("CERTIFICATE") + "\ninvalid remaining data"
 
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": pemData,
 	})
 	if err == nil {
@@ -478,7 +479,7 @@ func TestInlineProvider_InvalidKeyPEMFormat(t *testing.T) {
 	// Invalid PEM data with remaining content for keys
 	pemData := generateInvalidPEMData("PUBLIC KEY") + "\ninvalid remaining data"
 
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": pemData,
 	})
 	if err == nil {
@@ -490,7 +491,7 @@ func TestInlineProvider_InvalidPublicKeyData(t *testing.T) {
 	// Valid PEM structure but invalid public key data
 	pemData := generateInvalidPEMData("PUBLIC KEY")
 
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": pemData,
 	})
 	if err == nil {
@@ -502,7 +503,7 @@ func TestInlineProvider_InvalidRSAPublicKeyData(t *testing.T) {
 	// Valid PEM structure but invalid RSA public key data
 	pemData := generateInvalidPEMData("RSA PUBLIC KEY")
 
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": pemData,
 	})
 	if err == nil {
@@ -510,14 +511,17 @@ func TestInlineProvider_InvalidRSAPublicKeyData(t *testing.T) {
 	}
 }
 
-func TestInlineProvider_MarshalOptionsError(t *testing.T) {
-	// Pass a channel which cannot be marshaled to JSON
-	_, err := keyprovider.CreateKeyProvider("inline", make(chan int))
+func TestInlineProvider_InvalidJSONOptionsError(t *testing.T) {
+	// Parameters are passed to the provider as raw JSON, so options that are
+	// not valid JSON must be rejected by the provider.
+	_, err := plugin.Default.NewKeyProvider(context.Background(), "inline", plugin.KeyProviderOptions{
+		Parameters: json.RawMessage("{"),
+	})
 	if err == nil {
-		t.Fatalf("expected error when marshaling invalid options type")
+		t.Fatalf("expected error when unmarshaling invalid JSON options")
 	}
-	if !strings.Contains(err.Error(), "failed to marshal options") {
-		t.Fatalf("expected marshal error, got: %v", err)
+	if !strings.Contains(err.Error(), "failed to unmarshal options") {
+		t.Fatalf("expected unmarshal error, got: %v", err)
 	}
 }
 
@@ -528,7 +532,7 @@ func TestInlineProvider_UnmarshalOptionsError(t *testing.T) {
 	}
 	invalid := invalidStruct{InvalidField: func() {}}
 
-	_, err := keyprovider.CreateKeyProvider("inline", invalid)
+	_, err := createKeyProvider("inline", invalid)
 	if err == nil {
 		t.Fatalf("expected error when unmarshaling invalid options")
 	}
@@ -545,7 +549,7 @@ func TestInlineProvider_RSAPublicKeyPKIXFallback(t *testing.T) {
 	pubKeyBytes := x509.MarshalPKCS1PublicKey(&privKey.PublicKey)
 	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: pubKeyBytes})
 
-	provider, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	provider, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": string(pemBytes),
 	})
 	if err != nil {
@@ -575,7 +579,7 @@ func TestInlineProvider_NonRSAPublicKeyPKIXFail(t *testing.T) {
 	// Create invalid public key data that will fail PKIX parsing for non-RSA type
 	pemData := generateInvalidPEMData("PUBLIC KEY")
 
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": pemData,
 	})
 	if err == nil {
@@ -589,7 +593,7 @@ func TestInlineProvider_NonRSAPublicKeyPKIXFail(t *testing.T) {
 func TestInlineProvider_WhitespaceOnlyInput(t *testing.T) {
 	// Test with whitespace-only input which gets trimmed to empty and then parsed
 	// This should trigger the "no certificates found" error case
-	_, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err := createKeyProvider("inline", map[string]interface{}{
 		"certs": "   \n\t  \n   ",
 	})
 	if err == nil {
@@ -599,7 +603,7 @@ func TestInlineProvider_WhitespaceOnlyInput(t *testing.T) {
 		t.Fatalf("expected 'no certificates found' error, got: %v", err)
 	}
 
-	_, err = keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	_, err = createKeyProvider("inline", map[string]interface{}{
 		"keys": "   \n\t  \n   ",
 	})
 	if err == nil {
@@ -615,7 +619,7 @@ func TestInlineProvider_PublicKeySuccessfulPKIXParsing(t *testing.T) {
 	// This ensures we cover the branch where we don't fall back to PKCS1 parsing
 	ecPem, wantKey := generateECPublicKeyPEM(t)
 
-	provider, err := keyprovider.CreateKeyProvider("inline", map[string]interface{}{
+	provider, err := createKeyProvider("inline", map[string]interface{}{
 		"keys": ecPem,
 	})
 	if err != nil {
@@ -671,7 +675,7 @@ func TestInlineProvider_EdgeCaseJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := keyprovider.CreateKeyProvider("inline", tt.options)
+			_, err := createKeyProvider("inline", tt.options)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("expected error: %v, got: %v", tt.wantErr, err)
 			}

@@ -16,9 +16,13 @@ limitations under the License.
 package verifier
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify-go/plugin"
+
+	"github.com/notaryproject/ratify/v2/internal/encoding/jsonutil"
 )
 
 // NewOptions holds the options to create a [ratify.Verifier].
@@ -35,40 +39,25 @@ type NewOptions struct {
 	Parameters any `json:"parameters,omitempty"`
 }
 
-// registeredVerifiers saves the registered verifier factories.
-var registeredVerifiers map[string]func(NewOptions, []string) (ratify.Verifier, error)
-
-// Register registers a verifier factory to the system.
-func Register(verifierType string, create func(NewOptions, []string) (ratify.Verifier, error)) {
-	if verifierType == "" {
-		panic("verifier type cannot be empty. Please provide a non-empty string representing a valid verifier.")
-	}
-	if create == nil {
-		panic("verifier factory cannot be nil")
-	}
-	if registeredVerifiers == nil {
-		registeredVerifiers = make(map[string]func(NewOptions, []string) (ratify.Verifier, error))
-	}
-	if _, registered := registeredVerifiers[verifierType]; registered {
-		panic(fmt.Sprintf("verifier factory named %s already registered", verifierType))
-	}
-	registeredVerifiers[verifierType] = create
-}
-
-// New creates a [ratify.Verifier] instance if it belongs to a registered type.
-// The returned verifier reports the ratify_verifier_duration metric for every
-// verification.
+// New creates a [ratify.Verifier] instance of a type registered to the
+// [plugin.Default] registry. The parameters are passed through to the plugin
+// factory as raw JSON. The returned verifier reports the
+// ratify_verifier_duration metric for every verification.
 func New(opts NewOptions, globalScopes []string) (ratify.Verifier, error) {
 	if opts.Name == "" || opts.Type == "" {
 		return nil, fmt.Errorf("name or type is not provided in the verifier options")
 	}
-	create, ok := registeredVerifiers[opts.Type]
-	if !ok {
-		return nil, fmt.Errorf("verifier factory of type %s is not registered", opts.Type)
+	params, err := jsonutil.RawMessage(opts.Parameters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal parameters of verifier %q: %w", opts.Name, err)
 	}
-	verifier, err := create(opts, globalScopes)
-	if err != nil || verifier == nil {
-		return verifier, err
+	verifier, err := plugin.Default.NewVerifier(context.Background(), opts.Type, plugin.VerifierOptions{
+		Name:       opts.Name,
+		Parameters: params,
+		Scopes:     globalScopes,
+	})
+	if err != nil {
+		return nil, err
 	}
 	return &instrumentedVerifier{Verifier: verifier}, nil
 }

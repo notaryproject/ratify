@@ -33,7 +33,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets"
-	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
+	"github.com/notaryproject/ratify-go/plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -306,7 +306,7 @@ func TestAzureKeyVaultProviderRegistration(t *testing.T) {
 	// This test only validates that the provider factory function is registered
 	// and can parse options correctly, but we expect it to fail with network/auth errors
 	// since we're not providing real credentials or connecting to a real vault
-	provider, err := keyprovider.CreateKeyProvider(azureKeyVaultProviderName, options)
+	provider, err := createKeyProvider(azureKeyVaultProviderName, options)
 	assert.Error(t, err) // Should fail due to credential/network issues
 	assert.Nil(t, provider)
 	assert.Contains(t, err.Error(), "failed to fetch certificates during initialization")
@@ -365,7 +365,7 @@ func TestAzureKeyVaultProviderValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := keyprovider.CreateKeyProvider(azureKeyVaultProviderName, tt.options)
+			_, err := createKeyProvider(azureKeyVaultProviderName, tt.options)
 			assert.Error(t, err)
 			if tt.errorMsg != "" {
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -463,7 +463,7 @@ func TestAzureKeyVaultProviderValidationExtended(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := keyprovider.CreateKeyProvider(azureKeyVaultProviderName, tt.options)
+			_, err := createKeyProvider(azureKeyVaultProviderName, tt.options)
 			assert.Error(t, err, tt.description)
 			if tt.errorMsg != "" {
 				assert.Contains(t, err.Error(), tt.errorMsg, tt.description)
@@ -491,7 +491,7 @@ func TestAzureKeyVaultOptionsUnmarshaling(t *testing.T) {
 
 	// This test validates that options can be marshaled and unmarshaled correctly
 	// We expect it to fail with credential/network errors, not unmarshaling errors
-	provider, err := keyprovider.CreateKeyProvider(azureKeyVaultProviderName, options)
+	provider, err := createKeyProvider(azureKeyVaultProviderName, options)
 
 	// Provider creation should fail with credential error, not unmarshaling error
 	assert.Error(t, err)
@@ -784,7 +784,7 @@ func TestAzureKeyVaultProvider_GetKeys(t *testing.T) {
 				secretsClient: nil,
 				certSpecs:     []CertificateSpec{},
 				cachedCerts:   []*x509.Certificate{},
-				cachedKeys:    []*keyprovider.PublicKey{},
+				cachedKeys:    []*plugin.PublicKey{},
 			},
 			expectError:  true,
 			errorMessage: "no cached public keys available",
@@ -1322,7 +1322,7 @@ func TestAzureKeyVaultProvider_MixedKeysAndCertificatesValidation(t *testing.T) 
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := keyprovider.CreateKeyProvider(azureKeyVaultProviderName, tt.options)
+			_, err := createKeyProvider(azureKeyVaultProviderName, tt.options)
 			assert.Error(t, err, tt.description)
 			if tt.errorMsg != "" {
 				assert.Contains(t, err.Error(), tt.errorMsg, tt.description)
@@ -1744,14 +1744,14 @@ func TestAzureKeyVaultProvider_GetKeys_WithCachedKeys(t *testing.T) {
 	// Note: We'll create a minimal mock key since we can't easily create real crypto keys in tests
 	tests := []struct {
 		name          string
-		cachedKeys    []*keyprovider.PublicKey
+		cachedKeys    []*plugin.PublicKey
 		expectedCount int
 		expectError   bool
 		errorMessage  string
 	}{
 		{
 			name: "successful retrieval with cached keys",
-			cachedKeys: []*keyprovider.PublicKey{
+			cachedKeys: []*plugin.PublicKey{
 				{
 					Key:                nil, // Mock key
 					SignatureAlgorithm: crypto.SHA256,
@@ -1762,7 +1762,7 @@ func TestAzureKeyVaultProvider_GetKeys_WithCachedKeys(t *testing.T) {
 		},
 		{
 			name: "successful retrieval with multiple cached keys",
-			cachedKeys: []*keyprovider.PublicKey{
+			cachedKeys: []*plugin.PublicKey{
 				{
 					Key:                nil, // Mock key
 					SignatureAlgorithm: crypto.SHA256,
@@ -1777,7 +1777,7 @@ func TestAzureKeyVaultProvider_GetKeys_WithCachedKeys(t *testing.T) {
 		},
 		{
 			name:          "no cached keys available",
-			cachedKeys:    []*keyprovider.PublicKey{},
+			cachedKeys:    []*plugin.PublicKey{},
 			expectedCount: 0,
 			expectError:   true,
 			errorMessage:  "no cached public keys available",
@@ -1812,7 +1812,7 @@ func TestAzureKeyVaultProvider_GetKeys_WithCachedKeys(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Len(t, keys, tt.expectedCount)
 				for _, key := range keys {
-					assert.IsType(t, &keyprovider.PublicKey{}, key)
+					assert.IsType(t, &plugin.PublicKey{}, key)
 				}
 			}
 		})
@@ -1886,7 +1886,7 @@ func TestExtractPublicKeyFromKeyResponse(t *testing.T) {
 			} else {
 				assert.NoError(t, err, tt.description)
 				assert.NotNil(t, publicKey, tt.description)
-				assert.IsType(t, &keyprovider.PublicKey{}, publicKey)
+				assert.IsType(t, &plugin.PublicKey{}, publicKey)
 			}
 		})
 	}

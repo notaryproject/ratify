@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package provider
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func TestMain_FailedStartingRatify(t *testing.T) {
 			t.Errorf("Expected panic, but got none")
 		}
 	}()
-	main()
+	Main()
 }
 
 func TestParse(t *testing.T) {

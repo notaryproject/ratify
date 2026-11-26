@@ -20,13 +20,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/notaryproject/ratify-go"
-	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
-	"github.com/notaryproject/ratify/v2/internal/store"
-	"github.com/notaryproject/ratify/v2/internal/verifier"
+	"github.com/notaryproject/ratify-go/plugin"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 )
@@ -55,7 +54,7 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(_ verifier.NewOptions, _ []string) (ratify.Verifier, error) {
+func createMockVerifier(_ context.Context, _ plugin.VerifierOptions) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -77,18 +76,28 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ store.NewOptions) (ratify.Store, error) {
+func newMockStore(_ context.Context, _ plugin.StoreOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
-func createPolicyEnforcer(_ policyenforcer.NewOptions) (ratify.PolicyEnforcer, error) {
+func createPolicyEnforcer(_ context.Context, _ plugin.PolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
 	return nil, errors.New("mock policy enforcer not implemented")
 }
 
+// registerMocksOnce guards the one-time registration of the mocks, as the
+// plugin.RegisterX functions panic on duplicate registration.
+var registerMocksOnce sync.Once
+
+func registerMocks() {
+	registerMocksOnce.Do(func() {
+		plugin.RegisterStore(mockStoreType, newMockStore)
+		plugin.RegisterVerifier(mockVerifierType, createMockVerifier)
+		plugin.RegisterPolicyEnforcer(mockPolicyEnforcerType, createPolicyEnforcer)
+	})
+}
+
 func TestNewWatcher(t *testing.T) {
-	store.Register(mockStoreType, newMockStore)
-	verifier.Register(mockVerifierType, createMockVerifier)
-	policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
+	registerMocks()
 
 	t.Run("empty config path", func(t *testing.T) {
 		watcher, err := NewWatcher("")
@@ -139,6 +148,7 @@ func TestNewWatcher(t *testing.T) {
 }
 
 func TestStartAndStopWatcher(t *testing.T) {
+	registerMocks()
 	t.Run("failed to add watcher", func(t *testing.T) {
 		configPath := filepath.Join(t.TempDir(), "config.json")
 		err := os.WriteFile(configPath, []byte(validConfig), 0600)
@@ -181,6 +191,7 @@ func TestStartAndStopWatcher(t *testing.T) {
 }
 
 func TestGetExecutor(t *testing.T) {
+	registerMocks()
 	t.Run("get executor with valid config", func(t *testing.T) {
 		configPath := filepath.Join(t.TempDir(), "config.json")
 		err := os.WriteFile(configPath, []byte(validConfig), 0600)

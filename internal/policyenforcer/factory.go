@@ -16,10 +16,14 @@ limitations under the License.
 package policyenforcer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify-go/plugin"
+
+	"github.com/notaryproject/ratify/v2/internal/encoding/jsonutil"
 )
 
 // NewOptions contains the options for creating a new [ratify.PolicyEnforcer].
@@ -31,35 +35,15 @@ type NewOptions struct {
 	Parameters any `json:"parameters,omitempty"`
 }
 
-// registry saves the registered policy enforcer factories.
-var registry map[string]func(NewOptions) (ratify.PolicyEnforcer, error)
-
-// RegisterPolicyEnforcer registers a policy enforcer factory to the system.
-func Register(policyType string, create func(NewOptions) (ratify.PolicyEnforcer, error)) {
-	if policyType == "" {
-		panic("policy type cannot be empty")
-	}
-	if create == nil {
-		panic("policy create cannot be nil")
-	}
-	if registry == nil {
-		registry = make(map[string]func(NewOptions) (ratify.PolicyEnforcer, error))
-	}
-	if _, registered := registry[policyType]; registered {
-		panic(fmt.Sprintf("policy factory type %s already registered", policyType))
-	}
-	registry[policyType] = create
-}
-
-// New creates a new [ratify.PolicyEnforcer] instance based on the provided
-// options.
+// New creates a new [ratify.PolicyEnforcer] instance of a type registered to
+// the [plugin.Default] registry.
 func New(opts NewOptions) (ratify.PolicyEnforcer, error) {
 	if opts.Type == "" {
 		return nil, errors.New("policy type is not provided in the policy options")
 	}
-	create, ok := registry[opts.Type]
-	if !ok {
-		return nil, fmt.Errorf("policy factory of type %s is not registered", opts.Type)
+	params, err := jsonutil.RawMessage(opts.Parameters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal policy enforcer parameters: %w", err)
 	}
-	return create(opts)
+	return plugin.Default.NewPolicyEnforcer(context.Background(), opts.Type, plugin.PolicyEnforcerOptions{Parameters: params})
 }

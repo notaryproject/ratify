@@ -33,8 +33,8 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets"
+	"github.com/notaryproject/ratify-go/plugin"
 	"github.com/notaryproject/ratify/v2/internal/cloudprovider/azure"
-	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
 	"github.com/sirupsen/logrus"
 )
 
@@ -77,15 +77,15 @@ type Provider struct {
 	certSpecs     []CertificateSpec
 	keySpecs      []KeySpec
 	cachedCerts   []*x509.Certificate
-	cachedKeys    []*keyprovider.PublicKey
+	cachedKeys    []*plugin.PublicKey
 	mu            sync.RWMutex
 }
 
 func init() {
-	keyprovider.RegisterKeyProvider(azureKeyVaultProviderName, func(options any) (keyprovider.KeyProvider, error) {
-		raw, err := json.Marshal(options)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal options: %w", err)
+	plugin.RegisterKeyProvider(azureKeyVaultProviderName, func(_ context.Context, pluginOpts plugin.KeyProviderOptions) (plugin.KeyProvider, error) {
+		raw := []byte(pluginOpts.Parameters)
+		if len(raw) == 0 {
+			raw = []byte("null")
 		}
 
 		var opts Options
@@ -164,7 +164,7 @@ func (p *Provider) GetCertificates(_ context.Context) ([]*x509.Certificate, erro
 
 // GetKeys returns the cached public keys that were fetched during
 // initialization.
-func (p *Provider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
+func (p *Provider) GetKeys(_ context.Context) ([]*plugin.PublicKey, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -205,8 +205,8 @@ func (p *Provider) fetchAllCertificates(ctx context.Context) ([]*x509.Certificat
 }
 
 // fetchAllKeys fetches all public keys from Azure Key Vault.
-func (p *Provider) fetchAllKeys(ctx context.Context) ([]*keyprovider.PublicKey, error) {
-	var allKeys []*keyprovider.PublicKey
+func (p *Provider) fetchAllKeys(ctx context.Context) ([]*plugin.PublicKey, error) {
+	var allKeys []*plugin.PublicKey
 	if len(p.keySpecs) == 0 {
 		return allKeys, nil
 	}
@@ -233,7 +233,7 @@ func (p *Provider) fetchAllKeys(ctx context.Context) ([]*keyprovider.PublicKey, 
 }
 
 // fetchKey fetches a public key from Azure Key Vault.
-func (p *Provider) fetchKey(ctx context.Context, keySpec KeySpec) (*keyprovider.PublicKey, error) {
+func (p *Provider) fetchKey(ctx context.Context, keySpec KeySpec) (*plugin.PublicKey, error) {
 	// Fetch the key from Azure Key Vault
 	// If version is empty, Azure Key Vault will return the latest version
 	resp, err := p.keysClient.GetKey(ctx, keySpec.Name, keySpec.Version, nil)
@@ -364,7 +364,7 @@ func parseCertificateInPem(pemData []byte, certSpec CertificateSpec) ([]*x509.Ce
 
 // extractPublicKeyFromKeyResponse extracts a public key from Azure Key Vault
 // GetKey response
-func extractPublicKeyFromKeyResponse(key *azkeys.JSONWebKey, keySpec KeySpec) (*keyprovider.PublicKey, error) {
+func extractPublicKeyFromKeyResponse(key *azkeys.JSONWebKey, keySpec KeySpec) (*plugin.PublicKey, error) {
 	if key.Kty == nil {
 		return nil, fmt.Errorf("key type (kty) is nil for key %q of version %q", keySpec.Name, keySpec.Version)
 	}
@@ -387,14 +387,14 @@ func extractPublicKeyFromKeyResponse(key *azkeys.JSONWebKey, keySpec KeySpec) (*
 		return nil, fmt.Errorf("decoding the jsonWebKey: %w", err)
 	}
 
-	// Convert JWK algorithm (JWA) to crypto.Hash for keyprovider.PublicKey.SignatureAlgorithm.
+	// Convert JWK algorithm (JWA) to crypto.Hash for plugin.PublicKey.SignatureAlgorithm.
 	// Default to SHA256 when algorithm is empty or unsupported.
 	sigAlg, err := inferHashType(jwk.Key)
 	if err != nil {
 		return nil, fmt.Errorf("converting JWK algorithm to crypto.Hash for key %q of version %q: %w", keySpec.Name, keySpec.Version, err)
 	}
 
-	return &keyprovider.PublicKey{
+	return &plugin.PublicKey{
 		Key:                jwk.Key,
 		SignatureAlgorithm: sigAlg,
 	}, nil

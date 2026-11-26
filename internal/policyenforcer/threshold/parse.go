@@ -16,11 +16,11 @@ limitations under the License.
 package threshold
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/notaryproject/ratify-go"
-	"github.com/notaryproject/ratify/v2/internal/encoding/jsonutil"
-	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
+	"github.com/notaryproject/ratify-go/plugin"
 )
 
 // policyType is the type identifier for the threshold policy enforcer.
@@ -30,12 +30,10 @@ const policyType = "threshold-policy"
 // This ensures that the threshold-policy type is available for use in the
 // policy enforcer factory.
 func init() {
-	policyenforcer.Register(policyType, func(opts policyenforcer.NewOptions) (ratify.PolicyEnforcer, error) {
-		parameters, ok := opts.Parameters.(map[string]any)
-		if !ok {
-			if err := jsonutil.Copy(&parameters, opts.Parameters); err != nil {
-				return nil, fmt.Errorf("failed to assert policy parameters: %w", err)
-			}
+	plugin.RegisterPolicyEnforcer(policyType, func(_ context.Context, opts plugin.PolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
+		var parameters map[string]any
+		if err := plugin.DecodeParameters(opts.Parameters, &parameters); err != nil {
+			return nil, fmt.Errorf("failed to assert policy parameters: %w", err)
 		}
 		policy, err := parseOrNil[map[string]any](parameters, "policy")
 		if err != nil {

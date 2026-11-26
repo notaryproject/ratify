@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify-go/plugin"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 
@@ -121,10 +122,9 @@ func TestInstrumentedVerifierVerify(t *testing.T) {
 
 func TestNewInstrumentsVerifier(t *testing.T) {
 	stub := &stubVerifier{result: &ratify.VerificationResult{}}
-	Register(stubType, func(_ NewOptions, _ []string) (ratify.Verifier, error) {
+	registerTestVerifier(t, stubType, func(_ context.Context, _ plugin.VerifierOptions) (ratify.Verifier, error) {
 		return stub, nil
 	})
-	defer delete(registeredVerifiers, stubType)
 
 	v, err := New(NewOptions{Name: mockName, Type: stubType}, nil)
 	assert.NoError(t, err)
@@ -142,10 +142,9 @@ func TestNewInstrumentsVerifier(t *testing.T) {
 
 func TestNewDoesNotWrapFailedVerifier(t *testing.T) {
 	createErr := errors.New("create error")
-	Register(stubType, func(_ NewOptions, _ []string) (ratify.Verifier, error) {
+	registerTestVerifier(t, stubType, func(_ context.Context, _ plugin.VerifierOptions) (ratify.Verifier, error) {
 		return nil, createErr
 	})
-	defer delete(registeredVerifiers, stubType)
 
 	v, err := New(NewOptions{Name: mockName, Type: stubType}, nil)
 	assert.ErrorIs(t, err, createErr)

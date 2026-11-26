@@ -22,11 +22,12 @@ import (
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify-go/plugin"
 
+	_ "github.com/notaryproject/ratify-verifier-go/cosign/register"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
-	_ "github.com/notaryproject/ratify/v2/internal/verifier/cosign"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -55,7 +56,7 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ store.NewOptions) (ratify.Store, error) {
+func newMockStore(_ context.Context, _ plugin.StoreOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
@@ -65,7 +66,7 @@ func (m *mockPolicyEnforcer) Evaluator(_ context.Context, _ string) (ratify.Eval
 	return nil, nil
 }
 
-func createPolicyEnforcer(_ policyenforcer.NewOptions) (ratify.PolicyEnforcer, error) {
+func createPolicyEnforcer(_ context.Context, _ plugin.PolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
 	return &mockPolicyEnforcer{}, nil
 }
 
@@ -85,7 +86,7 @@ func (m *mockVerifier) Verify(_ context.Context, _ *ratify.VerifyOptions) (*rati
 	return &ratify.VerificationResult{}, nil
 }
 
-func createMockVerifier(_ verifier.NewOptions, _ []string) (ratify.Verifier, error) {
+func createMockVerifier(_ context.Context, _ plugin.VerifierOptions) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -613,7 +614,7 @@ func TestResolve(t *testing.T) {
 }
 
 // registerMocksOnce guards the one-time registration of the in-package mocks.
-// The underlying factory Register functions panic on duplicate registration,
+// The plugin.RegisterX functions panic on duplicate registration,
 // so all callers (tests and benchmarks) funnel through registerMocks to ensure
 // the mocks are registered exactly once per test binary.
 var registerMocksOnce sync.Once
@@ -624,9 +625,9 @@ var registerMocksOnce sync.Once
 // to tolerate duplicate registration.
 func registerMocks() {
 	registerMocksOnce.Do(func() {
-		store.Register(mockStoreType, newMockStore)
-		verifier.Register(mockVerifierType, createMockVerifier)
-		policyenforcer.Register(mockPolicyEnforcerType, createPolicyEnforcer)
+		plugin.RegisterStore(mockStoreType, newMockStore)
+		plugin.RegisterVerifier(mockVerifierType, createMockVerifier)
+		plugin.RegisterPolicyEnforcer(mockPolicyEnforcerType, createPolicyEnforcer)
 	})
 }
 

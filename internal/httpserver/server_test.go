@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify-go/plugin"
 	"github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/notaryproject/ratify/v2/internal/store"
 	"github.com/notaryproject/ratify/v2/internal/verifier"
@@ -48,7 +49,7 @@ const (
 	artifact1         = "test.registry.io/test/image1:v1"
 )
 
-func createMockVerifier(verifier.NewOptions, []string) (ratify.Verifier, error) {
+func createMockVerifier(context.Context, plugin.VerifierOptions) (ratify.Verifier, error) {
 	return &mockVerifier{}, nil
 }
 
@@ -81,13 +82,13 @@ func (m *mockStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 	return nil, nil
 }
 
-func newMockStore(_ store.NewOptions) (ratify.Store, error) {
+func newMockStore(_ context.Context, _ plugin.StoreOptions) (ratify.Store, error) {
 	return &mockStore{}, nil
 }
 
 func init() {
-	verifier.Register(mockVerifierType, createMockVerifier)
-	store.Register(mockStoreType, newMockStore)
+	plugin.RegisterVerifier(mockVerifierType, createMockVerifier)
+	plugin.RegisterStore(mockStoreType, newMockStore)
 }
 
 func TestStartServer(t *testing.T) {

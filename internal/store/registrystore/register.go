@@ -16,15 +16,15 @@ limitations under the License.
 package registrystore
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/notaryproject/ratify-go"
-	factory "github.com/notaryproject/ratify/v2/internal/store"
+	"github.com/notaryproject/ratify-go/plugin"
 	"github.com/notaryproject/ratify/v2/internal/store/credentialprovider"
 )
 
@@ -99,13 +99,9 @@ func createHTTPClient(caPem, caBase64 string) (*http.Client, error) {
 
 func init() {
 	// Register the registry store factory.
-	factory.Register(registryStoreType, func(opts factory.NewOptions) (ratify.Store, error) {
-		raw, err := json.Marshal(opts.Parameters)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal store parameters: %w", err)
-		}
+	plugin.RegisterStore(registryStoreType, func(_ context.Context, opts plugin.StoreOptions) (ratify.Store, error) {
 		var params options
-		if err := json.Unmarshal(raw, &params); err != nil {
+		if err := plugin.DecodeParameters(opts.Parameters, &params); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal store parameters: %w", err)
 		}
 
