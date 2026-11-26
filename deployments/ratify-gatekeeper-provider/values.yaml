@@ -47,6 +47,7 @@ cosign:
   ignoreTLog: false
   ignoreCTLog: false
   ignoreObserverTimestamps: false
+  trustedRoot: "" # Sigstore trusted root JSON for a private Sigstore deployment, e.g. --set-file cosign.trustedRoot=trusted_root.json
   keys:
     # provider: "inline"
     # key: "" # PEM encoded public key  e.g. "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"

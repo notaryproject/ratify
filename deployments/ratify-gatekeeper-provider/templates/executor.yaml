@@ -98,6 +98,9 @@ spec:
             ignoreCTLog: {{ .Values.cosign.ignoreCTLog }}
             {{- end }}
             ignoreObserverTimestamps: {{ .Values.cosign.ignoreObserverTimestamps }}
+            {{- if .Values.cosign.trustedRoot }}
+            trustedRoot: {{ .Values.cosign.trustedRoot | quote }}
+            {{- end }}
             {{- if .Values.cosign.keys }}
             {{- if eq .Values.cosign.keys.provider "inline" }}
             {{- if .Values.cosign.keys.key }}
