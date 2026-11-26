@@ -91,7 +91,7 @@ See details in [GitHub milestone v1.3.0](https://github.com/notaryproject/ratify
 See details in [GitHub milestone v1.4.0](https://github.com/notaryproject/ratify/issues?q=is%3Aopen+is%3Aissue+milestone%3Av1.4.0).
 
 ### v2.0.0-alpha.1
-**Status**: In procoess  
+**Status**: In process  
 **Target date**: May 15, 2025  
 **Major features**
 
