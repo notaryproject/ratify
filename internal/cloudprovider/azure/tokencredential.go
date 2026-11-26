@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -99,19 +100,25 @@ func CreateCredentialChainPreferIdentityBinding(clientID, tenantID string, ibCon
 		return ibCred, nil
 	}
 	logrus.Debugf("azure: using the identity binding credential first, then workload identity and managed identity (clientID=%q, sniName=%q)", clientID, ibConfig.SNIName)
-	return &fallbackCredential{primary: ibCred, fallback: chain}, nil
+	return &fallbackCredential{primary: ibCred, fallback: chain, primaryTimeout: defaultPrimaryCredentialTimeout}, nil
 }
+
+// defaultPrimaryCredentialTimeout bounds a single identity binding token
+// request so that a stalled token proxy cannot block the fallback credentials.
+const defaultPrimaryCredentialTimeout = 30 * time.Second
 
 // fallbackCredential tries primary on every token request and falls back to
 // fallback whenever primary returns any error.
 type fallbackCredential struct {
 	primary  azcore.TokenCredential
 	fallback azcore.TokenCredential
+	// primaryTimeout bounds each primary attempt; zero means no extra bound.
+	primaryTimeout time.Duration
 }
 
 // GetToken implements [azcore.TokenCredential].
 func (c *fallbackCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	token, primaryErr := c.primary.GetToken(ctx, opts)
+	token, primaryErr := c.getPrimaryToken(ctx, opts)
 	if primaryErr == nil {
 		return token, nil
 	}
@@ -125,6 +132,17 @@ func (c *fallbackCredential) GetToken(ctx context.Context, opts policy.TokenRequ
 		)
 	}
 	return token, nil
+}
+
+// getPrimaryToken requests a token from primary using a child context bounded
+// by primaryTimeout, leaving the caller's context intact for the fallback.
+func (c *fallbackCredential) getPrimaryToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	if c.primaryTimeout <= 0 {
+		return c.primary.GetToken(ctx, opts)
+	}
+	primaryCtx, cancel := context.WithTimeout(ctx, c.primaryTimeout)
+	defer cancel()
+	return c.primary.GetToken(primaryCtx, opts)
 }
 
 // appendCredential adds cred to sources when it was created successfully. Both

@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -440,9 +441,64 @@ func TestCreateCredentialChainPreferIdentityBinding(t *testing.T) {
 			if _, ok := fc.primary.(*identityBindingCredential); !ok {
 				t.Errorf("expected identity binding credential as primary, got %T", fc.primary)
 			}
+			if fc.primaryTimeout != defaultPrimaryCredentialTimeout {
+				t.Errorf("expected primary timeout %s, got %s", defaultPrimaryCredentialTimeout, fc.primaryTimeout)
+			}
 			if fc.fallback == nil {
 				t.Error("expected a non-nil fallback credential")
 			}
 		})
+	}
+}
+
+// stalledCredential blocks until its context is done, simulating a token proxy
+// that accepts the connection but never responds.
+type stalledCredential struct{}
+
+func (stalledCredential) GetToken(ctx context.Context, _ policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	<-ctx.Done()
+	return azcore.AccessToken{}, ctx.Err()
+}
+
+// ctxCheckingCredential records whether its context was already done when it
+// was asked for a token.
+type ctxCheckingCredential struct {
+	ctxErr error
+	called bool
+}
+
+func (c *ctxCheckingCredential) GetToken(ctx context.Context, _ policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	c.called = true
+	c.ctxErr = ctx.Err()
+	return azcore.AccessToken{Token: "wi-token"}, nil
+}
+
+func TestFallbackCredential_StalledPrimaryFallsBack(t *testing.T) {
+	fallback := &ctxCheckingCredential{}
+	cred := &fallbackCredential{
+		primary:        stalledCredential{},
+		fallback:       fallback,
+		primaryTimeout: 50 * time.Millisecond,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	token, err := cred.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{"https://vault.azure.net/.default"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("expected the stalled primary to be bounded by primaryTimeout, took %s", elapsed)
+	}
+	if token.Token != "wi-token" {
+		t.Errorf("expected fallback token, got %q", token.Token)
+	}
+	if !fallback.called {
+		t.Fatal("expected fallback to be called")
+	}
+	if fallback.ctxErr != nil {
+		t.Errorf("expected fallback to receive the caller's live context, got context error %v", fallback.ctxErr)
 	}
 }
