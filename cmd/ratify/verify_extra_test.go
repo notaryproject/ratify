@@ -26,8 +26,7 @@ import (
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
-	"github.com/notaryproject/ratify/v2/internal/store"
-	"github.com/notaryproject/ratify/v2/internal/verifier"
+	"github.com/notaryproject/ratify-go/plugin"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -75,13 +74,13 @@ func (s *stubStore) FetchManifest(_ context.Context, _ string, _ ocispec.Descrip
 }
 
 func init() {
-	store.Register(testStoreType, func(store.NewOptions) (ratify.Store, error) {
+	plugin.RegisterStore(testStoreType, func(context.Context, plugin.StoreOptions) (ratify.Store, error) {
 		return &stubStore{}, nil
 	})
-	store.Register(testFailingStoreType, func(store.NewOptions) (ratify.Store, error) {
+	plugin.RegisterStore(testFailingStoreType, func(context.Context, plugin.StoreOptions) (ratify.Store, error) {
 		return &stubStore{resolveErr: errStubStoreResolve}, nil
 	})
-	verifier.Register(testVerifierType, func(opts verifier.NewOptions, _ []string) (ratify.Verifier, error) {
+	plugin.RegisterVerifier(testVerifierType, func(_ context.Context, opts plugin.VerifierOptions) (ratify.Verifier, error) {
 		return &stubVerifier{name: opts.Name}, nil
 	})
 }

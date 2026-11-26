@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify-go/plugin"
 	ctxUtils "github.com/notaryproject/ratify/v2/internal/context"
 	"github.com/notaryproject/ratify/v2/internal/executor"
 	"github.com/notaryproject/ratify/v2/internal/policyenforcer"
@@ -851,14 +852,17 @@ func (e *testEvaluator) Evaluate(_ context.Context) (bool, error) { return true,
 // policy enforcer factories once.
 func registerTestPlugins() {
 	registerTestPluginsOnce.Do(func() {
-		store.Register(testStoreType, func(store.NewOptions) (ratify.Store, error) { return &testStore{}, nil })
-		store.Register(testDockerHubStoreType, func(store.NewOptions) (ratify.Store, error) { return &dockerHubStore{}, nil })
-		store.Register(testNamespaceStoreType, func(opts store.NewOptions) (ratify.Store, error) {
-			namespace, _ := opts.Parameters.(string)
+		plugin.RegisterStore(testStoreType, func(context.Context, plugin.StoreOptions) (ratify.Store, error) { return &testStore{}, nil })
+		plugin.RegisterStore(testDockerHubStoreType, func(context.Context, plugin.StoreOptions) (ratify.Store, error) { return &dockerHubStore{}, nil })
+		plugin.RegisterStore(testNamespaceStoreType, func(_ context.Context, opts plugin.StoreOptions) (ratify.Store, error) {
+			var namespace string
+			if err := plugin.DecodeParameters(opts.Parameters, &namespace); err != nil {
+				return nil, err
+			}
 			return &namespaceStore{namespace: namespace}, nil
 		})
-		verifier.Register(testVerifierType, func(verifier.NewOptions, []string) (ratify.Verifier, error) { return &testVerifier{}, nil })
-		policyenforcer.Register(testPolicyEnforcerType, func(policyenforcer.NewOptions) (ratify.PolicyEnforcer, error) {
+		plugin.RegisterVerifier(testVerifierType, func(context.Context, plugin.VerifierOptions) (ratify.Verifier, error) { return &testVerifier{}, nil })
+		plugin.RegisterPolicyEnforcer(testPolicyEnforcerType, func(context.Context, plugin.PolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
 			return &testPolicyEnforcer{}, nil
 		})
 	})

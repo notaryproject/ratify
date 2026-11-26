@@ -17,58 +17,15 @@ package policyenforcer
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify-go/plugin"
 )
-
-func TestRegister(t *testing.T) {
-	testCreate := func(_ NewOptions) (ratify.PolicyEnforcer, error) {
-		return nil, nil
-	}
-
-	tests := []struct {
-		name       string
-		policyType string
-		create     func(NewOptions) (ratify.PolicyEnforcer, error)
-		wantPanic  string
-	}{
-		{
-			name:      "empty policy type",
-			create:    testCreate,
-			wantPanic: "policy type cannot be empty",
-		},
-		{
-			name:       "nil create function",
-			policyType: "test",
-			wantPanic:  "policy create cannot be nil",
-		},
-		{
-			name:       "valid registration",
-			policyType: "valid-type",
-			create:     testCreate,
-		},
-		{
-			name:       "duplicate registration",
-			policyType: "valid-type",
-			create:     testCreate,
-			wantPanic:  "policy factory type valid-type already registered",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.wantPanic != "" {
-				defer func() {
-					if r := recover(); r != tt.wantPanic {
-						t.Errorf("Register() panic = %v, wantPanic %v", r, tt.wantPanic)
-					}
-				}()
-			}
-			Register(tt.policyType, tt.create)
-		})
-	}
-}
 
 type mockPolicyEnforcer struct{}
 
@@ -76,23 +33,37 @@ func (m *mockPolicyEnforcer) Evaluator(_ context.Context, _ string) (ratify.Eval
 	return nil, nil
 }
 
-func createMockPolicyEnforcer(_ NewOptions) (ratify.PolicyEnforcer, error) {
+// gotParams records the parameters passed to createMockPolicyEnforcer.
+var gotParams json.RawMessage
+
+func createMockPolicyEnforcer(_ context.Context, opts plugin.PolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
+	gotParams = opts.Parameters
 	return &mockPolicyEnforcer{}, nil
+}
+
+var errMockFactory = errors.New("mock factory error")
+
+func createFailingPolicyEnforcer(_ context.Context, _ plugin.PolicyEnforcerOptions) (ratify.PolicyEnforcer, error) {
+	return nil, errMockFactory
 }
 
 func TestNew(t *testing.T) {
 	testPolicyEnforcer := &mockPolicyEnforcer{}
 	testOptions := NewOptions{
-		Type: "testNew-type",
+		Type:       "testNew-type",
+		Parameters: map[string]any{"key": "value"},
 	}
-	Register(testOptions.Type, createMockPolicyEnforcer)
-	defer delete(registry, testOptions.Type) // Clean up after test
+	// The errors are ignored so that the test can be run multiple times in the
+	// same process (e.g. go test -count=2).
+	_ = plugin.Default.RegisterPolicyEnforcer(testOptions.Type, createMockPolicyEnforcer)
+	_ = plugin.Default.RegisterPolicyEnforcer("testNew-failing-type", createFailingPolicyEnforcer)
 
 	tests := []struct {
-		name    string
-		opts    NewOptions
-		want    ratify.PolicyEnforcer
-		wantErr string
+		name      string
+		opts      NewOptions
+		want      ratify.PolicyEnforcer
+		wantErr   string
+		wantErrIs error
 	}{
 		{
 			name:    "empty type",
@@ -103,7 +74,24 @@ func TestNew(t *testing.T) {
 			opts: NewOptions{
 				Type: "unregistered",
 			},
-			wantErr: "policy factory of type unregistered is not registered",
+			wantErr:   `policy enforcer type "unregistered"`,
+			wantErrIs: plugin.ErrNotRegistered,
+		},
+		{
+			name: "unmarshalable parameters",
+			opts: NewOptions{
+				Type:       testOptions.Type,
+				Parameters: make(chan int),
+			},
+			wantErr: "failed to marshal policy enforcer parameters",
+		},
+		{
+			name: "factory error",
+			opts: NewOptions{
+				Type: "testNew-failing-type",
+			},
+			wantErr:   `failed to create policy enforcer of type "testNew-failing-type"`,
+			wantErrIs: errMockFactory,
 		},
 		{
 			name: "registered type",
@@ -114,13 +102,20 @@ func TestNew(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := New(tt.opts)
-			if (err == nil && tt.wantErr != "") || (err != nil && err.Error() != tt.wantErr) {
+			if (err == nil) != (tt.wantErr == "") || (err != nil && !strings.Contains(err.Error(), tt.wantErr)) {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			if tt.wantErrIs != nil && !errors.Is(err, tt.wantErrIs) {
+				t.Errorf("New() error = %v, want errors.Is %v", err, tt.wantErrIs)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("New() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+
+	if string(gotParams) != `{"key":"value"}` {
+		t.Errorf("parameters passed to the factory = %s, want %s", gotParams, `{"key":"value"}`)
 	}
 }

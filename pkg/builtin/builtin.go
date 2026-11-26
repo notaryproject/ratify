@@ -13,7 +13,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+// Package builtin registers the plugins that are shipped with Ratify to the
+// default plugin registry of github.com/notaryproject/ratify-go/plugin. Import
+// it for its side effects:
+//
+//	import _ "github.com/notaryproject/ratify/v2/pkg/builtin"
+package builtin
 
 import (
 	// Register policy enforcers
@@ -30,8 +35,8 @@ import (
 	_ "github.com/notaryproject/ratify/v2/internal/store/credentialprovider/static"       // Register the static credential provider factory
 
 	// Register verifiers
-	_ "github.com/notaryproject/ratify/v2/internal/verifier/cosign"   // Register the Cosign verifier
-	_ "github.com/notaryproject/ratify/v2/internal/verifier/notation" // Register the Notation verifier
+	_ "github.com/notaryproject/ratify-verifier-go/cosign/register"   // Register the Cosign verifier
+	_ "github.com/notaryproject/ratify-verifier-go/notation/register" // Register the Notation verifier
 
 	// Register key providers
 	_ "github.com/notaryproject/ratify/v2/internal/verifier/keyprovider/azurekeyvault"      // Register the Azure Key Vault key provider

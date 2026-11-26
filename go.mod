@@ -24,7 +24,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gorilla/mux v1.8.1
 	github.com/notaryproject/notation-core-go v1.3.0
-	github.com/notaryproject/notation-go v1.3.2
 	github.com/notaryproject/ratify-go v0.1.0
 	github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20260803043348-802d39e8a95e
 	github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a
@@ -34,7 +33,6 @@ require (
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20241101234656-e78c8abd754a
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
-	github.com/sigstore/sigstore-go v1.2.2
 	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/cobra v1.10.2
 	go.opentelemetry.io/otel/exporters/prometheus v0.66.0
@@ -96,6 +94,7 @@ require (
 	github.com/in-toto/attestation v1.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267 // indirect
+	github.com/notaryproject/notation-go v1.3.2 // indirect
 	github.com/notaryproject/notation-plugin-framework-go v1.0.0 // indirect
 	github.com/notaryproject/tspclient-go v1.0.0 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect
@@ -105,6 +104,7 @@ require (
 	github.com/sigstore/protobuf-specs v0.5.1 // indirect
 	github.com/sigstore/rekor-tiles/v2 v2.3.0 // indirect
 	github.com/sigstore/sigstore v1.10.9 // indirect
+	github.com/sigstore/sigstore-go v1.2.2 // indirect
 	github.com/sigstore/timestamp-authority/v2 v2.1.2 // indirect
 	github.com/theupdateframework/go-tuf/v2 v2.4.2 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
@@ -210,3 +210,9 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+replace github.com/notaryproject/ratify-go => github.com/fseldow/ratify-go v0.0.0-20261126062314-bbcf8da47993
+
+replace github.com/notaryproject/ratify-verifier-go/notation => github.com/fseldow/ratify-verifier-go/notation v0.0.0-20261126064757-a4f4986c07cd
+
+replace github.com/notaryproject/ratify-verifier-go/cosign => github.com/fseldow/ratify-verifier-go/cosign v0.0.0-20261126064757-a4f4986c07cd

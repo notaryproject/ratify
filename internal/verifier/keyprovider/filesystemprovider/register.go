@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	notationx509 "github.com/notaryproject/notation-core-go/x509"
-	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
+	"github.com/notaryproject/ratify-go/plugin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -43,10 +43,10 @@ type FileSystemProvider struct {
 }
 
 func init() {
-	keyprovider.RegisterKeyProvider(fileSystemProviderName, func(options any) (keyprovider.KeyProvider, error) {
-		raw, err := json.Marshal(options)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal options: %w", err)
+	plugin.RegisterKeyProvider(fileSystemProviderName, func(_ context.Context, pluginOpts plugin.KeyProviderOptions) (plugin.KeyProvider, error) {
+		raw := []byte(pluginOpts.Parameters)
+		if len(raw) == 0 {
+			raw = []byte("null")
 		}
 		var paths []string
 		if err := json.Unmarshal(raw, &paths); err != nil {
@@ -82,7 +82,7 @@ func (f *FileSystemProvider) GetCertificates(_ context.Context) ([]*x509.Certifi
 	return f.certificates, nil
 }
 
-func (f *FileSystemProvider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
+func (f *FileSystemProvider) GetKeys(_ context.Context) ([]*plugin.PublicKey, error) {
 	return nil, fmt.Errorf("GetKeys not implemented in FileSystemProvider")
 }
 

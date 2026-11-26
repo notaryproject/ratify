@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
+	"github.com/notaryproject/ratify-go/plugin"
 )
 
 type contextKey string
@@ -41,15 +41,15 @@ const (
 )
 
 func TestInit(t *testing.T) {
-	if _, err := keyprovider.CreateKeyProvider(fileSystemProviderName, make(chan int)); err == nil {
+	if _, err := createKeyProvider(fileSystemProviderName, make(chan int)); err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 
-	if _, err := keyprovider.CreateKeyProvider(fileSystemProviderName, "{"); err == nil {
+	if _, err := createKeyProvider(fileSystemProviderName, "{"); err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 
-	if _, err := keyprovider.CreateKeyProvider(fileSystemProviderName, []string{}); err == nil {
+	if _, err := createKeyProvider(fileSystemProviderName, []string{}); err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 }
@@ -82,7 +82,7 @@ func TestGetCertificates(t *testing.T) {
 
 	// Successfully create a key provider with the symlinked directory.
 	opts := []string{tempDir}
-	provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+	provider, err := createKeyProvider(fileSystemProviderName, opts)
 	if err != nil {
 		t.Fatalf("failed to create key provider: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestGetCertificates(t *testing.T) {
 
 	// Create a new provider with the directory containing invalid certificate
 	optsWithInvalid := []string{tempDir}
-	_, err = keyprovider.CreateKeyProvider(fileSystemProviderName, optsWithInvalid)
+	_, err = createKeyProvider(fileSystemProviderName, optsWithInvalid)
 	if err == nil {
 		t.Fatalf("expected error while loading invalid certificate during provider creation, got nil")
 	}
@@ -136,7 +136,7 @@ func TestGetCertificatesFromCache(t *testing.T) {
 
 	// Create provider which should load certificates during initialization
 	opts := []string{tempDir}
-	provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+	provider, err := createKeyProvider(fileSystemProviderName, opts)
 	if err != nil {
 		t.Fatalf("failed to create key provider: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestAllowsLeafCertificate(t *testing.T) {
 		t.Fatalf("failed to create temp cert file: %v", err)
 	}
 
-	provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, []string{tempDir})
+	provider, err := createKeyProvider(fileSystemProviderName, []string{tempDir})
 	if err != nil {
 		t.Fatalf("unexpected error constructing provider with leaf certificate: %v", err)
 	}
@@ -197,13 +197,13 @@ func TestAllowsLeafCertificate(t *testing.T) {
 func TestGetKeys(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupProvider func(t *testing.T) keyprovider.KeyProvider
+		setupProvider func(t *testing.T) plugin.KeyProvider
 		expectError   bool
 		errorMsg      string
 	}{
 		{
 			name: "GetKeys not implemented - provider with certificates",
-			setupProvider: func(t *testing.T) keyprovider.KeyProvider {
+			setupProvider: func(t *testing.T) plugin.KeyProvider {
 				tempDir := t.TempDir()
 
 				// Create a temporary certificate file
@@ -217,7 +217,7 @@ func TestGetKeys(t *testing.T) {
 				}
 
 				opts := []string{tempDir}
-				provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+				provider, err := createKeyProvider(fileSystemProviderName, opts)
 				if err != nil {
 					t.Fatalf("failed to create key provider: %v", err)
 				}
@@ -228,10 +228,10 @@ func TestGetKeys(t *testing.T) {
 		},
 		{
 			name: "GetKeys not implemented - empty provider",
-			setupProvider: func(t *testing.T) keyprovider.KeyProvider {
+			setupProvider: func(t *testing.T) plugin.KeyProvider {
 				tempDir := t.TempDir()
 				opts := []string{tempDir}
-				provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+				provider, err := createKeyProvider(fileSystemProviderName, opts)
 				if err != nil {
 					t.Fatalf("failed to create key provider: %v", err)
 				}
@@ -284,7 +284,7 @@ func TestGetKeysWithContext(t *testing.T) {
 	}
 
 	opts := []string{tempDir}
-	provider, err := keyprovider.CreateKeyProvider(fileSystemProviderName, opts)
+	provider, err := createKeyProvider(fileSystemProviderName, opts)
 	if err != nil {
 		t.Fatalf("failed to create key provider: %v", err)
 	}

@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/notaryproject/ratify/v2/internal/verifier/keyprovider"
+	"github.com/notaryproject/ratify-go/plugin"
 )
 
 const inlineProviderName = "inline"
@@ -36,7 +36,7 @@ const certificatePEMType = "CERTIFICATE"
 // containing PEM-encoded certificates and caches them in memory.
 type InlineProvider struct {
 	certificates []*x509.Certificate
-	keys         []*keyprovider.PublicKey
+	keys         []*plugin.PublicKey
 }
 
 // inlineOptions holds the options for the inline key provider.
@@ -49,10 +49,10 @@ type inlineOptions struct {
 }
 
 func init() {
-	keyprovider.RegisterKeyProvider(inlineProviderName, func(options any) (keyprovider.KeyProvider, error) {
-		raw, err := json.Marshal(options)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal options: %w", err)
+	plugin.RegisterKeyProvider(inlineProviderName, func(_ context.Context, pluginOpts plugin.KeyProviderOptions) (plugin.KeyProvider, error) {
+		raw := []byte(pluginOpts.Parameters)
+		if len(raw) == 0 {
+			raw = []byte("null")
 		}
 
 		// Try to unmarshal as a struct with certs field
@@ -72,7 +72,7 @@ func init() {
 			certs = parsedCerts
 		}
 
-		var keys []*keyprovider.PublicKey
+		var keys []*plugin.PublicKey
 		// Check if keys field exists and is not empty
 		if opts.Keys != "" {
 			// Parse public keys during initialization and cache them in memory
@@ -96,7 +96,7 @@ func (p *InlineProvider) GetCertificates(_ context.Context) ([]*x509.Certificate
 }
 
 // GetKeys returns the cached PublicKey list.
-func (p *InlineProvider) GetKeys(_ context.Context) ([]*keyprovider.PublicKey, error) {
+func (p *InlineProvider) GetKeys(_ context.Context) ([]*plugin.PublicKey, error) {
 	return p.keys, nil
 }
 
@@ -131,8 +131,8 @@ func parseCertificatesFromPEM(certificatesInPem string) ([]*x509.Certificate, er
 const pemBlockTypeRSAPublicKey = "RSA PUBLIC KEY"
 
 // parsePublicKeysFromPEM decodes PEM-encoded bytes into PublicKey structs.
-func parsePublicKeysFromPEM(keysInPem string) ([]*keyprovider.PublicKey, error) {
-	var keys []*keyprovider.PublicKey
+func parsePublicKeysFromPEM(keysInPem string) ([]*plugin.PublicKey, error) {
+	var keys []*plugin.PublicKey
 	block, rest := pem.Decode([]byte(strings.TrimSpace(keysInPem)))
 	if block == nil && len(rest) > 0 {
 		return nil, errors.New("failed to decode pem block")
@@ -153,8 +153,8 @@ func parsePublicKeysFromPEM(keysInPem string) ([]*keyprovider.PublicKey, error) 
 				}
 			}
 
-			// Convert to keyprovider.PublicKey format
-			keyProviderKey := &keyprovider.PublicKey{
+			// Convert to plugin.PublicKey format
+			keyProviderKey := &plugin.PublicKey{
 				Key: pubKey,
 			}
 			keys = append(keys, keyProviderKey)
