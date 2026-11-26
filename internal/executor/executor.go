@@ -46,7 +46,9 @@ type ScopedOptions struct {
 	// Verifiers contains the configuration options for the verifiers. Required.
 	Verifiers []verifier.NewOptions `json:"verifiers"`
 
-	// Stores contains the configuration options for the stores. Required.
+	// Stores contains the configuration options for the stores. Required
+	// unless [Options.DefaultStore] is set, in which case the executor uses the
+	// default store when no stores are provided.
 	Stores []store.NewOptions `json:"stores"`
 
 	// Policy contains the configuration options for the policy enforcer.
@@ -66,6 +68,11 @@ type Options struct {
 	// enforcer. At least one executor must be provided.
 	// Required.
 	Executors []ScopedOptions `json:"executors"`
+
+	// DefaultStore is the store used by the executors that do not provide any
+	// store options. Optional. If not set, every executor must provide at
+	// least one store.
+	DefaultStore ratify.Store `json:"-"`
 }
 
 // ScopedExecutor manages multiple ratify.Executor instances, each associated
@@ -111,7 +118,7 @@ func NewScopedExecutor(opts Options) (*ScopedExecutor, error) {
 		if len(executorOpts.Scopes) == 0 {
 			return nil, fmt.Errorf("executor options must contain at least one scope")
 		}
-		executor, err := newExecutor(executorOpts)
+		executor, err := newExecutor(executorOpts, opts.DefaultStore)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create executor: %w", err)
 		}
@@ -125,15 +132,17 @@ func NewScopedExecutor(opts Options) (*ScopedExecutor, error) {
 }
 
 // newExecutor creates a new [ratify.Executor] instance based on the provided
-// options.
-func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
+// options. The defaultStore is used if no store options are provided.
+func newExecutor(opts ScopedOptions, defaultStore ratify.Store) (*ratify.Executor, error) {
 	verifiers, err := verifier.NewVerifiers(opts.Verifiers, opts.Scopes)
 	if err != nil {
 		return nil, err
 	}
 
-	storeMux, err := store.New(opts.Stores, opts.Scopes)
-	if err != nil {
+	var executorStore ratify.Store
+	if len(opts.Stores) == 0 && defaultStore != nil {
+		executorStore = defaultStore
+	} else if executorStore, err = store.New(opts.Stores, opts.Scopes); err != nil {
 		return nil, err
 	}
 
@@ -145,7 +154,7 @@ func newExecutor(opts ScopedOptions) (*ratify.Executor, error) {
 		}
 	}
 
-	e, err := ratify.NewExecutor(storeMux, verifiers, policy)
+	e, err := ratify.NewExecutor(executorStore, verifiers, policy)
 	if err != nil {
 		return nil, err
 	}
@@ -180,6 +189,19 @@ func (s *ScopedExecutor) Resolve(ctx context.Context, artifact string) (ocispec.
 		return ocispec.Descriptor{}, fmt.Errorf("failed to match executor for artifact %q: %w", reference, err)
 	}
 	return executor.Store.Resolve(ctx, reference)
+}
+
+// Store returns the store that serves the given artifact reference or
+// repository, normalized by [imageref.Normalize]. It returns the store of the
+// executor matching the reference, or an error wrapping [ErrNoExecutorMatched]
+// if no matching executor is found.
+func (s *ScopedExecutor) Store(ref string) (ratify.Store, error) {
+	reference := imageref.Normalize(ref)
+	executor, err := s.matchExecutor(reference)
+	if err != nil {
+		return nil, fmt.Errorf("failed to match executor for %q: %w", reference, err)
+	}
+	return executor.Store, nil
 }
 
 // stripNamespacePrefix removes a leading [namespace] prefix from an artifact

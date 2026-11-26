@@ -159,7 +159,8 @@ restore_executor() {
 
 # apply_namespaced_notation_executor renders and applies a NamespacedExecutor
 # whose notation verifier trusts a single inline CA certificate. It lets a test
-# give each tenant namespace its own trust material.
+# give each tenant namespace its own trust material. The NamespacedExecutor has
+# no stores, so it inherits the stores of the cluster-scoped Executor.
 # usage: apply_namespaced_notation_executor <namespace> <name> <ca-cert-path>
 apply_namespaced_notation_executor() {
   local ns="$1"
@@ -178,7 +179,6 @@ apply_namespaced_notation_executor() {
     spec: {
       scopes: ["registry:5000"],
       concurrency: 3,
-      stores: [{type: "registry-store", parameters: {plainHttp: true, credential: {provider: "static", username: "test_user", password: "test_pw"}}}],
       verifiers: [{name: "notation", type: "notation", parameters: {certificates: [{type: "ca", inline: {certs: $cert}}]}}],
       policyEnforcer: {type: "threshold-policy", parameters: {policy: {threshold: 1, rules: [{verifierName: "notation"}]}}}
     }

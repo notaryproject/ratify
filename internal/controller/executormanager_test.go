@@ -139,9 +139,27 @@ func TestUpsertExecutor_InvalidOpts(t *testing.T) {
 	}
 
 	executorOpts = newValidExecutor()
-	executorOpts.Stores = nil // Invalid because stores cannot be empty
-	if err := mgr.upsertExecutor("default", "invalid-exec", executorOpts); err == nil {
-		t.Fatalf("expected error when stores are nil, got nil")
+	executorOpts.Stores = nil // Invalid because a cluster-scoped executor cannot inherit stores
+	if err := mgr.upsertExecutor(clusterScopeNamespace, "invalid-exec", executorOpts); err == nil {
+		t.Fatalf("expected error when stores of a cluster-scoped executor are nil, got nil")
+	}
+	if mgr.GetExecutor(clusterScopeNamespace) != nil {
+		t.Fatalf("expected no cluster-scoped executor after the failed upsert")
+	}
+}
+
+// TestUpsertExecutor_NamespacedWithoutStores ensures that a namespaced
+// executor can be created without stores, since it inherits the cluster-wide
+// stores.
+func TestUpsertExecutor_NamespacedWithoutStores(t *testing.T) {
+	mgr := newTestManager()
+	executorOpts := newValidExecutor()
+	executorOpts.Stores = nil
+	if err := mgr.upsertExecutor("default", "exec1", executorOpts); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mgr.GetExecutor("default") == nil {
+		t.Fatalf("expected non-nil executor after upsert")
 	}
 }
 

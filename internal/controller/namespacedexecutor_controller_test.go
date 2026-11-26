@@ -142,6 +142,40 @@ var _ = Describe("NamespacedExecutor Controller", func() {
 			Expect(errors.IsNotFound(err)).To(BeFalse())
 		})
 
+		It("should successfully reconcile a resource without stores", func() {
+			By("replacing the resource with one without stores")
+			resource := &configv2beta1.NamespacedExecutor{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+
+			spec := validSpec()
+			spec.Stores = nil
+			resource = &configv2beta1.NamespacedExecutor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: resourceNamespace,
+				},
+				Spec: spec,
+			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+
+			controllerReconciler := &NamespacedExecutorReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedExecutor := &configv2beta1.NamespacedExecutor{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updatedExecutor)).To(Succeed())
+			Expect(updatedExecutor.Spec.Stores).To(BeEmpty())
+			Expect(updatedExecutor.Status.Error).To(BeEmpty())
+			Expect(updatedExecutor.Status.Succeeded).To(BeTrue())
+			Expect(GlobalExecutorManager.GetExecutor(resourceNamespace)).NotTo(BeNil())
+		})
+
 		It("should set Status.Succeeded to false when upsert fails", func() {
 			By("reconciling an invalid resource that fails to upsert")
 
