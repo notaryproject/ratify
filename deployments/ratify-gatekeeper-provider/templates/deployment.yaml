@@ -119,10 +119,12 @@ spec:
             - mountPath: "/home/nonroot/.sigstore"
               name: sigstore-cache
             {{- end }}
-            {{- if eq (include "ratify.notationCertsProvidedByFiles" .) "true" }}
-            - mountPath: "/usr/local/notation/certs"
-              name: notation-certs
+            {{- range $certType := splitList " " (include "ratify.notationTrustStoreTypes" .) }}
+            {{- if include "ratify.notationCertFileKeys" (list $ $certType) }}
+            - mountPath: {{ include "ratify.notationCertsDir" $certType | quote }}
+              name: {{ include "ratify.notationCertsVolumeName" $certType }}
               readOnly: true
+            {{- end }}
             {{- end }}
             {{- if (lookup "v1" "Secret" .Release.Namespace "gatekeeper-webhook-server-cert") }}
             - mountPath: /usr/local/tls/client-ca
@@ -144,10 +146,18 @@ spec:
           configMap:
             name: {{ include "ratify.fullname" . }}-configmap
         {{- end }}
-        {{- if eq (include "ratify.notationCertsProvidedByFiles" .) "true" }}
-        - name: notation-certs
+        {{- range $certType := splitList " " (include "ratify.notationTrustStoreTypes" .) }}
+        {{- $keys := include "ratify.notationCertFileKeys" (list $ $certType) }}
+        {{- if $keys }}
+        - name: {{ include "ratify.notationCertsVolumeName" $certType }}
           secret:
-            secretName: {{ include "ratify.fullname" . }}-notation-certs
+            secretName: {{ include "ratify.fullname" $ }}-notation-certs
+            items:
+              {{- range splitList " " $keys }}
+              - key: {{ . }}
+                path: {{ . }}
+              {{- end }}
+        {{- end }}
         {{- end }}
         {{- if eq (include "ratify.cosignConfigured" .) "true" }}
         - name: sigstore-cache
