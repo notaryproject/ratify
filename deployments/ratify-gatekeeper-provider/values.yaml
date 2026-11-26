@@ -28,6 +28,18 @@ executor:
 notation:
   scopes: []
   trustedIdentities: []
+  # Directory in the container where Notation plugins are installed, one
+  # sub-directory per plugin: <pluginDirectory>/<plugin-name>/notation-<plugin-name>.
+  # Needed to verify signatures that require a verification plugin, e.g. the
+  # ones made with AWS Signer. The chart does not install plugins: the
+  # directory must already exist in the image.
+  pluginDirectory: ""
+  # Key/value pairs passed to Notation verification plugins on every
+  # verification (notation verify --plugin-config). Example for AWS Signer
+  # when Ratify runs outside the signing-profile region:
+  #   pluginConfig:
+  #     aws-region: us-east-1
+  pluginConfig: {}
   certs:
   # - provider: "inline"
   #   cert: "" # PEM encoded certificate, e.g. "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"

@@ -429,8 +429,6 @@ github.com/notaryproject/ratify-go v0.1.0 h1:2bHYn1jShfuPaSYhYytC6zEeXOBqCzIZws/
 github.com/notaryproject/ratify-go v0.1.0/go.mod h1:skeFG5In355I3GUZj25V5glopSbWDcbY8u/fhwgX+E0=
 github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20260803043348-802d39e8a95e h1:PbWzynlKaewoh4Qmj7ZE072Pqe84SsIKTs9uIeNL4yY=
 github.com/notaryproject/ratify-verifier-go/cosign v0.0.0-20260803043348-802d39e8a95e/go.mod h1:hy8/AZeha9lr+1E/WFgYALRAluT1yIr2E9lDAP6rAIM=
-github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a h1:Q4B+c5a2hSk93D6d1qteXhMAZnHaWxfJ5A6gefDRF94=
-github.com/notaryproject/ratify-verifier-go/notation v0.0.0-20250523045711-b622738d577a/go.mod h1:mXQTrTrQvOov3awSbT0jEdpf76l8SSfYPyGKDQdq5KY=
 github.com/notaryproject/tspclient-go v1.0.0 h1:AwQ4x0gX8IHnyiZB1tggpn5NFqHpTEm1SDX8YNv4Dg4=
 github.com/notaryproject/tspclient-go v1.0.0/go.mod h1:LGyA/6Kwd2FlM0uk8Vc5il3j0CddbWSHBj/4kxQDbjs=
 github.com/oklog/ulid/v2 v2.1.1 h1:suPZ4ARWLOJLegGFiZZ1dFAkqzhMjL3J1TzI+5wHz8s=
@@ -487,6 +485,8 @@ github.com/sergi/go-diff v1.4.0 h1:n/SP9D5ad1fORl+llWyN+D6qoUETXNZARKjyY2/KVCw=
 github.com/sergi/go-diff v1.4.0/go.mod h1:A0bzQcvG0E7Rwjx0REVgAGH58e96+X0MeOfepqsbeW4=
 github.com/shibumi/go-pathspec v1.3.0 h1:QUyMZhFo0Md5B8zV8x2tesohbb5kfbpTi9rBnKh5dkI=
 github.com/shibumi/go-pathspec v1.3.0/go.mod h1:Xutfslp817l2I1cZvgcfeMQJG5QnU2lh5tVaaMCl3jE=
+github.com/shivanshs9/ratify-verifier-go/notation v0.0.0-20261119104956-2096e96f7a2f h1:WPRxWP1SRSn+AqpifZPVgqGop0RETmgy82XzJkt+jXA=
+github.com/shivanshs9/ratify-verifier-go/notation v0.0.0-20261119104956-2096e96f7a2f/go.mod h1:uAIgEjmrxYWqFMNRggtgPA93266hFKSm+dRc4/61+5w=
 github.com/sigstore/protobuf-specs v0.5.1 h1:/5OPaNuolRJmQfeZLayJGFXMpsRJEdgC6ah1/+7Px7U=
 github.com/sigstore/protobuf-specs v0.5.1/go.mod h1:DRBzpFuE+LnvQMN10/dU6nBeKwVLGEQ6o2FovN2Rats=
 github.com/sigstore/rekor v1.5.3 h1:0Tyolw3zreRgm7PUW8dccFLXGBThi08278jI8EXNSr4=

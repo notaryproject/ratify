@@ -19,7 +19,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
+	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	"github.com/notaryproject/ratify-go"
@@ -55,6 +58,20 @@ type options struct {
 	// verifier. Certificates would be loaded into trust store for Notation
 	// verifier to access. Required.
 	Certificates []trustStoreOptions `json:"certificates"`
+
+	// PluginDirectory is the directory where Notation plugins are installed,
+	// one sub-directory per plugin:
+	// {pluginDirectory}/{plugin-name}/notation-{plugin-name}.
+	// Signatures that name a verification plugin, such as the ones made with
+	// AWS Signer, can only be verified when that plugin is installed there.
+	// Optional. If not provided, such signatures fail verification.
+	PluginDirectory string `json:"pluginDirectory"`
+
+	// PluginConfig is passed to Notation verification plugins on every
+	// verification, the same as `notation verify --plugin-config key=value`.
+	// Used for example by the AWS Signer plugin for `aws-region` when Ratify
+	// runs in a different region than the signing profile. Optional.
+	PluginConfig map[string]string `json:"pluginConfig"`
 }
 
 func init() {
@@ -78,10 +95,31 @@ func init() {
 			Name:           opts.Name,
 			TrustPolicyDoc: initTrustPolicyDocument(params.Scopes, params.TrustedIdentities, types),
 			TrustStore:     trustStore,
+			PluginConfig:   params.PluginConfig,
+		}
+		if params.PluginDirectory != "" {
+			if notationOpts.PluginManager, err = newPluginManager(params.PluginDirectory); err != nil {
+				return nil, fmt.Errorf("failed to initialize plugin manager: %w", err)
+			}
 		}
 
 		return notation.NewVerifier(notationOpts)
 	})
+}
+
+// newPluginManager returns a manager for the Notation plugins installed in
+// the given directory. The directory is checked up front so that a wrong path
+// is reported when the verifier is created, not on the first signature that
+// needs a plugin.
+func newPluginManager(directory string) (plugin.Manager, error) {
+	info, err := os.Stat(directory)
+	if err != nil {
+		return nil, fmt.Errorf("failed to access plugin directory %q: %w", directory, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("plugin directory %q is not a directory", directory)
+	}
+	return plugin.NewCLIManager(dir.NewSysFS(directory)), nil
 }
 
 func initTrustStore(opts []trustStoreOptions) (truststore.X509TrustStore, []truststore.Type, error) {
