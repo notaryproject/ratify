@@ -101,8 +101,14 @@ func init() {
 			return nil, fmt.Errorf("at least one certificate or key must be specified")
 		}
 
-		// Create Azure credential chain (workload identity first, then managed identity)
-		credential, err := azure.CreateCredentialChain(opts.ClientID, opts.TenantID)
+		// Identity binding is tried first when the platform injected its
+		// configuration, then workload identity, then managed identity.
+		ibConfig, err := azure.LoadIdentityBindingConfigFromEnv()
+		if err != nil {
+			logrus.Warnf("ignoring invalid identity binding configuration for Azure Key Vault %s: %v", opts.VaultURL, err)
+			ibConfig = nil
+		}
+		credential, err := azure.CreateCredentialChainPreferIdentityBinding(opts.ClientID, opts.TenantID, ibConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Azure credential chain: %w", err)
 		}

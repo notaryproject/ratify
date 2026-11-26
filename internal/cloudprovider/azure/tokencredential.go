@@ -16,9 +16,12 @@ limitations under the License.
 package azure
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/sirupsen/logrus"
 )
@@ -74,6 +77,54 @@ func CreateCredentialChainWithIdentityBinding(clientID, tenantID string, ibConfi
 
 	// 3. Create chained credential
 	return azidentity.NewChainedTokenCredential(sources, nil)
+}
+
+// CreateCredentialChainPreferIdentityBinding builds the Azure token credential
+// used to authenticate to Azure Key Vault. When identity binding is configured
+// it is tried first; if it cannot be created or fails to acquire a token, the
+// workload identity and managed identity chain is used instead.
+func CreateCredentialChainPreferIdentityBinding(clientID, tenantID string, ibConfig *IdentityBindingConfig) (azcore.TokenCredential, error) {
+	chain, chainErr := CreateCredentialChain(clientID, tenantID)
+	if ibConfig == nil || ibConfig.SNIName == "" {
+		return chain, chainErr
+	}
+
+	ibCred, err := newIdentityBindingCredential(clientID, *ibConfig)
+	if err != nil {
+		logrus.Warnf("azure: identity binding credential is unavailable (clientID=%q, sniName=%q), falling back to workload identity: %v", clientID, ibConfig.SNIName, err)
+		return chain, chainErr
+	}
+	if chainErr != nil {
+		logrus.Debugf("azure: workload identity and managed identity are unavailable, using the identity binding credential only: %v", chainErr)
+		return ibCred, nil
+	}
+	logrus.Debugf("azure: using the identity binding credential first, then workload identity and managed identity (clientID=%q, sniName=%q)", clientID, ibConfig.SNIName)
+	return &fallbackCredential{primary: ibCred, fallback: chain}, nil
+}
+
+// fallbackCredential tries primary on every token request and falls back to
+// fallback whenever primary returns any error.
+type fallbackCredential struct {
+	primary  azcore.TokenCredential
+	fallback azcore.TokenCredential
+}
+
+// GetToken implements [azcore.TokenCredential].
+func (c *fallbackCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	token, primaryErr := c.primary.GetToken(ctx, opts)
+	if primaryErr == nil {
+		return token, nil
+	}
+	logrus.Warnf("azure: identity binding credential failed to acquire a token, falling back to workload identity: %v", primaryErr)
+
+	token, fallbackErr := c.fallback.GetToken(ctx, opts)
+	if fallbackErr != nil {
+		return azcore.AccessToken{}, errors.Join(
+			fmt.Errorf("identity binding credential: %w", primaryErr),
+			fmt.Errorf("fallback credential: %w", fallbackErr),
+		)
+	}
+	return token, nil
 }
 
 // appendCredential adds cred to sources when it was created successfully. Both
