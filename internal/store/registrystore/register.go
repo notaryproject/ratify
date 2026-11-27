@@ -45,6 +45,8 @@ type options struct {
 	MaxManifestBytes int64 `json:"maxManifestBytes,omitempty"`
 
 	// CredentialProvider is the credential provider configuration. Required.
+	// If the provider fails to resolve a credential for a registry, the store
+	// falls back to anonymous access.
 	CredentialProvider credentialprovider.Options `json:"credential"`
 
 	// AllowCosignTag enables fetching cosign signatures with

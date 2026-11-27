@@ -289,8 +289,7 @@ func TestNewCredentialProvider_Integration(t *testing.T) {
 	}
 }
 
-func TestNewCredentialProvider_ProviderError(t *testing.T) {
-	// Test that errors from the provider are properly handled
+func TestNewCredentialProvider_ProviderErrorFallsBackToAnonymous(t *testing.T) {
 	resetRegisteredProviders()
 	RegisterCredentialProviderFactory("error-provider", mockCredentialProviderFactory)
 
@@ -304,13 +303,31 @@ func TestNewCredentialProvider_ProviderError(t *testing.T) {
 		t.Fatalf("unexpected error creating provider: %v", err)
 	}
 
-	// Test that the provider returns the expected error
-	ctx := context.Background()
-	_, err = provider.Get(ctx, "registry.example.com")
-	if err == nil {
-		t.Errorf("expected error from provider but got none")
-	} else if err.Error() != "mock error" {
-		t.Errorf("expected error message %q, got %q", "mock error", err.Error())
+	cred, err := provider.Get(context.Background(), "registry.example.com")
+	if err != nil {
+		t.Fatalf("expected anonymous fallback, got error: %v", err)
+	}
+	if cred != (ratify.RegistryCredential{}) {
+		t.Errorf("expected empty credential for anonymous access, got %+v", cred)
+	}
+}
+
+func TestNewCredentialProvider_ProviderErrorWithCanceledContext(t *testing.T) {
+	resetRegisteredProviders()
+	RegisterCredentialProviderFactory("error-provider", mockCredentialProviderFactory)
+
+	provider, err := NewCredentialProvider(Options{
+		"provider": "error-provider",
+		"error":    true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error creating provider: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := provider.Get(ctx, "registry.example.com"); err == nil || err.Error() != "mock error" {
+		t.Errorf("expected provider error %q when context is canceled, got %v", "mock error", err)
 	}
 }
 

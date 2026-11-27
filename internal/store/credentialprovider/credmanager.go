@@ -16,9 +16,11 @@ limitations under the License.
 package credentialprovider
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/notaryproject/ratify-go"
+	"github.com/notaryproject/ratify/v2/internal/logger"
 )
 
 // Options defines the options for creating a new credential
@@ -71,5 +73,30 @@ func NewCredentialProvider(opts Options) (ratify.RegistryCredentialGetter, error
 	if !ok {
 		return nil, fmt.Errorf("credential provider factory of type %s is not registered", providerTypeStr)
 	}
-	return create(opts)
+	provider, err := create(opts)
+	if err != nil {
+		return nil, err
+	}
+	return &anonymousFallbackProvider{provider: provider}, nil
+}
+
+// anonymousFallbackProvider wraps a credential provider so that a failure to
+// resolve a credential falls back to anonymous access instead of failing the
+// request, matching Ratify v1. Registries that require authentication still
+// reject the anonymous attempt, so the request fails closed.
+type anonymousFallbackProvider struct {
+	provider ratify.RegistryCredentialGetter
+}
+
+// Get implements [ratify.RegistryCredentialGetter].
+func (p *anonymousFallbackProvider) Get(ctx context.Context, serverAddress string) (ratify.RegistryCredential, error) {
+	cred, err := p.provider.Get(ctx, serverAddress)
+	if err == nil {
+		return cred, nil
+	}
+	if ctx.Err() != nil {
+		return ratify.RegistryCredential{}, err
+	}
+	logger.GetLogger(ctx, logOpt).Warnf("failed to resolve the registry credential for %s, falling back to anonymous access: %v", serverAddress, err)
+	return ratify.RegistryCredential{}, nil
 }
